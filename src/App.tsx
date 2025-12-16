@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { GameMap } from './components/GameMap'
 import { ConsequencesPanel } from './components/ConsequencesPanel'
 import { ConstitutionModal } from './components/ConstitutionModal'
+import { EventModal } from './components/EventModal'
+
 import { ExpansionModal } from './components/ExpansionModal'
 import { DiplomacyActionModal } from './components/DiplomacyActionModal'
 import { ClaimActionModal } from './components/ClaimActionModal'
@@ -121,7 +123,7 @@ function App() {
                         nation?.name || 'Player',
                         offensive.strength,
                         nation?.stats.soldiers || 1000,
-                        'standard',
+                        'BATTLE',
                         false, // isPlayerAttacker
                         true,  // isPlayerDefender
                         undefined,
@@ -163,6 +165,25 @@ function App() {
                 }
             })
 
+            // Random Event Trigger (10% chance per month)
+            const { currentEvent, triggerEvent } = useGameStore.getState()
+            if (!currentEvent && Math.random() < 0.10) {
+                import('./data/events').then(({ RANDOM_EVENTS }) => {
+                    const validEvents = RANDOM_EVENTS.filter(e => {
+                        if (e.condition) {
+                            return e.condition(useGameStore.getState(), useWorldStore.getState())
+                        }
+                        return true
+                    })
+
+                    if (validEvents.length > 0) {
+                        const event = validEvents[Math.floor(Math.random() * validEvents.length)]
+                        triggerEvent(event)
+                        console.log('🎲 Random Event Triggered:', event.title)
+                    }
+                })
+            }
+
         }, 5000) // 5 seconds = 1 month
 
         return () => clearInterval(interval)
@@ -199,7 +220,7 @@ function App() {
             countryName,
             nation.stats.soldiers,
             enemySoldiers,
-            'standard',
+            'BATTLE',
             true, // isPlayerAttacker
             false, // isPlayerDefender
             undefined, // claimId (could pass if we knew it)
@@ -228,6 +249,7 @@ function App() {
             )}
             <ConstitutionModal />
             <ExpansionModal />
+            <EventModal />
             {/* Game Over Modal */}
             {gameOver && <GameOverModal />}
 

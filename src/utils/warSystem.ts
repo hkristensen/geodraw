@@ -98,7 +98,7 @@ export function simulateBattleRound(
     }
 }
 
-export type BattleIntensity = 'skirmish' | 'standard' | 'total_war'
+export type BattleIntensity = 'SKIRMISH' | 'BATTLE' | 'ALL_OUT_WAR'
 
 /**
  * Simulate a full war until one side has no soldiers
@@ -106,7 +106,7 @@ export type BattleIntensity = 'skirmish' | 'standard' | 'total_war'
 export function simulateWar(
     attackerSoldiers: number,
     defenderSoldiers: number,
-    intensity: BattleIntensity = 'standard',
+    intensity: BattleIntensity = 'BATTLE',
     defenseBonus: number = 0
 ): WarResult {
     let currentAttackerSoldiers = attackerSoldiers
@@ -118,15 +118,15 @@ export function simulateWar(
     let intensityMultiplier = 1.0
 
     switch (intensity) {
-        case 'skirmish':
+        case 'SKIRMISH':
             maxRounds = 25 // Increased from 10
             intensityMultiplier = 0.5 // Lower casualties
             break
-        case 'standard':
+        case 'BATTLE':
             maxRounds = 60 // Increased from 25
             intensityMultiplier = 1.0
             break
-        case 'total_war':
+        case 'ALL_OUT_WAR':
             maxRounds = 120 // Increased from 50
             intensityMultiplier = 1.5 // Heavy casualties
             break
@@ -165,7 +165,7 @@ export function simulateWar(
         ? 1 - (currentDefenderSoldiers / defenderSoldiers)
         : 1 - (currentAttackerSoldiers / attackerSoldiers)
 
-    if (intensity === 'total_war' && decisiveness > 0.5) {
+    if (intensity === 'ALL_OUT_WAR' && decisiveness > 0.5) {
         decisiveness = Math.min(1, decisiveness * 1.2) // 20% bonus to decisiveness for total war
     }
 

@@ -15,7 +15,7 @@ function formatNumber(num: number): string {
 export function NationInfoPanel() {
     const { nation, consequences, annexedCountries, infrastructureStats, gameDate } = useGameStore()
     const { activeWars, allies, aiCountries } = useWorldStore()
-    const [activeTab, setActiveTab] = useState<'overview' | 'economy' | 'build'>('overview')
+    const [activeTab, setActiveTab] = useState<'overview' | 'economy' | 'build' | 'stats'>('overview')
     const [economyData, setEconomyData] = useState<ReturnType<typeof calculateEconomy> | null>(null)
 
     // Update economy data periodically or when stats change
@@ -90,6 +90,15 @@ export function NationInfoPanel() {
                             }`}
                     >
                         Build
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('stats')}
+                        className={`flex-1 py-2 text-xs font-bold uppercase tracking-wider transition-colors ${activeTab === 'stats'
+                            ? 'bg-white/10 text-purple-400 border-b-2 border-purple-400'
+                            : 'text-gray-500 hover:text-gray-300 hover:bg-white/5'
+                            }`}
+                    >
+                        Stats
                     </button>
                 </div>
 
@@ -225,7 +234,79 @@ export function NationInfoPanel() {
                     </div>
                 )}
 
-                {/* War Status */}
+                {activeTab === 'stats' && (
+                    <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                        {/* Modifiers */}
+                        <div>
+                            <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">Active Modifiers</h3>
+                            <div className="space-y-2">
+                                {activeWars.length > 0 && (
+                                    <div className="bg-red-900/30 border border-red-500/30 p-2 rounded flex justify-between items-center">
+                                        <span className="text-red-400 text-xs font-bold">At War</span>
+                                        <span className="text-red-300 text-xs">Economy -20%</span>
+                                    </div>
+                                )}
+                                {allies.length > 0 && (
+                                    <div className="bg-green-900/30 border border-green-500/30 p-2 rounded flex justify-between items-center">
+                                        <span className="text-green-400 text-xs font-bold">Alliances ({allies.length})</span>
+                                        <span className="text-green-300 text-xs">Diplomacy +{allies.length * 10}%</span>
+                                    </div>
+                                )}
+                                {activeWars.length === 0 && allies.length === 0 && (
+                                    <div className="text-gray-500 text-xs italic text-center py-2">No active modifiers</div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Policy Effects */}
+                        <div>
+                            <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">Policy Effects</h3>
+                            <div className="space-y-2 text-xs">
+                                <div className="bg-white/5 p-2 rounded flex justify-between items-center">
+                                    <span className="text-blue-300">Social Spending</span>
+                                    <span className="text-green-400 font-bold">+{Math.round(nation.stats.budgetAllocation.social / 2)}% Stability</span>
+                                </div>
+                                <div className="bg-white/5 p-2 rounded flex justify-between items-center">
+                                    <span className="text-red-300">Military Budget</span>
+                                    <span className="text-green-400 font-bold">+{Math.round(nation.stats.budgetAllocation.military / 2)}% Defence</span>
+                                </div>
+                                <div className="bg-white/5 p-2 rounded flex justify-between items-center">
+                                    <span className="text-yellow-300">Infrastructure</span>
+                                    <span className="text-green-400 font-bold">+{Math.round(nation.stats.budgetAllocation.infrastructure / 2)}% Growth</span>
+                                </div>
+                                <div className="bg-white/5 p-2 rounded flex justify-between items-center">
+                                    <span className="text-purple-300">Research</span>
+                                    <span className="text-green-400 font-bold">+{Math.round(nation.stats.budgetAllocation.research / 2)}% Tech</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Detailed Stats */}
+                        <div>
+                            <h3 className="text-xs font-bold text-gray-400 uppercase mb-2">National Statistics</h3>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="bg-black/30 p-2 rounded">
+                                    <div className="text-gray-500">GDP/Capita</div>
+                                    <div className="text-white font-mono">{formatMoney(nation.stats.gdpPerCapita)}</div>
+                                </div>
+                                <div className="bg-black/30 p-2 rounded">
+                                    <div className="text-gray-500">Tax Rate</div>
+                                    <div className="text-white font-mono">{nation.stats.taxRate}%</div>
+                                </div>
+                                <div className="bg-black/30 p-2 rounded">
+                                    <div className="text-gray-500">Manpower</div>
+                                    <div className="text-white font-mono">{formatNumber(nation.stats.manpower)}</div>
+                                </div>
+                                <div className="bg-black/30 p-2 rounded">
+                                    <div className="text-gray-500">Defence</div>
+                                    <div className="text-white font-mono">{nation.stats.defence}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* War Status Footer */}
                 {activeWars.length > 0 && (
                     <div className="px-4 py-2 bg-red-900/40 border-t border-red-500/30">
                         <div className="flex items-center gap-2 text-red-400 text-sm font-medium">
@@ -235,7 +316,7 @@ export function NationInfoPanel() {
                     </div>
                 )}
 
-                {/* Alliance Status */}
+                {/* Alliance Status Footer */}
                 {allies.length > 0 && (
                     <div className="px-4 py-2 bg-green-900/40 border-t border-green-500/30">
                         <div className="flex items-center gap-2 text-green-400 text-sm font-medium">

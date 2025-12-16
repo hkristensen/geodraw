@@ -1,82 +1,9 @@
 import { create } from 'zustand'
-import type { AICountry, Disposition, Agreement, TariffStatus, AgreementType, Constitution } from '../types/game'
-import type { Consequence } from './gameStore'
+import type { AICountry, Disposition, Constitution, Agreement } from '../types/game'
+import type { WorldState } from '../types/store'
 import { getCountryData, getPrimaryReligion, getPrimaryLanguage, getPrimaryCulture } from '../utils/countryData'
 import { calculatePower } from '../utils/powerSystem'
 
-interface WorldState {
-    // AI-controlled countries
-    aiCountries: Map<string, AICountry>
-
-    // Active wars
-    activeWars: string[] // Country codes at war with player
-
-    // Alliances
-    allies: string[] // Country codes allied with player
-
-    // Initialize AI countries from consequences
-    initializeAICountries: (consequences: Consequence[], playerConstitution?: Constitution) => void
-
-    // Update country relations
-    updateRelations: (countryCode: string, delta: number) => void
-
-    // Change disposition
-    setDisposition: (countryCode: string, disposition: Disposition) => void
-
-    // Declare war
-    declareWar: (countryCode: string) => void
-
-    // Make peace
-    makePeace: (countryCode: string) => void
-
-    // Form alliance
-    formAlliance: (countryCode: string) => void
-
-    // Process AI turn (reactions)
-    processAITurn: () => { events: string[], wars: string[], offensives: { countryCode: string, strength: number }[] }
-
-    // Diplomacy
-    proposeAgreement: (countryCode: string, type: AgreementType) => boolean
-    setTariff: (countryCode: string, level: TariffStatus) => void
-    breakAgreement: (countryCode: string, agreementId: string) => void
-
-    // Update occupation/territory lost
-    updateOccupation: (countryCode: string, amount: number) => void
-
-    // Fund Separatists (Hostile Action)
-    fundSeparatists: (countryCode: string) => boolean
-
-    // Add passive claim
-    addClaim: (countryCode: string, percentage: number) => void
-
-    // Generate AI claim
-    generateAIClaim: (countryCode: string) => boolean
-
-    // Get country by code
-    getCountry: (code: string) => AICountry | undefined
-
-    // Annex country (remove from active AI)
-    annexCountry: (countryCode: string) => void
-
-    // Ensure country is initialized (for interaction)
-    ensureCountryInitialized: (countryCode: string, playerConstitution?: Constitution) => void
-
-    // Destabilize country (Hostile Action)
-    destabilizeCountry: (countryCode: string) => boolean
-
-    // Plant Propaganda (Subversive Action)
-    plantPropaganda: (countryCode: string) => boolean
-
-    // Update country soldiers (after war)
-    updateCountrySoldiers: (countryCode: string, delta: number) => void
-
-    // Return territory to country (Diplomatic Action)
-    liberateCountry: (countryCode: string) => void
-    requestSupport: (countryCode: string) => number // Returns amount of soldiers given
-
-    // Reset
-    reset: () => void
-}
 
 // Calculate initial disposition based on territory lost
 function calculateDisposition(territoryLost: number, hasRevanchism: boolean): Disposition {
@@ -272,7 +199,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
         // Add agreement
         const alliance: Agreement = {
-            id: `alliance-${Date.now()}`,
+            id: `alliance - ${Date.now()} `,
             type: 'MILITARY_ALLIANCE',
             targetCountry: countryCode,
             signedAt: Date.now()
@@ -334,7 +261,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         if (Math.random() < chance) {
             // Accepted!
             const agreement: Agreement = {
-                id: `agr-${Date.now()}`,
+                id: `agr - ${Date.now()} `,
                 type,
                 targetCountry: countryCode,
                 signedAt: Date.now()
@@ -431,6 +358,9 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
         // Iterate through all AI countries
         aiCountries.forEach((country, code) => {
+            // Skip if annexed
+            if (country.isAnnexed) return
+
             // 0. Handle Active Wars (AI Offensives)
             if (country.isAtWar) {
                 // Chance to launch offensive: 10% per tick (every 30s)
@@ -445,7 +375,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         countryCode: code,
                         strength: country.soldiers // Use soldiers as strength metric
                     })
-                    events.push(`OFFENSIVE_LAUNCHED:${code}`)
+                    events.push(`OFFENSIVE_LAUNCHED:${code} `)
                 }
                 return // Skip other diplomacy if at war
             }
@@ -458,7 +388,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             if (country.relations < -20 && !country.modifiers.includes('REVANCHISM')) {
                 if (Math.random() < 0.05) { // 5% chance per turn
                     generateAIClaim(code)
-                    events.push(`CLAIM_FABRICATED:${code}`)
+                    events.push(`CLAIM_FABRICATED:${code} `)
                 }
             }
 
@@ -483,7 +413,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                 if (Math.random() < warChance) {
                     // Declare war!
                     newWars.push(code)
-                    events.push(`WAR_DECLARED:${code}`)
+                    events.push(`WAR_DECLARED:${code} `)
 
                     // Update country state
                     aiCountries.set(code, {
@@ -676,33 +606,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         set({ aiCountries: new Map(aiCountries) })
     },
 
-    returnTerritory: (countryCode) => {
-        const { aiCountries } = get()
-        const country = aiCountries.get(countryCode)
-        if (!country) return false
 
-        // 1. Improve relations significantly
-        const newRelations = Math.min(100, country.relations + 50)
-
-        // 2. Reset territory lost metric (or reduce it)
-        // For simplicity, we assume we return "all" occupied land for now, or a significant chunk
-        // In reality, the geometry operation happens in the component, here we just update state
-        const newTerritoryLost = 0
-
-        // 3. Remove Revanchism if it exists
-        const newModifiers = country.modifiers.filter(m => m !== 'REVANCHISM')
-
-        aiCountries.set(countryCode, {
-            ...country,
-            relations: newRelations,
-            territoryLost: newTerritoryLost,
-            modifiers: newModifiers,
-            disposition: newRelations > 20 ? 'friendly' : 'neutral'
-        })
-
-        set({ aiCountries: new Map(aiCountries) })
-        return true
-    },
 
     // Generate a claim from AI against player
     generateAIClaim: (countryCode) => {
@@ -777,6 +681,9 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         const { aiCountries } = get()
         const country = aiCountries.get(countryCode)
         if (!country) return 0
+
+        // Check if at war
+        if (country.isAtWar) return 0
 
         // Check if allied or high relations
         const isAllied = country.modifiers.includes('ALLIED')
@@ -856,7 +763,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             theirTariff: 'LOW'
         })
 
-        console.log(`🆕 Initialized single country: ${countryCode}`)
+        console.log(`🆕 Initialized single country: ${countryCode} `)
         set({ aiCountries: new Map(aiCountries) })
     },
 

@@ -178,6 +178,7 @@ export function calculateEconomy(
         totalAirports: 0,
         totalPorts: 0,
         totalPopulation: 0,
+        totalAreaKm2: 0,
         hasSeaAccess: false,
         hasAirAccess: false
     }

@@ -1,11 +1,11 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { useWorldStore } from '../store/worldStore'
 import { getCityCaptureStats } from '../utils/calculateCityCapture'
 import { calculateNationStats } from '../utils/calculateNationStats'
 import { getPrimaryLanguage, getPrimaryCulture, getPrimaryReligion } from '../utils/countryData'
 import { LANGUAGES, CULTURES, RELIGIONS } from '../types/game'
-import type { Nation, Constitution, FlagData, FlagPattern } from '../types/game'
+import type { Nation, FlagData, FlagPattern } from '../types/game'
 import { Flag } from './Flag'
 
 // Expanded color palettes
@@ -40,8 +40,6 @@ function generateFlag(): FlagData {
     }
 }
 
-
-
 export function ConstitutionModal() {
     const {
         phase,
@@ -63,8 +61,10 @@ export function ConstitutionModal() {
     const [selectedCulture, setSelectedCulture] = useState<string>('')
     const [selectedReligion, setSelectedReligion] = useState<string>('')
 
-    // Calculate constitution based on claimed land
-    const determinedConstitution = useMemo(() => {
+    // Set defaults based on conquered lands
+    useEffect(() => {
+        if (consequences.length === 0) return
+
         const languageCounts: Record<string, number> = {}
         const cultureCounts: Record<string, number> = {}
         const religionCounts: Record<string, number> = {}
@@ -83,19 +83,14 @@ export function ConstitutionModal() {
         const getMax = (counts: Record<string, number>, defaultVal: string) =>
             Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || defaultVal
 
-        const defaults = {
-            language: getMax(languageCounts, LANGUAGES[0]),
-            culture: getMax(cultureCounts, CULTURES[0]),
-            religion: getMax(religionCounts, RELIGIONS[0])
-        }
+        const defaultLanguage = getMax(languageCounts, LANGUAGES[0])
+        const defaultCulture = getMax(cultureCounts, CULTURES[0])
+        const defaultReligion = getMax(religionCounts, RELIGIONS[0])
 
-        // Initialize state with defaults if empty
-        if (!selectedLanguage) setSelectedLanguage(defaults.language)
-        if (!selectedCulture) setSelectedCulture(defaults.culture)
-        if (!selectedReligion) setSelectedReligion(defaults.religion)
-
-        return defaults
-    }, [consequences]) // Remove selected vars from dependency to avoid loop
+        if (!selectedLanguage) setSelectedLanguage(defaultLanguage)
+        if (!selectedCulture) setSelectedCulture(defaultCulture)
+        if (!selectedReligion) setSelectedReligion(defaultReligion)
+    }, [consequences]) // Run when consequences change
 
     const cityStats = useMemo(() => getCityCaptureStats(capturedCities), [capturedCities])
     const totalPopFromCountries = consequences.reduce((sum, c) => sum + c.populationCaptured, 0)
@@ -141,8 +136,6 @@ export function ConstitutionModal() {
         if (!nationName.trim() || isOverBudget) {
             return
         }
-
-        const constitution: Constitution = determinedConstitution
 
         // Calculate nation stats from conquered lands
         const stats = calculateNationStats(consequences, capturedCities)
@@ -192,13 +185,7 @@ export function ConstitutionModal() {
             <div className="bg-slate-900 border border-orange-500/30 rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden max-h-[90vh] overflow-y-auto">
                 {/* Header */}
                 <div className="bg-gradient-to-r from-orange-600/20 to-amber-600/20 p-6 border-b border-orange-500/20 relative">
-                    <button
-                        onClick={reset}
-                        className="absolute top-4 right-4 text-gray-400 hover:text-white transition-colors"
-                        title="Cancel Creation"
-                    >
-                        ✕
-                    </button>
+
                     <h2 className="text-2xl font-bold text-white text-center">
                         📜 Declaration of Sovereignty
                     </h2>

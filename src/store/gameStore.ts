@@ -1,146 +1,16 @@
 import { create } from 'zustand'
 import * as turf from '@turf/turf'
-import { calculateInfrastructure, type InfrastructureStats } from '../utils/infrastructure'
-import type {
-    CapturedCity,
-    CountryModifier,
+import { calculateInfrastructure } from '../utils/infrastructure'
+import {
     DiplomaticEvent,
-    Nation,
-    GamePhase,
-    ExpansionClaim,
-    NationStats,
-    Building,
-    BuildingType,
     ActiveBattle
 } from '../types/game'
-import { calculateIncome, calculateExpenses } from '../utils/economy'
+import type { GameState } from '../types/store'
 import { useWorldStore } from './worldStore'
 import { calculatePower } from '../utils/powerSystem'
-import { simulateWar, BattleIntensity } from '../utils/warSystem'
+import { simulateWar } from '../utils/warSystem'
+import { calculateIncome, calculateExpenses } from '../utils/economy'
 import countriesData from '../data/countries.json'
-
-export interface Consequence {
-    countryName: string
-    countryCode: string
-    lostPercentage: number
-    lostArea: number // in km²
-    population: number
-    populationCaptured: number
-}
-
-export interface PendingInvasion {
-    code: string
-    name: string
-    feature: GeoJSON.Feature
-}
-
-interface GameState {
-    // Game phase
-    phase: GamePhase
-
-    // User's initial drawn polygon
-    userPolygon: GeoJSON.Feature | null
-
-    // All player-controlled territories (merged into one polygon)
-    playerTerritories: GeoJSON.Feature[]
-
-    // Calculated consequences from country overlaps
-    consequences: Consequence[]
-
-    // Captured cities (Heart System)
-    capturedCities: CapturedCity[]
-
-    // Diplomatic events and modifiers
-    diplomaticEvents: DiplomaticEvent[]
-    modifiers: CountryModifier[]
-
-    // Player's nation (after Constitution phase)
-    nation: Nation | null
-
-    // Current expansion claim being processed
-    currentClaim: ExpansionClaim | null
-
-    // Pending invasion (waiting for War Modal)
-    pendingInvasion: PendingInvasion | null
-
-    // Selected country code (for map click interaction)
-    selectedCountry: string | null
-
-    // Countries fully annexed (100% conquered)
-    annexedCountries: string[]
-
-    // Active claims (visible on map)
-    activeClaims: ExpansionClaim[]
-
-    // UI state
-    isCalculating: boolean
-    showResults: boolean
-
-    // Infrastructure stats for budget calculation
-    infrastructureStats: InfrastructureStats | null
-
-    // Game Date (starts at Jan 1, 2025)
-    gameDate: number
-
-    // Building Mode
-    buildingMode: BuildingType | null
-
-    // Selected Claim ID (for modal)
-    selectedClaimId: string | null
-
-    // Active Battles (on map)
-    activeBattles: ActiveBattle[]
-
-    // Game Over State
-    gameOver: boolean
-
-    // Actions
-    setPhase: (phase: GamePhase) => void
-    setUserPolygon: (polygon: GeoJSON.Feature | null) => void
-    addTerritory: (territory: GeoJSON.Feature) => void
-    setConsequences: (consequences: Consequence[]) => void
-    addConsequences: (newConsequences: Consequence[]) => void
-    setCapturedCities: (cities: CapturedCity[]) => void
-    setInfrastructureStats: (stats: InfrastructureStats | null) => void
-    addDiplomaticEvents: (events: DiplomaticEvent[]) => void
-    addModifiers: (modifiers: CountryModifier[]) => void
-    setNation: (nation: Nation | null) => void
-    setCurrentClaim: (claim: ExpansionClaim | null) => void
-    setPendingInvasion: (invasion: PendingInvasion | null) => void
-    setSelectedCountry: (code: string | null) => void
-    setSelectedClaim: (id: string | null) => void
-    setIsCalculating: (isCalculating: boolean) => void
-    updateNationSoldiers: (delta: number) => void
-    updateNationStats: (stats: Partial<NationStats>) => void
-    updateBudget: (amount: number) => void
-    setTaxRate: (rate: number) => void
-    setMilitaryBudget: (budget: number) => void
-    annexCountry: (countryCode: string) => void
-    addActiveClaim: (claim: ExpansionClaim) => void
-    removeActiveClaim: (id: string) => void
-    advanceDate: (days: number) => void
-    reset: () => void
-    setBuildingMode: (mode: BuildingType | null) => void
-    addBuilding: (building: Building) => void
-    destabilizeTarget: (claimId: string) => void
-    plantPropaganda: (claimId: string) => void
-    removeTerritory: (territory: GeoJSON.Feature) => void
-    startBattle: (
-        attackerCode: string,
-        attackerName: string,
-        defenderCode: string,
-        defenderName: string,
-        attackerSoldiers: number,
-        defenderSoldiers: number,
-        intensity: BattleIntensity,
-        isPlayerAttacker: boolean,
-        isPlayerDefender: boolean,
-        claimId?: string,
-        location?: [number, number],
-        defenseBonus?: number
-    ) => void
-    dismissBattle: (id: string) => void
-}
 
 export const useGameStore = create<GameState>((set) => ({
     phase: 'DRAWING',
@@ -163,6 +33,7 @@ export const useGameStore = create<GameState>((set) => ({
     buildingMode: null,
     selectedClaimId: null,
     activeBattles: [],
+    currentEvent: null,
     gameOver: false,
 
     setPhase: (phase) => set({ phase }),
@@ -293,7 +164,7 @@ export const useGameStore = create<GameState>((set) => ({
                     const countryName = (countriesData as any).features.find((f: any) => f.properties.iso_a3 === code)?.properties.name || code
 
                     events.push({
-                        id: `liberation-${Date.now()}-${code}`,
+                        id: `liberation - ${Date.now()} -${code} `,
                         type: 'LIBERATION',
                         severity: 3,
                         title: 'Country Liberated',
@@ -641,7 +512,7 @@ export const useGameStore = create<GameState>((set) => ({
         const result = simulateWar(attackerSoldiers, defenderSoldiers, intensity, defenseBonus)
 
         const battle: ActiveBattle = {
-            id: `battle-${Date.now()}-${Math.random()}`,
+            id: `battle - ${Date.now()} -${Math.random()} `,
             attackerCode,
             attackerName,
             defenderCode,
@@ -667,4 +538,8 @@ export const useGameStore = create<GameState>((set) => ({
     dismissBattle: (id) => set((state) => ({
         activeBattles: state.activeBattles.filter(b => b.id !== id)
     })),
+
+    triggerEvent: (event) => set({ currentEvent: event }),
+
+    resolveEvent: () => set({ currentEvent: null })
 }))

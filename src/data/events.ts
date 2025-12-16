@@ -1,0 +1,860 @@
+import { RandomEvent } from '../types/store'
+
+export const RANDOM_EVENTS: RandomEvent[] = [
+    {
+        id: 'civil_unrest',
+        title: 'Civil Unrest',
+        description: 'Dissatisfaction with the current administration has led to protests in the streets. The people demand lower taxes or political reform.',
+        icon: '🔥',
+        condition: (game) => game.nation !== null && game.nation.stats.taxRate > 15,
+        options: [
+            {
+                label: 'Lower Taxes',
+                description: 'Reduce tax rate to 10% for stability. (Income -)',
+                effect: (game) => {
+                    game.setTaxRate(10)
+                    game.addModifiers([{
+                        id: `tax-relief-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'STABILITY',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Tax Relief'
+                    }])
+                }
+            },
+            {
+                label: 'Crackdown',
+                description: 'Deploy the army to restore order. (Soldiers -20%, Stability -)',
+                effect: (game) => {
+                    const lost = Math.round(game.nation!.stats.soldiers * 0.2)
+                    game.updateNationSoldiers(-lost)
+                    game.addModifiers([{
+                        id: `crackdown-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'UNREST',
+                        intensity: 1,
+                        duration: 6,
+                        description: 'Martial Law'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'economic_boom',
+        title: 'Economic Boom',
+        description: 'New trade routes and industrial innovation have led to a surge in economic activity.',
+        icon: '📈',
+        options: [
+            {
+                label: 'Invest in Military',
+                description: 'Use the surplus to modernize the army. (+2000 Soldiers)',
+                effect: (game) => {
+                    game.updateNationSoldiers(2000)
+                }
+            },
+            {
+                label: 'Save for Rainy Day',
+                description: 'Add to the treasury. (+$500M)',
+                effect: (game) => {
+                    game.updateBudget(500_000_000)
+                }
+            }
+        ]
+    },
+    {
+        id: 'plague_outbreak',
+        title: 'Plague Outbreak',
+        description: 'A mysterious illness is spreading through the major cities. Panic is rising.',
+        icon: 'microbe', // Will use emoji in UI if needed, or map to icon
+        condition: (game) => (game.nation?.stats.gdpPerCapita || 0) < 15000, // Poor nations more susceptible
+        options: [
+            {
+                label: 'Quarantine',
+                description: 'Shut down trade to stop the spread. (Trade Income -50% for 6 months)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `quarantine-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'ECONOMIC_DEPRESSION',
+                        intensity: 1,
+                        duration: 6,
+                        description: 'Trade Quarantine'
+                    }])
+                }
+            },
+            {
+                label: 'Do Nothing',
+                description: 'Let it run its course. (Population -5%, Stability -)',
+                effect: (game) => {
+                    // Complex to reduce pop directly, simulate via soldier loss and unrest
+                    const lost = Math.round(game.nation!.stats.soldiers * 0.1)
+                    game.updateNationSoldiers(-lost)
+                    game.addModifiers([{
+                        id: `plague-panic-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'UNREST',
+                        intensity: 2,
+                        duration: 6,
+                        description: 'Plague Panic'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'diplomatic_insult',
+        title: 'Diplomatic Insult',
+        description: 'A foreign ambassador has publicly insulted our nation\'s heritage!',
+        icon: '🤬',
+        condition: (_game, world) => world.aiCountries.size > 0,
+        options: [
+            {
+                label: 'Demand Apology',
+                description: 'Relations with random neighbor worsen.',
+                effect: (game, world) => {
+                    const countries = Array.from(world.aiCountries.values())
+                    const target = countries[Math.floor(Math.random() * countries.length)]
+                    if (target) {
+                        world.updateRelations(target.code, -20)
+                        game.addDiplomaticEvents([{
+                            id: `insult-${Date.now()}`,
+                            type: 'BORDER_TENSION',
+                            severity: 1,
+                            title: 'Diplomatic Spat',
+                            description: `Relations with ${target.name} have soured over recent comments.`,
+                            affectedNations: [target.code],
+                            timestamp: Date.now()
+                        }])
+                    }
+                }
+            },
+            {
+                label: 'Ignore It',
+                description: 'Lose face but keep peace. (Authority -)',
+                effect: (_game) => {
+                    // No direct authority stat for player yet, but maybe stability hit?
+                    // Or just a flavor text event
+                }
+            }
+        ]
+    },
+    {
+        id: 'military_innovation',
+        title: 'Military Innovation',
+        description: 'Our generals have proposed a new doctrine for the army.',
+        icon: '⚔️',
+        options: [
+            {
+                label: 'Quality over Quantity',
+                description: 'Better training, fewer soldiers. (-10% Soldiers, +Defense Bonus)',
+                effect: (game) => {
+                    const lost = Math.round(game.nation!.stats.soldiers * 0.1)
+                    game.updateNationSoldiers(-lost)
+                    game.addModifiers([{
+                        id: `elite-training-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'DEFENSE_BONUS',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Elite Training'
+                    }])
+                }
+            },
+            {
+                label: 'Mass Conscription',
+                description: 'Recruit everyone! (+20% Soldiers, -Stability)',
+                effect: (game) => {
+                    const gain = Math.round(game.nation!.stats.soldiers * 0.2)
+                    game.updateNationSoldiers(gain)
+                    game.addModifiers([{
+                        id: `conscription-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'UNREST',
+                        intensity: 1,
+                        duration: 6,
+                        description: 'Forced Conscription'
+                    }])
+                }
+            }
+        ]
+    },
+    // --- Economy Events ---
+    {
+        id: 'gold_rush',
+        title: 'Resource Discovery',
+        description: 'Geologists have discovered massive deposits of valuable resources in our territory!',
+        icon: '💰',
+        options: [
+            {
+                label: 'Nationalize It',
+                description: 'Direct profit for the state. (+$1B)',
+                effect: (game) => {
+                    game.updateBudget(1_000_000_000)
+                }
+            },
+            {
+                label: 'Encourage Private Sector',
+                description: 'Boost long-term economy. (Economic Boom Modifier)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `gold-rush-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'ECONOMIC_BOOM',
+                        intensity: 2,
+                        duration: 24,
+                        description: 'Resource Boom'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'market_crash',
+        title: 'Stock Market Crash',
+        description: 'Global financial instability has hit our markets hard.',
+        icon: '📉',
+        options: [
+            {
+                label: 'Bailout Banks',
+                description: 'Costly but stabilizes the economy. (-$500M)',
+                effect: (game) => {
+                    game.updateBudget(-500_000_000)
+                }
+            },
+            {
+                label: 'Let it Burn',
+                description: 'Save the budget, lose stability. (Economic Depression)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `depression-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'ECONOMIC_DEPRESSION',
+                        intensity: 2,
+                        duration: 12,
+                        description: 'Market Crash'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'infrastructure_failure',
+        title: 'Infrastructure Collapse',
+        description: 'Aging bridges and roads are failing across the country.',
+        icon: '🏗️',
+        options: [
+            {
+                label: 'Emergency Repairs',
+                description: 'Fix it immediately. (-$200M)',
+                effect: (game) => {
+                    game.updateBudget(-200_000_000)
+                }
+            },
+            {
+                label: 'Ignore',
+                description: 'The people will suffer. (Stability -)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `infra-fail-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'UNREST',
+                        intensity: 1,
+                        duration: 6,
+                        description: 'Crumbling Infrastructure'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'tech_breakthrough',
+        title: 'Technological Breakthrough',
+        description: 'Our scientists have made a major discovery!',
+        icon: '🔬',
+        options: [
+            {
+                label: 'Military Application',
+                description: 'New weapons. (Military Quality +)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `tech-mil-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'MILITARY_QUALITY',
+                        intensity: 1,
+                        duration: 24,
+                        description: 'Advanced Weaponry'
+                    }])
+                }
+            },
+            {
+                label: 'Civilian Application',
+                description: 'Better quality of life. (Research Boost)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `tech-civ-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'RESEARCH_BOOST',
+                        intensity: 1,
+                        duration: 24,
+                        description: 'High Tech Economy'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'trade_deal',
+        title: 'Trade Proposal',
+        description: 'A major corporation wants to establish a regional hub.',
+        icon: '🤝',
+        options: [
+            {
+                label: 'Accept',
+                description: 'Tax breaks for them, jobs for us. (Trade Boost)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `trade-hub-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'TRADE_BOOST',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Regional Trade Hub'
+                    }])
+                }
+            },
+            {
+                label: 'Reject',
+                description: 'Protect local businesses. (No effect)',
+                effect: (_game) => {
+                    // No effect
+                }
+            }
+        ]
+    },
+    // --- Military Events ---
+    {
+        id: 'generals_coup',
+        title: 'Rumors of a Coup',
+        description: 'Disgruntled generals are plotting against the government.',
+        icon: '🎖️',
+        condition: (game) => game.nation !== null && game.nation.stats.soldiers > 50000,
+        options: [
+            {
+                label: 'Purge Command',
+                description: 'Remove disloyal officers. (Military Quality -, Stability +)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `purge-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'MILITARY_QUALITY',
+                        intensity: -1,
+                        duration: 12,
+                        description: 'Officer Purge'
+                    }])
+                }
+            },
+            {
+                label: 'Bribe Them',
+                description: 'Increase military budget. (-$100M, Military Quantity +)',
+                effect: (game) => {
+                    game.updateBudget(-100_000_000)
+                    game.addModifiers([{
+                        id: `bribed-generals-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'MILITARY_QUANTITY',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Loyal Generals'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'border_skirmish',
+        title: 'Border Skirmish',
+        description: 'Our troops have exchanged fire with a neighbor\'s patrol.',
+        icon: '🔫',
+        condition: (_game, world) => world.aiCountries.size > 0,
+        options: [
+            {
+                label: 'Escalate',
+                description: 'Show strength! (Relations -, Military Experience +)',
+                effect: (game, world) => {
+                    const countries = Array.from(world.aiCountries.values())
+                    const target = countries[Math.floor(Math.random() * countries.length)]
+                    if (target) {
+                        world.updateRelations(target.code, -30)
+                        game.addModifiers([{
+                            id: `combat-exp-${Date.now()}`,
+                            countryCode: 'PLAYER',
+                            countryName: game.nation?.name || 'Your Nation',
+                            type: 'MILITARY_QUALITY',
+                            intensity: 1,
+                            duration: 6,
+                            description: 'Combat Experience'
+                        }])
+                    }
+                }
+            },
+            {
+                label: 'De-escalate',
+                description: 'Apologize and pull back. (Prestige -)',
+                effect: (_game) => {
+                    // No major effect, avoided war
+                }
+            }
+        ]
+    },
+    {
+        id: 'arms_smuggling',
+        title: 'Arms Smuggling Ring',
+        description: 'We\'ve uncovered a massive illegal arms trade operation.',
+        icon: '📦',
+        options: [
+            {
+                label: 'Seize Weapons',
+                description: 'Add to our stockpile. (+Soldiers)',
+                effect: (game) => {
+                    game.updateNationSoldiers(500)
+                }
+            },
+            {
+                label: 'Sell Them',
+                description: 'Sell on the black market. (+$50M, Corruption +)',
+                effect: (game) => {
+                    game.updateBudget(50_000_000)
+                    game.addModifiers([{
+                        id: `corruption-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'CORRUPTION',
+                        intensity: 1,
+                        duration: 6,
+                        description: 'Black Market Deals'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'naval_exercise',
+        title: 'Joint Naval Exercises',
+        description: 'An opportunity to train our navy in international waters.',
+        icon: '⚓',
+        options: [
+            {
+                label: 'Host the Games',
+                description: 'Expensive but prestigious. (-$50M, Defense Bonus)',
+                effect: (game) => {
+                    game.updateBudget(-50_000_000)
+                    game.addModifiers([{
+                        id: `naval-games-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'DEFENSE_BONUS',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Naval Readiness'
+                    }])
+                }
+            },
+            {
+                label: 'Decline',
+                description: 'Save the money.',
+                effect: (_game) => {
+                    // No effect
+                }
+            }
+        ]
+    },
+    {
+        id: 'defensive_pact',
+        title: 'Defensive Pact Offer',
+        description: 'A minor nation seeks our protection.',
+        icon: '🛡️',
+        condition: (_game, world) => world.aiCountries.size > 0,
+        options: [
+            {
+                label: 'Guarantee Independence',
+                description: 'We promise to defend them. (Prestige +, Risk of War)',
+                effect: (game, world) => {
+                    const countries = Array.from(world.aiCountries.values())
+                    const target = countries[Math.floor(Math.random() * countries.length)]
+                    if (target) {
+                        world.updateRelations(target.code, 50)
+                        game.addModifiers([{
+                            id: `guarantor-${Date.now()}`,
+                            countryCode: 'PLAYER',
+                            countryName: game.nation?.name || 'Your Nation',
+                            type: 'CULTURAL_BOOM', // Using as prestige
+                            intensity: 1,
+                            duration: 12,
+                            description: 'Defender of the Weak'
+                        }])
+                    }
+                }
+            },
+            {
+                label: 'Ignore',
+                description: 'Not our problem.',
+                effect: (_game) => {
+                    // No effect
+                }
+            }
+        ]
+    },
+    // --- Social Events ---
+    {
+        id: 'national_festival',
+        title: 'National Festival',
+        description: 'The people want to celebrate our nation\'s heritage.',
+        icon: '🎉',
+        options: [
+            {
+                label: 'Fund Lavish Party',
+                description: 'Boost morale! (-$20M, Stability +)',
+                effect: (game) => {
+                    game.updateBudget(-20_000_000)
+                    game.addModifiers([{
+                        id: `festival-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'STABILITY',
+                        intensity: 1,
+                        duration: 6,
+                        description: 'National Euphoria'
+                    }])
+                }
+            },
+            {
+                label: 'Small Celebration',
+                description: 'Keep it modest.',
+                effect: (_game) => {
+                    // No effect
+                }
+            }
+        ]
+    },
+    {
+        id: 'religious_schism',
+        title: 'Religious Tensions',
+        description: 'Sectarian violence is flaring up in the provinces.',
+        icon: '🛐',
+        options: [
+            {
+                label: 'Enforce Secularism',
+                description: 'Crack down on extremists. (Unrest)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `secular-unrest-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'UNREST',
+                        intensity: 1,
+                        duration: 6,
+                        description: 'Religious Protests'
+                    }])
+                }
+            },
+            {
+                label: 'Support Majority',
+                description: 'Side with the main religion. (Stability +, Minority Unrest)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `religious-favor-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'STABILITY',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Religious Unity'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'refugee_crisis',
+        title: 'Refugee Crisis',
+        description: 'War in a neighboring region has sent thousands to our border.',
+        icon: '⛺',
+        options: [
+            {
+                label: 'Accept Them',
+                description: 'Humanitarian aid. (Population +, Budget -)',
+                effect: (game) => {
+                    game.updateBudget(-50_000_000)
+                    game.addModifiers([{
+                        id: `refugees-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'POPULATION_BOOM',
+                        intensity: 1,
+                        duration: 24,
+                        description: 'Refugee Integration'
+                    }])
+                }
+            },
+            {
+                label: 'Close Borders',
+                description: 'Turn them away. (Prestige -)',
+                effect: (_game) => {
+                    // No effect
+                }
+            }
+        ]
+    },
+    {
+        id: 'brain_drain',
+        title: 'Brain Drain',
+        description: 'Our brightest minds are leaving for better opportunities abroad.',
+        icon: '🧠',
+        options: [
+            {
+                label: 'Increase Research Grants',
+                description: 'Keep them here. (-$100M)',
+                effect: (game) => {
+                    game.updateBudget(-100_000_000)
+                    game.addModifiers([{
+                        id: `research-grant-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'RESEARCH_BOOST',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Retained Talent'
+                    }])
+                }
+            },
+            {
+                label: 'Let them go',
+                description: 'We can\'t afford them. (Research -)',
+                effect: (_game) => {
+                    // Implicit loss of potential
+                }
+            }
+        ]
+    },
+    {
+        id: 'corruption_scandal',
+        title: 'Corruption Scandal',
+        description: 'A high-ranking minister has been caught embezzling funds.',
+        icon: '💼',
+        options: [
+            {
+                label: 'Public Trial',
+                description: 'Justice must be served. (Stability +, Budget +)',
+                effect: (game) => {
+                    game.updateBudget(10_000_000) // Seized assets
+                    game.addModifiers([{
+                        id: `justice-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'STABILITY',
+                        intensity: 1,
+                        duration: 6,
+                        description: 'Anti-Corruption Drive'
+                    }])
+                }
+            },
+            {
+                label: 'Cover it up',
+                description: 'Protect the party. (Corruption +)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `coverup-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'CORRUPTION',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Systemic Corruption'
+                    }])
+                }
+            }
+        ]
+    },
+    // --- Flavor Events ---
+    {
+        id: 'meteor_sighting',
+        title: 'Meteor Sighting',
+        description: 'A brilliant meteor streaked across the sky last night. The people see it as a good omen.',
+        icon: '☄️',
+        options: [
+            {
+                label: 'Make a Wish',
+                description: 'Hope for the best. (Stability +)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `omen-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'STABILITY',
+                        intensity: 1,
+                        duration: 3,
+                        description: 'Good Omen'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'famous_artist',
+        title: 'Cultural Renaissance',
+        description: 'A local artist has gained international fame, bringing attention to our culture.',
+        icon: '🎨',
+        options: [
+            {
+                label: 'Patronize the Arts',
+                description: 'Fund their work. (-$5M, Cultural Boom)',
+                effect: (game) => {
+                    game.updateBudget(-5_000_000)
+                    game.addModifiers([{
+                        id: `culture-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'CULTURAL_BOOM',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Golden Age of Art'
+                    }])
+                }
+            },
+            {
+                label: 'Ignore',
+                description: 'Art doesn\'t pay the bills.',
+                effect: (_game) => {
+                    // No effect
+                }
+            }
+        ]
+    },
+    {
+        id: 'ancient_ruins',
+        title: 'Ancient Ruins Discovered',
+        description: 'Construction workers have unearthed an ancient temple complex.',
+        icon: '🏛️',
+        options: [
+            {
+                label: 'Tourism Site',
+                description: 'Develop it for visitors. (+$50M)',
+                effect: (game) => {
+                    game.updateBudget(50_000_000)
+                }
+            },
+            {
+                label: 'Research Site',
+                description: 'Study the history. (Research Boost)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `archaeology-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'RESEARCH_BOOST',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Historical Insights'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'spy_ring',
+        title: 'Spy Ring Busted',
+        description: 'We have captured foreign agents operating in our capital.',
+        icon: '🕵️',
+        condition: (_game, world) => world.aiCountries.size > 0,
+        options: [
+            {
+                label: 'Expose Them',
+                description: 'Publicly shame their nation. (Relations -)',
+                effect: (game, world) => {
+                    const countries = Array.from(world.aiCountries.values())
+                    const target = countries[Math.floor(Math.random() * countries.length)]
+                    if (target) {
+                        world.updateRelations(target.code, -50)
+                        game.addDiplomaticEvents([{
+                            id: `spy-scandal-${Date.now()}`,
+                            type: 'BORDER_TENSION',
+                            severity: 2,
+                            title: 'Espionage Scandal',
+                            description: `Spies from ${target.name} were caught in our capital!`,
+                            affectedNations: [target.code],
+                            timestamp: Date.now()
+                        }])
+                    }
+                }
+            },
+            {
+                label: 'Turn Them',
+                description: 'Force them to work for us. (Defense Bonus)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `counter-intel-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'DEFENSE_BONUS',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Counter-Intelligence'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'diplomatic_marriage',
+        title: 'Royal Wedding',
+        description: 'A strategic marriage has been proposed between our leading families and a neighbor.',
+        icon: '💍',
+        condition: (_game, world) => world.aiCountries.size > 0,
+        options: [
+            {
+                label: 'Accept',
+                description: 'Strengthen ties. (Relations +)',
+                effect: (game, world) => {
+                    const countries = Array.from(world.aiCountries.values())
+                    const target = countries[Math.floor(Math.random() * countries.length)]
+                    if (target) {
+                        world.updateRelations(target.code, 50)
+                        game.addDiplomaticEvents([{
+                            id: `wedding-${Date.now()}`,
+                            type: 'ALLIANCE_PROPOSED',
+                            severity: 1,
+                            title: 'Royal Wedding',
+                            description: `A union with ${target.name} has been celebrated!`,
+                            affectedNations: [target.code],
+                            timestamp: Date.now()
+                        }])
+                    }
+                }
+            },
+            {
+                label: 'Decline',
+                description: 'We marry for love, not politics.',
+                effect: (_game) => {
+                    // No effect
+                }
+            }
+        ]
+    }
+]
+

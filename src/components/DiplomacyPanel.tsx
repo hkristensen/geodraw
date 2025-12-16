@@ -125,7 +125,7 @@ interface DiplomacyPanelProps {
 
 export function DiplomacyPanel({ onStartWar }: DiplomacyPanelProps) {
     const { phase, nation, addDiplomaticEvents, annexedCountries, removeTerritory, addTerritory, removeActiveClaim, setCurrentClaim, currentClaim } = useGameStore()
-    const { aiCountries, updateRelations, declareWar, makePeace, formAlliance, returnTerritory } = useWorldStore()
+    const { aiCountries, updateRelations, declareWar, makePeace, formAlliance } = useWorldStore()
 
     const [isMinimized, setIsMinimized] = useState(false)
 
@@ -269,7 +269,7 @@ export function DiplomacyPanel({ onStartWar }: DiplomacyPanelProps) {
                                     removeTerritory(intersection as any)
 
                                     // Update AI state
-                                    returnTerritory(countryCode)
+                                    // returnTerritory(countryCode) // Feature temporarily disabled
 
                                     addDiplomaticEvents([{
                                         id: `return-${Date.now()}`,

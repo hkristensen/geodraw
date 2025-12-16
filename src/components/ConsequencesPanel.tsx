@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useGameStore, type Consequence } from '../store/gameStore'
+import { useGameStore } from '../store/gameStore'
+import type { Consequence } from '../types/store'
 import { getConsequenceStats } from '../utils/calculateConsequences'
 import { getCityCaptureStats } from '../utils/calculateCityCapture'
 

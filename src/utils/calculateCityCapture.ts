@@ -74,10 +74,12 @@ export function calculateCityCapture(
         // Special case: Paris triggers Revanchism
         if (capital.name === 'Paris') {
             modifiers.push({
+                id: `revanchism-${countryCode}-${Date.now()}`,
                 countryCode,
                 countryName: capital.countryName,
                 type: 'REVANCHISM',
                 intensity: 100,
+                duration: 120, // 10 years
                 description: `France gains +100% Aggression from Revanchism`,
             })
 

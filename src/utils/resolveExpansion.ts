@@ -2,7 +2,7 @@ import * as turf from '@turf/turf'
 import type { Feature, Polygon, MultiPolygon, FeatureCollection } from 'geojson'
 import type { ExpansionClaim, ExpansionResolutionMethod } from '../types/game'
 import type { AICountry } from '../types/game'
-import type { Consequence } from '../store/gameStore'
+import type { Consequence } from '../types/store'
 
 interface ResolutionResult {
     success: boolean

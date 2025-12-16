@@ -52,6 +52,19 @@ export type ModifierType =
     | 'PROPAGANDA_CAMPAIGN' // Influenced by player propaganda
     | 'UNREST'        // Internal instability
     | 'LIBERATED'     // Recently un-annexed
+    | 'ANNEXED'       // Fully annexed (internal use)
+    | 'STABILITY'     // General stability
+    | 'ECONOMIC_DEPRESSION' // Reduced income
+    | 'ECONOMIC_BOOM' // Increased income
+    | 'DEFENSE_BONUS' // Military defense bonus
+    | 'MILITARY_QUALITY' // Better troops
+    | 'MILITARY_QUANTITY' // More troops
+    | 'PLAGUE'        // Population/Economy loss
+    | 'TRADE_BOOST'   // Increased trade income
+    | 'CULTURAL_BOOM' // Prestige/Influence boost
+    | 'CORRUPTION'    // Budget loss/inefficiency
+    | 'RESEARCH_BOOST' // Tech/Development boost
+    | 'POPULATION_BOOM' // Growth boost
 
 export interface CountryModifier {
     id: string

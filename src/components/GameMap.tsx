@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
+import { useEffect, useRef, useCallback, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import { BattleIndicator } from './BattleIndicator'
 import type { ActiveBattle } from '../types/game'
@@ -96,15 +96,47 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
 
         setTimeout(() => {
             const newConsequences = calculateConsequences(polygon, countriesData as FeatureCollection)
-            setConsequences(newConsequences)
 
             const { capturedCities, modifiers, events } = calculateCityCapture(polygon, cities)
-            setCapturedCities(capturedCities)
-            addModifiers(modifiers)
-            addDiplomaticEvents(events)
 
             // Calculate infrastructure for budget
             const infraStats = calculateInfrastructure(polygon)
+
+            // CHECK COST LIMIT
+            const totalPop = newConsequences.reduce((sum, c) => sum + c.populationCaptured, 0) +
+                capturedCities.reduce((sum, c) => sum + c.population, 0)
+
+            let cost = (totalPop / 1_000_000) * 200
+
+            if (infraStats) {
+                infraStats.airports.forEach(a => {
+                    if (a.type === 'major') cost += 200
+                    else if (a.type === 'medium') cost += 100
+                    else cost += 50
+                })
+                infraStats.ports.forEach(p => {
+                    if (p.type === 'major') cost += 200
+                    else if (p.type === 'medium') cost += 100
+                    else cost += 50
+                })
+            }
+
+            if (cost > 5000) {
+                console.log('⚠️ Territory too expensive:', cost)
+                alert(`Territory too expensive! Cost: ${Math.round(cost)} / 5000 points.\nTry drawing a smaller area or avoiding major cities.`)
+
+                // Reset
+                setUserPolygon(null)
+                setPhase('DRAWING')
+                setIsCalculating(false)
+                return
+            }
+
+            // Valid territory, proceed
+            setConsequences(newConsequences)
+            setCapturedCities(capturedCities)
+            addModifiers(modifiers)
+            addDiplomaticEvents(events)
             setInfrastructureStats(infraStats)
 
             setIsCalculating(false)
@@ -572,6 +604,36 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
                 },
             })
 
+            // Add fort coverage source
+            map.current.addSource('fort-coverage', {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: [] }
+            })
+
+            // Fort coverage fill
+            map.current.addLayer({
+                id: 'fort-coverage-fill',
+                type: 'fill',
+                source: 'fort-coverage',
+                paint: {
+                    'fill-color': '#3b82f6', // Blue
+                    'fill-opacity': 0.1,
+                }
+            })
+
+            // Fort coverage outline
+            map.current.addLayer({
+                id: 'fort-coverage-line',
+                type: 'line',
+                source: 'fort-coverage',
+                paint: {
+                    'line-color': '#3b82f6',
+                    'line-width': 1,
+                    'line-dasharray': [2, 2],
+                    'line-opacity': 0.5
+                }
+            })
+
             // (Buildings are now handled by HTML Markers)
 
             // Add cities source and layer
@@ -863,6 +925,8 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
         buildingMarkers.current.forEach(marker => marker.remove())
         buildingMarkers.current = []
 
+        const fortFeatures: Feature[] = []
+
         if (nation?.buildings) {
             nation.buildings.forEach(b => {
                 // Create marker element
@@ -884,8 +948,25 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
                     .addTo(map.current!)
 
                 buildingMarkers.current.push(marker)
+
+                // If Fort, add coverage circle
+                if (b.type === 'FORT') {
+                    const center = b.location as [number, number]
+                    const circle = turf.circle(center, 500, { steps: 64, units: 'kilometers' })
+                    fortFeatures.push(circle)
+                }
             })
         }
+
+        // Update fort coverage source
+        const source = map.current.getSource('fort-coverage') as maplibregl.GeoJSONSource
+        if (source) {
+            source.setData({
+                type: 'FeatureCollection',
+                features: fortFeatures
+            })
+        }
+
     }, [nation?.buildings]) // Only re-run when buildings change
 
     // (Removed old layer update logic)

@@ -1,6 +1,5 @@
-import React from 'react'
 import { useGameStore } from '../store/gameStore'
-import { useWorldStore } from '../store/worldStore'
+
 
 interface ClaimActionModalProps {
     claimId: string
@@ -11,7 +10,7 @@ interface ClaimActionModalProps {
 
 export function ClaimActionModal({ claimId, onClose, onLaunchOffensive, onFundSeparatists }: ClaimActionModalProps) {
     const { activeClaims, removeActiveClaim, nation } = useGameStore()
-    const { aiCountries } = useWorldStore()
+
 
     const claim = activeClaims.find(c => c.id === claimId)
 
@@ -19,7 +18,7 @@ export function ClaimActionModal({ claimId, onClose, onLaunchOffensive, onFundSe
 
     // Get primary target country
     const primaryTarget = [...claim.targetCountries].sort((a, b) => b.areaClaimedKm2 - a.areaClaimedKm2)[0]
-    const targetCountry = primaryTarget ? aiCountries.get(primaryTarget.code) : null
+
 
     const handleSeize = () => {
         if (primaryTarget) {

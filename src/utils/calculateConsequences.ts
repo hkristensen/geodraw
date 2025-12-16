@@ -1,6 +1,6 @@
 import * as turf from '@turf/turf'
 import type { Feature, Polygon, MultiPolygon, FeatureCollection } from 'geojson'
-import type { Consequence } from '../store/gameStore'
+import type { Consequence } from '../types/store'
 
 interface CountryProperties {
     name: string

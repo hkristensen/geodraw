@@ -26,7 +26,7 @@ export function WarModal({ countryCode, countryName, territory, onClose, isDefen
     const [initialDefenderSoldiers, setInitialDefenderSoldiers] = useState(0)
     const [totalRounds, setTotalRounds] = useState(0)
     const [warResult, setWarResult] = useState<WarResult | null>(null)
-    const [intensity, setIntensity] = useState<BattleIntensity>('standard')
+    const [intensity, setIntensity] = useState<BattleIntensity>('BATTLE')
     const animationRef = useRef<number | null>(null)
 
     // Get country from store or create fallback
@@ -583,19 +583,19 @@ export function WarModal({ countryCode, countryName, territory, onClose, isDefen
                             <>
                                 {/* Battle Intensity Selection */}
                                 {!isDefender && (
-                                    <div className="grid grid-cols-3 gap-2 mb-2">
-                                        {(['skirmish', 'standard', 'total_war'] as const).map((mode) => (
+                                    <div className="flex gap-2">
+                                        {(['SKIRMISH', 'BATTLE', 'ALL_OUT_WAR'] as BattleIntensity[]).map((i) => (
                                             <button
-                                                key={mode}
-                                                onClick={() => setIntensity(mode)}
-                                                className={`py-2 px-1 rounded text-xs font-bold border transition-all ${intensity === mode
-                                                    ? 'bg-orange-600 border-orange-400 text-white'
-                                                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700'
+                                                key={i}
+                                                onClick={() => setIntensity(i)}
+                                                className={`flex-1 py-2 px-3 rounded text-sm font-medium transition-colors ${intensity === i
+                                                    ? 'bg-red-600 text-white'
+                                                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                                                     }`}
                                             >
-                                                {mode === 'skirmish' && '⚡ Skirmish'}
-                                                {mode === 'standard' && '⚔️ Standard'}
-                                                {mode === 'total_war' && '☠️ Total War'}
+                                                {i === 'SKIRMISH' && 'Skirmish'}
+                                                {i === 'BATTLE' && 'Standard Battle'}
+                                                {i === 'ALL_OUT_WAR' && 'Total War'}
                                             </button>
                                         ))}
                                     </div>
@@ -616,11 +616,11 @@ export function WarModal({ countryCode, countryName, territory, onClose, isDefen
                                     </button>
                                 </div>
                                 {!isDefender && (
-                                    <p className="text-xs text-center text-slate-500 mt-1">
-                                        {intensity === 'skirmish' && "Low risk, low reward. Good for probing defenses."}
-                                        {intensity === 'standard' && "Balanced engagement."}
-                                        {intensity === 'total_war' && "High casualties, high reward. Fight to the death."}
-                                    </p>
+                                    <div className="text-xs text-slate-400 mt-1">
+                                        {intensity === 'SKIRMISH' && 'Low casualties, short duration'}
+                                        {intensity === 'BATTLE' && 'Standard engagement'}
+                                        {intensity === 'ALL_OUT_WAR' && 'High casualties, decisive outcome'}
+                                    </div>
                                 )}
                             </>
                         )}

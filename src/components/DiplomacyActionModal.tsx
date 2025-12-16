@@ -10,7 +10,7 @@ interface DiplomacyActionModalProps {
 }
 
 export function DiplomacyActionModal({ countryCode, onClose, onLaunchOffensive }: DiplomacyActionModalProps) {
-    const { nation, addDiplomaticEvents } = useGameStore()
+    const { nation, addDiplomaticEvents, removeTerritory, playerTerritories } = useGameStore()
     const {
         getCountry,
         declareWar,
@@ -47,6 +47,54 @@ export function DiplomacyActionModal({ countryCode, onClose, onLaunchOffensive }
             timestamp: Date.now(),
         }])
         onClose()
+    }
+
+    const handleReturnTerritory = () => {
+        setMessage('Calculating territory to return...')
+
+        // Dynamic imports to avoid bundle bloat
+        Promise.all([
+            import('../data/countries.json'),
+            import('@turf/turf')
+        ]).then(([countriesDataModule, turf]) => {
+            const countriesData = countriesDataModule.default as any
+            const originalFeature = countriesData.features.find((f: any) => f.properties?.iso_a3 === countryCode)
+            const playerPoly = playerTerritories[0]
+
+            if (originalFeature && playerPoly) {
+                try {
+                    const intersection = turf.intersect(turf.featureCollection([playerPoly as any, originalFeature as any]))
+
+                    if (intersection) {
+                        removeTerritory(intersection as any)
+
+                        // Update relations
+                        updateRelations(countryCode, 50)
+
+                        addDiplomaticEvents([{
+                            id: `return-${Date.now()}`,
+                            type: 'PEACE_TREATY',
+                            severity: 1,
+                            title: `Territory Returned to ${country.name}`,
+                            description: `${nation.name} has returned occupied lands to ${country.name}. Relations have improved significantly.`,
+                            affectedNations: [countryCode],
+                            timestamp: Date.now(),
+                        }])
+
+                        setMessage(`✅ Returned territory to ${country.name}`)
+                        setTimeout(() => onClose(), 1500)
+                    } else {
+                        setMessage('❌ No occupied territory to return.')
+                        setTimeout(() => setMessage(null), 2000)
+                    }
+                } catch (error) {
+                    console.error('Error returning territory:', error)
+                    setMessage('❌ Error calculating territory.')
+                }
+            } else {
+                setMessage('❌ Could not find territory data.')
+            }
+        })
     }
 
     const handlePropose = (type: AgreementType) => {
@@ -222,6 +270,16 @@ export function DiplomacyActionModal({ countryCode, onClose, onLaunchOffensive }
                                         className="w-full py-2 bg-green-900/50 hover:bg-green-800 text-green-200 border border-green-500/30 rounded transition-colors"
                                     >
                                         Request Military Support
+                                    </button>
+                                )}
+
+                                {/* Return Land Button */}
+                                {country.territoryLost > 0 && (
+                                    <button
+                                        onClick={handleReturnTerritory}
+                                        className="w-full py-2 bg-blue-900/50 hover:bg-blue-800 text-blue-200 border border-blue-500/30 rounded transition-colors mt-2"
+                                    >
+                                        🏳️ Return Occupied Land
                                     </button>
                                 )}
 

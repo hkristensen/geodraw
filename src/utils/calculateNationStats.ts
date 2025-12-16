@@ -1,5 +1,5 @@
 import type { NationStats, CapturedCity } from '../types/game'
-import type { Consequence } from '../store/gameStore'
+import type { Consequence } from '../types/store'
 import { calculatePower } from './powerSystem'
 
 /**
