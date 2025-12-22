@@ -1,0 +1,332 @@
+/* Country Browser Modal */
+.country-browser-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+}
+
+.country-browser-modal {
+    background: linear-gradient(135deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.95) 100%);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 900px;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    animation: slideUp 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.browser-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1.5rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    background: linear-gradient(to right, rgba(249, 115, 22, 0.1), rgba(251, 146, 60, 0.05));
+    flex-shrink: 0;
+}
+
+.browser-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: white;
+}
+
+.close-btn {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 1.25rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.close-btn:hover {
+    background: rgba(239, 68, 68, 0.2);
+    transform: scale(1.05);
+}
+
+/* Search Bar */
+.browser-search {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.search-input {
+    flex: 1;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    color: white;
+    font-size: 0.875rem;
+    outline: none;
+    transition: border-color 0.2s;
+}
+
+.search-input:focus {
+    border-color: rgba(251, 146, 60, 0.5);
+}
+
+.search-input::placeholder {
+    color: rgba(148, 163, 184, 0.5);
+}
+
+.search-count {
+    font-size: 0.875rem;
+    color: rgba(148, 163, 184, 1);
+    white-space: nowrap;
+}
+
+/* Body */
+.browser-body {
+    padding: 1rem;
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* Country List */
+.country-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.country-list-item {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.country-list-item:hover {
+    background: rgba(0, 0, 0, 0.4);
+    border-color: rgba(251, 146, 60, 0.3);
+    transform: translateX(4px);
+}
+
+.country-main-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 0.75rem;
+}
+
+.country-name-section {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+}
+
+.country-name-section h3 {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: rgba(248, 250, 252, 1);
+    /* Brighter white */
+}
+
+.country-code {
+    font-size: 0.75rem;
+    color: rgba(203, 213, 225, 1);
+    /* Lighter gray */
+    font-weight: 500;
+    padding: 0.25rem 0.5rem;
+    background: rgba(148, 163, 184, 0.15);
+    border-radius: 4px;
+}
+
+.country-leader {
+    font-size: 0.875rem;
+    color: rgba(226, 232, 240, 1);
+    /* Much lighter */
+}
+
+/* Stats Row */
+.country-stats-row {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.stat-mini {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.stat-mini-label {
+    font-size: 0.625rem;
+    color: rgba(203, 213, 225, 1);
+    /* Brighter */
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.stat-mini-value {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: rgba(248, 250, 252, 1);
+    /* Brighter default */
+}
+
+.stat-good {
+    color: rgba(34, 197, 94, 1);
+}
+
+.stat-medium {
+    color: rgba(251, 146, 60, 1);
+}
+
+.stat-poor {
+    color: rgba(239, 68, 68, 1);
+}
+
+/* Political Orientation Mini */
+.country-orientation {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.orientation-mini-bar {
+    position: relative;
+    flex: 1;
+    height: 6px;
+    background: linear-gradient(to right,
+            #dc2626 0%,
+            #f59e0b 25%,
+            #10b981 50%,
+            #f59e0b 75%,
+            #dc2626 100%);
+    border-radius: 3px;
+}
+
+.orientation-mini-indicator {
+    position: absolute;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: 12px;
+    height: 12px;
+    background: white;
+    border: 2px solid rgba(0, 0, 0, 0.8);
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+}
+
+.orientation-mini-label {
+    font-size: 0.75rem;
+    color: rgba(203, 213, 225, 1);
+    /* Brighter */
+    white-space: nowrap;
+    min-width: 120px;
+}
+
+/* No Results */
+.no-results {
+    text-align: center;
+    padding: 3rem 1rem;
+    color: rgba(148, 163, 184, 1);
+    font-size: 0.875rem;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .country-browser-modal {
+        width: 95%;
+        max-height: 85vh;
+    }
+
+    .browser-header {
+        padding: 1rem;
+    }
+
+    .browser-header h2 {
+        font-size: 1.25rem;
+    }
+
+    .browser-search {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .country-name-section {
+        flex-direction: column;
+        gap: 0.25rem;
+        align-items: flex-start;
+    }
+
+    .country-stats-row {
+        gap: 0.5rem;
+    }
+
+    .orientation-mini-label {
+        min-width: 80px;
+        font-size: 0.65rem;
+    }
+}
+
+/* Scrollbar styling */
+.browser-body::-webkit-scrollbar {
+    width: 8px;
+}
+
+.browser-body::-webkit-scrollbar-track {
+    background: rgba(15, 23, 42, 0.5);
+}
+
+.browser-body::-webkit-scrollbar-thumb {
+    background: rgba(148, 163, 184, 0.3);
+    border-radius: 4px;
+}
+
+.browser-body::-webkit-scrollbar-thumb:hover {
+    background: rgba(148, 163, 184, 0.5);
+}

@@ -1,23 +1,200 @@
 import type { NationStats, Building } from '../types/game'
 import type { InfrastructureStats } from './infrastructure'
 
+// =============================================================================
+// ECONOMIC CYCLE SYSTEM
+// =============================================================================
+
+/**
+ * Economic cycle phases (realistic business cycles)
+ * Full cycle: ~48-72 game months
+ */
+export type EconomicPhase = 'EXPANSION' | 'PEAK' | 'RECESSION' | 'RECOVERY'
+
+export interface EconomicCycleState {
+    phase: EconomicPhase
+    monthsInPhase: number
+    globalModifier: number      // -0.20 to +0.15
+    oilPrice: number           // 50-150 (baseline 100)
+    lastPhaseChange: number    // Timestamp
+}
+
+// Phase durations (in game months)
+const PHASE_DURATIONS: Record<EconomicPhase, { min: number, max: number }> = {
+    EXPANSION: { min: 18, max: 36 },
+    PEAK: { min: 1, max: 6 },
+    RECESSION: { min: 12, max: 24 },
+    RECOVERY: { min: 12, max: 24 }
+}
+
+// Phase effects on economy
+const PHASE_MODIFIERS: Record<EconomicPhase, number> = {
+    EXPANSION: 0.10,   // +10% income
+    PEAK: 0.15,        // +15% income (but risky)
+    RECESSION: -0.15,  // -15% income
+    RECOVERY: 0.0      // Neutral, returning to normal
+}
+
+// Oil price ranges per phase
+const PHASE_OIL_PRICES: Record<EconomicPhase, { min: number, max: number }> = {
+    EXPANSION: { min: 90, max: 130 },
+    PEAK: { min: 110, max: 150 },
+    RECESSION: { min: 50, max: 80 },
+    RECOVERY: { min: 70, max: 100 }
+}
+
+/**
+ * Initialize economic cycle state
+ */
+export function initEconomicCycle(): EconomicCycleState {
+    // Start in a random phase for variety
+    const phases: EconomicPhase[] = ['EXPANSION', 'RECOVERY', 'EXPANSION', 'RECOVERY']
+    const phase = phases[Math.floor(Math.random() * phases.length)]
+
+    return {
+        phase,
+        monthsInPhase: 0,
+        globalModifier: PHASE_MODIFIERS[phase],
+        oilPrice: 100,
+        lastPhaseChange: Date.now()
+    }
+}
+
+/**
+ * Get the next phase in the cycle
+ */
+function getNextPhase(current: EconomicPhase): EconomicPhase {
+    switch (current) {
+        case 'RECOVERY': return 'EXPANSION'
+        case 'EXPANSION': return 'PEAK'
+        case 'PEAK': return 'RECESSION'
+        case 'RECESSION': return 'RECOVERY'
+    }
+}
+
+/**
+ * Update economic cycle (call monthly)
+ */
+export function updateEconomicCycle(state: EconomicCycleState): EconomicCycleState {
+    const newMonths = state.monthsInPhase + 1
+    const duration = PHASE_DURATIONS[state.phase]
+
+    // Check if phase should transition
+    // Guaranteed transition after max duration, chance to transition after min
+    let shouldTransition = false
+    if (newMonths >= duration.max) {
+        shouldTransition = true
+    } else if (newMonths >= duration.min) {
+        // Increasing chance to transition as we approach max
+        const transitionChance = (newMonths - duration.min) / (duration.max - duration.min)
+        shouldTransition = Math.random() < transitionChance * 0.3 // Max 30% chance per month
+    }
+
+    if (shouldTransition) {
+        const newPhase = getNextPhase(state.phase)
+        const oilRange = PHASE_OIL_PRICES[newPhase]
+
+        return {
+            phase: newPhase,
+            monthsInPhase: 0,
+            globalModifier: PHASE_MODIFIERS[newPhase],
+            oilPrice: oilRange.min + Math.random() * (oilRange.max - oilRange.min),
+            lastPhaseChange: Date.now()
+        }
+    }
+
+    // Drift oil price based on phase
+    const oilRange = PHASE_OIL_PRICES[state.phase]
+    const oilDrift = (Math.random() - 0.5) * 10 // ±5 per month
+    const newOilPrice = Math.max(oilRange.min, Math.min(oilRange.max, state.oilPrice + oilDrift))
+
+    return {
+        ...state,
+        monthsInPhase: newMonths,
+        oilPrice: newOilPrice
+    }
+}
+
+/**
+ * Calculate country-specific economic modifier based on characteristics
+ * Some countries are more affected by global cycles than others
+ */
+export function getCountryEconomicModifier(
+    globalCycle: EconomicCycleState,
+    countryCharacteristics: {
+        isOilExporter?: boolean
+        isOilImporter?: boolean
+        tradeDependency?: number    // 0-1, how reliant on trade
+        economyDiversity?: number   // 0-1, how diverse the economy
+    }
+): number {
+    const {
+        isOilExporter = false,
+        isOilImporter = false,
+        tradeDependency = 0.5,
+        economyDiversity = 0.5
+    } = countryCharacteristics
+
+    let modifier = globalCycle.globalModifier
+
+    // Oil price effects
+    const oilDeviation = (globalCycle.oilPrice - 100) / 100 // -0.5 to +0.5
+
+    if (isOilExporter) {
+        // Oil exporters benefit from high prices, hurt by low prices
+        modifier += oilDeviation * 0.2
+    }
+    if (isOilImporter) {
+        // Oil importers hurt by high prices, benefit from low prices
+        modifier -= oilDeviation * 0.15
+    }
+
+    // Trade dependency amplifies global effects
+    modifier *= (1 + (tradeDependency - 0.5) * 0.5)
+
+    // Economic diversity reduces volatility
+    modifier *= (1.5 - economyDiversity)
+
+    // Clamp to reasonable range
+    return Math.max(-0.30, Math.min(0.25, modifier))
+}
+
+/**
+ * Get human-readable cycle description
+ */
+export function getCycleDescription(cycle: EconomicCycleState): string {
+    const descriptions: Record<EconomicPhase, string> = {
+        EXPANSION: 'The global economy is expanding. Trade is booming.',
+        PEAK: 'Economic activity has peaked. Overheating risks present.',
+        RECESSION: 'Global recession in effect. Markets are struggling.',
+        RECOVERY: 'Economic recovery underway. Conditions stabilizing.'
+    }
+    return descriptions[cycle.phase]
+}
+
 /**
  * Calculate total income based on stats and budget
+ * Now includes optional economic cycle modifier
  */
 export function calculateIncome(
     stats: NationStats,
     infra: InfrastructureStats,
     population: number,
     buildings: Building[] = [],
-    aiCountries: Map<string, any> = new Map()
+    aiCountries: Map<string, any> = new Map(),
+    economicCycle?: EconomicCycleState,
+    countryCharacteristics?: { isOilExporter?: boolean, isOilImporter?: boolean, tradeDependency?: number, economicDiversity?: number }
 ): {
     total: number
     taxIncome: number
     tradeIncome: number
     resourceIncome: number
+    cycleModifier: number
 } {
     // Count buildings
     const universities = buildings.filter(b => b.type === 'UNIVERSITY').length
+    const factories = buildings.filter(b => b.type === 'FACTORY').length
+    const markets = buildings.filter(b => b.type === 'MARKET').length
 
     // 1. Tax Income
     // Base GDP per capita is modified by infrastructure and stability (social budget)
@@ -30,7 +207,9 @@ export function calculateIncome(
     // Social stability multiplier (0.8 to 1.2)
     const stabilityMult = 0.8 + (stats.budgetAllocation.social / 100) * 0.4
 
-    const realGDP = baseGDP * infraMult * stabilityMult
+    // Factory Bonus (GDP)
+    const factoryBonus = factories * 0.1 // +10% GDP per factory
+    const realGDP = baseGDP * infraMult * stabilityMult * (1 + factoryBonus)
     const totalGDP = realGDP * population
 
     // Tax revenue = GDP * Tax Rate
@@ -50,7 +229,9 @@ export function calculateIncome(
     const baseTradePotential = totalGDP * 0.1
     const portBonus = infra.totalPorts * 0.05
     const airportBonus = infra.totalAirports * 0.02
-    const tradeOpenness = portBonus + airportBonus
+    // Market Bonus
+    const marketBonus = markets * 0.05 // +5% trade openness per market
+    const tradeOpenness = portBonus + airportBonus + marketBonus
 
     const tradeEfficiency = 0.5 + (stats.budgetAllocation.infrastructure / 100) * 1.0
 
@@ -76,11 +257,35 @@ export function calculateIncome(
     const resourceEfficiency = 1.0 + (stats.budgetAllocation.research / 100) * 1.0 + universityBonus
     const resourceIncome = areaIncome * resourceEfficiency
 
+    // Apply economic cycle modifier if provided
+    let cycleModifier = 0
+    if (economicCycle) {
+        // Get global modifier
+        cycleModifier = economicCycle.globalModifier
+
+        // Apply country-specific adjustments if characteristics provided
+        if (countryCharacteristics) {
+            cycleModifier = getCountryEconomicModifier(
+                economicCycle,
+                {
+                    isOilExporter: countryCharacteristics.isOilExporter ?? false,
+                    isOilImporter: countryCharacteristics.isOilImporter ?? false,
+                    tradeDependency: countryCharacteristics.tradeDependency ?? 0.5,
+                    economyDiversity: countryCharacteristics.economicDiversity ?? 0.5
+                }
+            )
+        }
+    }
+
+    const baseTotal = taxIncome + tradeIncome + resourceIncome
+    const adjustedTotal = baseTotal * (1 + cycleModifier)
+
     return {
-        total: Math.round(taxIncome + tradeIncome + resourceIncome),
+        total: Math.round(adjustedTotal),
         taxIncome: Math.round(taxIncome),
         tradeIncome: Math.round(tradeIncome),
-        resourceIncome: Math.round(resourceIncome)
+        resourceIncome: Math.round(resourceIncome),
+        cycleModifier
     }
 }
 
@@ -138,6 +343,11 @@ export function calculateExpenses(
             case 'FORT': buildingUpkeep += 50000; break
             case 'TRAINING_CAMP': buildingUpkeep += 20000; break
             case 'UNIVERSITY': buildingUpkeep += 100000; break
+            case 'RESEARCH_LAB': buildingUpkeep += 150000; break
+            case 'TEMPLE': buildingUpkeep += 30000; break
+            case 'FACTORY': buildingUpkeep += 80000; break
+            case 'MARKET': buildingUpkeep += 25000; break
+            case 'HOSPITAL': buildingUpkeep += 60000; break
         }
     })
 
@@ -227,4 +437,27 @@ export function formatMoney(amount: number): string {
         return `$${(amount / 1_000).toFixed(1)}K`
     }
     return `$${amount.toLocaleString()}`
+}
+
+/**
+ * Calculate monthly Research Points generation
+ */
+export function calculateResearchOutput(
+    stats: NationStats,
+    population: number,
+    buildings: Building[] = []
+): number {
+    // 1. Base RP from Budget
+    // Scales with population and research budget
+    // Example: 1M pop, 50% budget => 50 RP/month
+    const baseRP = (stats.budgetAllocation.research / 100) * (population / 10000)
+
+    // 2. Building Bonuses
+    const researchLabs = buildings.filter(b => b.type === 'RESEARCH_LAB').length
+    const universities = buildings.filter(b => b.type === 'UNIVERSITY').length
+
+    const labBonus = researchLabs * 10 // +10 RP per lab
+    const uniBonus = universities * 5  // +5 RP per university
+
+    return Math.floor(baseRP + labBonus + uniBonus)
 }

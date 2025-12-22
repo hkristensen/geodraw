@@ -13,7 +13,7 @@ import { calculateIncome, calculateExpenses } from '../utils/economy'
 import countriesData from '../data/countries.json'
 
 export const useGameStore = create<GameState>((set) => ({
-    phase: 'DRAWING',
+    phase: 'SETUP',
     gameDate: new Date('2025-01-01').getTime(),
     userPolygon: null,
     playerTerritories: [],
@@ -35,8 +35,36 @@ export const useGameStore = create<GameState>((set) => ({
     activeBattles: [],
     currentEvent: null,
     gameOver: false,
+    isDrawing: false,
+
+    // New Systems
+    researchPoints: 0,
+    unlockedTechs: [],
+    activePolicies: [],
+    unrest: 0,
+    factions: [],
+    infrastructureLoaded: false,
+
+    // Economic Cycle
+    economicCycle: null,
+
+    // Victory Tracking
+    victoriesAchieved: [],
+    consecutiveMonthsAsTopPower: 0,
+    consecutiveMonthsAsTopGDP: 0,
+    achievementsUnlocked: [],
+
+    // War Exhaustion Tracking
+    totalWarCasualties: 0,
+    monthsAtWar: 0,
+
+    gameSettings: null,
+    selectedCountryName: null,
 
     setPhase: (phase) => set({ phase }),
+    setGameSettings: (settings) => set({ gameSettings: settings }),
+    setSelectedCountryName: (name) => set({ selectedCountryName: name }),
+    setIsDrawing: (isDrawing) => set({ isDrawing }),
 
     setUserPolygon: (polygon) => set({
         userPolygon: polygon,
@@ -251,8 +279,13 @@ export const useGameStore = create<GameState>((set) => ({
     })),
 
     setNation: (nation) => {
+        if (!nation) {
+            set({ nation: null })
+            return
+        }
+
         // Initialize budget allocation if missing
-        const stats = nation ? {
+        const stats = {
             ...nation.stats,
             budgetAllocation: nation.stats.budgetAllocation || {
                 social: 50,
@@ -260,9 +293,26 @@ export const useGameStore = create<GameState>((set) => ({
                 infrastructure: 50,
                 research: 50
             }
-        } : null
+        }
 
-        set({ nation: nation ? { ...nation, stats: stats!, buildings: nation.buildings || [] } : null })
+        // Initialize Arrays & Migrate
+        let units = nation.units || []
+        const warPlans = nation.warPlans || []
+        const buildings = nation.buildings || []
+
+        // Migration: Soldiers -> Units (if legacy save has soldiers but no units)
+        // DEPRECATED: Users now start with full reserves and draft manually.
+        // if (units.length === 0 && stats.soldiers > 0) { ... } logic removed.
+
+        set({
+            nation: {
+                ...nation,
+                stats,
+                buildings,
+                units,
+                warPlans
+            }
+        })
     },
 
     setCurrentClaim: (claim) => set({ currentClaim: claim }),
@@ -459,12 +509,6 @@ export const useGameStore = create<GameState>((set) => ({
         }
 
         // Call World Store
-        // We need to dynamically import or use the hook outside. 
-        // Since we are inside the store, we can use the imported store directly if it was imported.
-        // But we need to import it first. 
-        // For now, let's assume we can access it via window or just import it at top.
-        // We will add the import in a separate step if needed, but let's try to use the global store access pattern
-        // actually we can just import useWorldStore at the top of this file.
         useWorldStore.getState().destabilizeCountry(primaryTarget.code)
 
         return {
@@ -507,7 +551,7 @@ export const useGameStore = create<GameState>((set) => ({
         }
     }),
 
-    startBattle: (attackerCode, attackerName, defenderCode, defenderName, attackerSoldiers, defenderSoldiers, intensity, isPlayerAttacker, isPlayerDefender, claimId, location, defenseBonus = 0) => set((state) => {
+    startBattle: (attackerCode, attackerName, defenderCode, defenderName, attackerSoldiers, defenderSoldiers, intensity, isPlayerAttacker, isPlayerDefender, claimId, location, defenseBonus = 0, plan) => set((state) => {
         // Run simulation immediately
         const result = simulateWar(attackerSoldiers, defenderSoldiers, intensity, defenseBonus)
 
@@ -525,10 +569,11 @@ export const useGameStore = create<GameState>((set) => ({
             isPlayerAttacker,
             isPlayerDefender,
             claimId,
-            location
+            location,
+            plan
         }
 
-        console.log('⚔️ Starting new battle:', battle, 'Defense Bonus:', defenseBonus)
+        console.log('⚔️ Starting new battle:', battle, 'Defense Bonus:', defenseBonus, 'Plan:', plan)
 
         return {
             activeBattles: [...state.activeBattles, battle]
@@ -541,5 +586,193 @@ export const useGameStore = create<GameState>((set) => ({
 
     triggerEvent: (event) => set({ currentEvent: event }),
 
-    resolveEvent: () => set({ currentEvent: null })
+    resolveEvent: () => set({ currentEvent: null }),
+
+    // New System Actions
+    addResearchPoints: (amount) => set((state) => ({ researchPoints: state.researchPoints + amount })),
+
+    unlockTech: (techId) => set((state) => ({
+        unlockedTechs: [...state.unlockedTechs, techId],
+        researchPoints: state.researchPoints // Cost should be deducted by caller or here if we pass cost
+    })),
+
+    enactPolicy: (policyId) => set((state) => ({
+        activePolicies: [...state.activePolicies, policyId]
+    })),
+
+    revokePolicy: (policyId) => set((state) => ({
+        activePolicies: state.activePolicies.filter(id => id !== policyId)
+    })),
+
+    updateUnrest: (delta) => set((state) => ({
+        unrest: Math.max(0, Math.min(100, state.unrest + delta))
+    })),
+
+    addFaction: (faction) => set((state) => ({
+        factions: [...state.factions, faction]
+    })),
+
+    updateFaction: (id, updates) => set((state) => ({
+        factions: state.factions.map(f => f.id === id ? { ...f, ...updates } : f)
+    })),
+
+    removeFaction: (id) => set((state) => ({
+        factions: state.factions.filter(f => f.id !== id)
+    })),
+
+    setInfrastructureLoaded: (loaded) => set({ infrastructureLoaded: loaded }),
+
+    // Military Actions
+    createUnit: (type, soldierCount, source = 'HIRE') => set((state) => {
+        if (!state.nation) return {}
+
+        const unitId = `unit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+
+        // Base stats
+        const unitBaseStats = {
+            'INFANTRY': { attack: 10, defense: 15, mobility: 5, soldiers: 1000 },
+            'ARMOR': { attack: 25, defense: 20, mobility: 20, soldiers: 500 },
+            'SPECIAL_FORCES': { attack: 30, defense: 10, mobility: 15, soldiers: 200 },
+            'DEFENSE': { attack: 5, defense: 30, mobility: 0, soldiers: 1000 },
+            'MILITIA': { attack: 5, defense: 5, mobility: 5, soldiers: 1500 }
+        }
+
+        const stats = unitBaseStats[type] || { attack: 10, defense: 10, mobility: 10, soldiers: 1000 }
+        const finalSoldiers = soldierCount || stats.soldiers
+
+        // Update nation stats based on source
+        const newStats = { ...state.nation.stats }
+
+        if (source === 'HIRE') {
+            // Hired guns add to the total military pool
+            newStats.soldiers += finalSoldiers
+            // Also increase total manpower capability slightly to reflect permanent expansion
+            newStats.manpower += finalSoldiers
+        }
+        // If DRAFT, we don't change .soldiers (total pool), 
+        // effectively "taking" them from the unassigned pool.
+
+        const newUnit: import('../types/game').MilitaryUnit = {
+            id: unitId,
+            name: `${state.nation.units?.length + 1 || 1}st ${type.charAt(0) + type.slice(1).toLowerCase()} Brigade`,
+            type,
+            soldiers: finalSoldiers,
+            experience: source === 'HIRE' ? 20 : 0, // Mercenaries come with some experience
+            morale: 100,
+            location: state.nation.capital?.coordinates || [0, 0],
+            status: 'IDLE',
+            stats: {
+                attack: stats.attack,
+                defense: stats.defense,
+                mobility: stats.mobility
+            }
+        }
+
+        return {
+            nation: {
+                ...state.nation,
+                stats: newStats,
+                units: [...(state.nation.units || []), newUnit]
+            }
+        }
+    }),
+
+    updateUnit: (unitId, updates) => set((state) => {
+        if (!state.nation) return {}
+        return {
+            nation: {
+                ...state.nation,
+                units: (state.nation.units || []).map(u => u.id === unitId ? { ...u, ...updates } : u)
+            }
+        }
+    }),
+
+    deleteUnit: (unitId) => set((state) => {
+        if (!state.nation) return {}
+        return {
+            nation: {
+                ...state.nation,
+                units: (state.nation.units || []).filter(u => u.id !== unitId)
+            }
+        }
+    }),
+
+    saveWarPlan: (plan) => set((state) => {
+        if (!state.nation) return {}
+        return {
+            nation: {
+                ...state.nation,
+                warPlans: [...(state.nation.warPlans || []), plan]
+            }
+        }
+    }),
+
+    deleteWarPlan: (planId) => set((state) => {
+        if (!state.nation) return {}
+        return {
+            nation: {
+                ...state.nation,
+                warPlans: (state.nation.warPlans || []).filter(p => p.id !== planId)
+            }
+        }
+    }),
+
+    executeWarPlan: (planId) => {
+        const state = useGameStore.getState()
+        if (!state.nation) return
+
+        const plan = state.nation.warPlans?.find(p => p.id === planId)
+        if (!plan) return
+
+        // Get assigned units
+        const units = state.nation.units?.filter(u => plan.assignedUnitIds.includes(u.id)) || []
+        const totalSoldiers = units.reduce((sum, u) => sum + u.soldiers, 0)
+
+        const target = useWorldStore.getState().aiCountries.get(plan.targetCountry)
+        if (!target) return
+
+        state.startBattle(
+            'PLAYER',
+            state.nation.name,
+            target.code,
+            target.name,
+            totalSoldiers,
+            target.soldiers, // Placeholder: Defenders should use their units too eventually
+            'BATTLE',
+            true,
+            false,
+            undefined, // claimId
+            undefined, // location
+            0, // defenseBonus
+            plan
+        )
+    },
+
+    transferSoldiers: (fromUnitId, toUnitId, amount) => set((state) => {
+        if (!state.nation || !state.nation.units) return {}
+
+        const units = [...state.nation.units]
+        const fromUnitIndex = units.findIndex(u => u.id === fromUnitId)
+        const toUnitIndex = units.findIndex(u => u.id === toUnitId)
+
+        if (fromUnitIndex === -1 || toUnitIndex === -1) return {}
+
+        const fromUnit = { ...units[fromUnitIndex] }
+        const toUnit = { ...units[toUnitIndex] }
+
+        if (fromUnit.soldiers < amount) return {}
+
+        fromUnit.soldiers -= amount
+        toUnit.soldiers += amount
+
+        units[fromUnitIndex] = fromUnit
+        units[toUnitIndex] = toUnit
+
+        return { nation: { ...state.nation, units } }
+    }),
+
+    recallUnit: (_unitId) => set((state) => {
+        if (!state.nation || !state.nation.units) return {}
+        return {}
+    })
 }))

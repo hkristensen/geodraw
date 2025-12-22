@@ -56,7 +56,6 @@ export function ConsequencesPanel() {
         capturedCities,
         modifiers,
         phase,
-        reset,
         annexedCountries,
         infrastructureStats
     } = useGameStore()
@@ -118,12 +117,6 @@ export function ConsequencesPanel() {
                             title="Minimize"
                         >
                             ➡️
-                        </button>
-                        <button
-                            onClick={reset}
-                            className="text-gray-400 hover:text-white transition-colors text-sm"
-                        >
-                            ✕ Clear
                         </button>
                     </div>
                 </div>

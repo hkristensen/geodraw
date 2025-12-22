@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useMemo } from 'react'
+import { useEffect, useRef, useCallback, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { BattleIndicator } from './BattleIndicator'
 import type { ActiveBattle } from '../types/game'
@@ -12,6 +12,7 @@ import { calculateConsequences } from '../utils/calculateConsequences'
 import { calculateCityCapture, parseCities } from '../utils/calculateCityCapture'
 import { analyzeExpansionClaim } from '../utils/resolveExpansion'
 import { initFreeformDraw } from '../utils/freeformDraw'
+import { initArrowDraw } from '../utils/arrowDraw'
 import { getAllAirportsGeoJSON, getAllPortsGeoJSON, calculateInfrastructure } from '../utils/infrastructure'
 import { clipToLand } from '../utils/geometry'
 import countriesData from '../data/countries.json'
@@ -20,7 +21,7 @@ import citiesData from '../data/cities.json'
 function BattleMarker({ battle, map }: { battle: ActiveBattle, map: maplibregl.Map }) {
     const el = useMemo(() => {
         const div = document.createElement('div')
-        div.className = 'battle-marker-container'
+        div.className = 'battle-marker-container pointer-events-none'
         return div
     }, [])
 
@@ -39,10 +40,88 @@ function BattleMarker({ battle, map }: { battle: ActiveBattle, map: maplibregl.M
     return createPortal(<BattleIndicator battle={battle} />, el)
 }
 
-export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) => void }) {
+import { WarMarker } from './WarMarker'
+import { WarDetailModal } from './WarDetailModal'
+import type { AIWar } from '../types/game'
+
+function WarMapMarker({ war, map, aiTerritories, onClick }: { war: AIWar, map: maplibregl.Map, aiTerritories: Map<string, Feature>, onClick?: () => void }) {
+    const el = useMemo(() => {
+        const div = document.createElement('div')
+        div.className = 'war-marker-container cursor-pointer pointer-events-auto hover:scale-110 transition-transform'
+        if (onClick) {
+            div.onclick = (e) => {
+                e.stopPropagation()
+                onClick()
+            }
+        }
+        return div
+    }, [onClick])
+
+    const [location, setLocation] = useState<[number, number] | null>(null)
+    const { aiCountries } = useWorldStore()
+
+    // Calculate position (midpoint between capitals or centroids)
+    useEffect(() => {
+        const attacker = aiTerritories.get(war.attackerCode)
+        const defender = aiTerritories.get(war.defenderCode)
+
+        if (attacker && defender) {
+            try {
+                // Position on Defender's territory (User Request)
+                const defenderCentroid = turf.centerOfMass(defender as any).geometry.coordinates
+                setLocation(defenderCentroid as [number, number])
+            } catch (e) {
+                console.warn('Failed to calculate war marker position', e)
+            }
+        }
+    }, [war, aiTerritories])
+
+    useEffect(() => {
+        if (!location) return
+
+        const marker = new maplibregl.Marker({ element: el })
+            .setLngLat(location)
+            .addTo(map)
+
+        return () => {
+            marker.remove()
+        }
+    }, [location, map, el])
+
+    const attackerName = aiCountries.get(war.attackerCode)?.name || war.attackerCode
+    const defenderName = aiCountries.get(war.defenderCode)?.name || war.defenderCode
+
+    return createPortal(
+        <WarMarker
+            war={war}
+            attackerName={attackerName}
+            defenderName={defenderName}
+        />,
+        el
+    )
+}
+
+interface GameMapProps {
+    onCountryClick?: (code: string) => void
+    warPlanningMode?: boolean
+    isDrawingWarArrows?: boolean
+    onWarArrowsUpdate?: (arrows: FeatureCollection) => void
+    clearWarArrowsRequest?: number
+    activeArrowType?: string
+}
+
+export function GameMap({
+    onCountryClick,
+    warPlanningMode,
+    isDrawingWarArrows,
+    onWarArrowsUpdate,
+    clearWarArrowsRequest,
+    activeArrowType
+}: GameMapProps) {
     const mapContainer = useRef<HTMLDivElement>(null)
     const map = useRef<maplibregl.Map | null>(null)
     const freeformDraw = useRef<ReturnType<typeof initFreeformDraw> | null>(null)
+    const arrowDraw = useRef<ReturnType<typeof initArrowDraw> | null>(null)
     const drawInitialized = useRef(false)
 
     const phase = useGameStore(state => state.phase)
@@ -60,12 +139,114 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
         annexedCountries,
         setInfrastructureStats,
         activeBattles,
+        setIsDrawing,
+        infrastructureLoaded,
     } = useGameStore()
 
-
+    const {
+        aiTerritories,
+        aiWars
+    } = useWorldStore()
 
     // Parse cities once
     const cities = useMemo(() => parseCities(citiesData as FeatureCollection), [])
+
+    // STATE: Selected War for Detail View
+    const [selectedWarId, setSelectedWarId] = useState<string | null>(null)
+
+    // Update map with dynamic territories
+    useEffect(() => {
+        const mapInstance = map.current
+        if (!mapInstance || aiTerritories.size === 0 || !mapInstance.getStyle()) return
+
+        try {
+            const source = mapInstance.getSource?.('countries') as maplibregl.GeoJSONSource | undefined
+            if (source) {
+                console.log('🗺️ Updating map with dynamic territories:', aiTerritories.size)
+                source.setData({
+                    type: 'FeatureCollection',
+                    features: Array.from(aiTerritories.values()) as Feature[]
+                })
+            }
+        } catch (e) {
+            console.warn('⚠️ Error updating dynamic territories:', e)
+        }
+    }, [aiTerritories])
+
+    // RENDER AI WAR PLANS (Visual Arrows)
+    useEffect(() => {
+        const mapInstance = map.current
+        // Ensure map exists and has a style (it might be in process of being destroyed or created)
+        if (!mapInstance || !mapInstance.getStyle()) return
+
+        try {
+            // Collect all active plans
+            const planFeatures = aiWars
+                .filter(w => w.status === 'active' && w.planArrow)
+                .map(w => w.planArrow) as Feature[]
+
+            // Use optional chaining just to be absolutely safe even inside try block
+            const source = mapInstance.getSource?.('ai-war-plans') as maplibregl.GeoJSONSource | undefined
+            if (source) {
+                source.setData({
+                    type: 'FeatureCollection',
+                    features: planFeatures
+                })
+            }
+        } catch (e) {
+            console.warn('⚠️ Error updating AI War Plans layer:', e)
+        }
+    }, [aiWars])
+
+    // Manage War Arrow Drawing
+    useEffect(() => {
+        if (!map.current) return
+
+        if (warPlanningMode && !arrowDraw.current) {
+            // ... existing arrow draw logic ...
+
+            arrowDraw.current = initArrowDraw(
+                map.current,
+                { color: '#ef4444', width: 4 }, // Red arrows
+                {
+                    onDrawEnd: (fc) => {
+                        if (onWarArrowsUpdate) onWarArrowsUpdate(fc)
+                    }
+                }
+            )
+            console.log('🏹 Arrow drawing initialized')
+        } else if (!warPlanningMode && arrowDraw.current) {
+            // Cleanup arrow drawing
+            arrowDraw.current.cleanup()
+            arrowDraw.current = null
+        }
+    }, [warPlanningMode, onWarArrowsUpdate])
+
+    // Handle Draw Mode Toggle
+    useEffect(() => {
+        if (!arrowDraw.current) return
+
+        if (isDrawingWarArrows) {
+            arrowDraw.current.start()
+        } else {
+            arrowDraw.current.stop()
+        }
+    }, [isDrawingWarArrows])
+
+    // Update Arrow Type
+    useEffect(() => {
+        if (arrowDraw.current && activeArrowType) {
+            arrowDraw.current.setType(activeArrowType)
+        }
+    }, [activeArrowType])
+
+    // Handle Clear Request
+    useEffect(() => {
+        if (clearWarArrowsRequest && arrowDraw.current) {
+            arrowDraw.current.clear()
+            if (onWarArrowsUpdate) onWarArrowsUpdate({ type: 'FeatureCollection', features: [] })
+        }
+    }, [clearWarArrowsRequest, onWarArrowsUpdate])
 
     // Handle initial territory drawing
     const handleInitialDraw = useCallback((e: { features: Feature[] }) => {
@@ -475,7 +656,28 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
                     }
                 }
 
-                // 2. Check for Countries (Lower priority)
+                // 2. Check for Player Territory (clicking on your own drawn territory)
+                if (phase === 'RESULTS') {
+                    const playerTerritoryFeatures = map.current?.queryRenderedFeatures(e.point, {
+                        layers: ['player-territory-fill']
+                    })
+
+                    if (playerTerritoryFeatures && playerTerritoryFeatures.length > 0) {
+                        console.log('🏠 Player territory clicked - opening player modal')
+                        const { gameSettings } = useGameStore.getState()
+                        // For EXISTING_COUNTRY mode, use the starting country code
+                        // For FREEFORM mode, use 'PLAYER' as a special code
+                        const playerCode = gameSettings?.startMode === 'EXISTING_COUNTRY'
+                            ? gameSettings.startingCountry || 'PLAYER'
+                            : 'PLAYER'
+                        if (onCountryClick) {
+                            onCountryClick(playerCode)
+                        }
+                        return // Stop processing - don't fall through to country underneath
+                    }
+                }
+
+                // 3. Check for Countries (Lower priority)
                 // Include labels and disputed fill to ensure clicks register even if covered
                 const countryFeatures = map.current?.queryRenderedFeatures(e.point, {
                     layers: ['countries-fill', 'countries-label', 'countries-disputed-fill']
@@ -585,6 +787,28 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
                     'text-size': 16,
                     'text-allow-overlap': true,
                 },
+            })
+
+            // Add factions source and layer
+            map.current.addSource('factions', {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: [] }
+            })
+
+            map.current.addLayer({
+                id: 'factions-layer',
+                type: 'symbol',
+                source: 'factions',
+                layout: {
+                    'text-field': '✊',
+                    'text-size': 20,
+                    'text-allow-overlap': true,
+                    'text-offset': [0, -1]
+                },
+                paint: {
+                    'text-halo-color': '#000000',
+                    'text-halo-width': 2
+                }
             })
 
             // Add ports source and layer
@@ -785,7 +1009,27 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
                         properties: {
                             id: b.id,
                             type: b.type,
-                            icon: b.type === 'FORT' ? '🏰' : b.type === 'TRAINING_CAMP' ? '⚔️' : '🎓'
+                            icon: b.type === 'FORT' ? '🏰' : b.type === 'TRAINING_CAMP' ? '⚔️' : b.type === 'UNIVERSITY' ? '🎓' : b.type === 'RESEARCH_LAB' ? '🔬' : b.type === 'TEMPLE' ? '⛩️' : b.type === 'FACTORY' ? '🏭' : b.type === 'MARKET' ? '🏪' : '🏥'
+                        }
+                    }))
+                    source.setData({
+                        type: 'FeatureCollection',
+                        features: features as Feature[]
+                    })
+                }
+            }
+
+            // 4. Factions
+            if (state.factions.length > 0) {
+                const source = map.current.getSource('factions') as maplibregl.GeoJSONSource
+                if (source) {
+                    const features = state.factions.map(f => ({
+                        type: 'Feature',
+                        geometry: { type: 'Point', coordinates: f.location },
+                        properties: {
+                            id: f.id,
+                            name: f.name,
+                            strength: f.strength
                         }
                     }))
                     source.setData({
@@ -799,7 +1043,24 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
         return () => {
             map.current?.remove()
         }
-    }, []) // Empty dependency array - map should only initialize once
+    }, [])
+
+    // Update infrastructure layers when loaded
+    useEffect(() => {
+        if (!map.current || !map.current.isStyleLoaded() || !infrastructureLoaded) return
+
+        const airportsSource = map.current.getSource('airports') as maplibregl.GeoJSONSource
+        if (airportsSource) {
+            airportsSource.setData(getAllAirportsGeoJSON())
+            console.log('✈️ Updated airports layer')
+        }
+
+        const portsSource = map.current.getSource('ports') as maplibregl.GeoJSONSource
+        if (portsSource) {
+            portsSource.setData(getAllPortsGeoJSON())
+            console.log('⚓ Updated ports layer')
+        }
+    }, [infrastructureLoaded]) // Empty dependency array - map should only initialize once
 
     // Update active claims display
     const activeClaims = useGameStore(state => state.activeClaims)
@@ -983,6 +1244,9 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
         handleExpansionDraw({ features: [polygon] })
     }, [handleExpansionDraw])
 
+    // Local state for initial drawing activation
+    const [isInitialDrawingActive, setIsInitialDrawingActive] = useState(false)
+
     // Initialize freeform drawing for DRAWING phase
     useEffect(() => {
         if (!map.current || phase !== 'DRAWING' || drawInitialized.current) return
@@ -990,10 +1254,22 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
         const initDraw = () => {
             if (!map.current) return
 
+            // Only start if active
+            if (!isInitialDrawingActive) {
+                if (freeformDraw.current) {
+                    freeformDraw.current.stop()
+                }
+                return
+            }
+
             freeformDraw.current = initFreeformDraw(
                 map.current,
                 onInitialDrawComplete,
-                { lineColor: '#f97316', fillColor: 'rgba(249, 115, 22, 0.3)' }
+                { lineColor: '#f97316', fillColor: 'rgba(249, 115, 22, 0.3)' },
+                {
+                    onDrawStart: () => setIsDrawing(true),
+                    onDrawEnd: () => setIsDrawing(false)
+                }
             )
             freeformDraw.current.start()
             drawInitialized.current = true
@@ -1005,7 +1281,12 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
         } else {
             map.current.on('load', initDraw)
         }
-    }, [phase, onInitialDrawComplete])
+    }, [phase, onInitialDrawComplete, isInitialDrawingActive, setIsDrawing])
+
+    // Reset drawInitialized when active state changes to force re-init
+    useEffect(() => {
+        drawInitialized.current = false
+    }, [isInitialDrawingActive])
 
     // Handle expansion mode - enable freeform drawing with red color
     useEffect(() => {
@@ -1020,7 +1301,11 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
         freeformDraw.current = initFreeformDraw(
             map.current,
             onExpansionDrawComplete,
-            { lineColor: '#ef4444', fillColor: 'rgba(239, 68, 68, 0.4)' }
+            { lineColor: '#ef4444', fillColor: 'rgba(239, 68, 68, 0.4)' },
+            {
+                onDrawStart: () => setIsDrawing(true),
+                onDrawEnd: () => setIsDrawing(false)
+            }
         )
         freeformDraw.current.start()
         console.log('🖊️ Freeform drawing enabled for expansion')
@@ -1044,9 +1329,51 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
         <>
             <div ref={mapContainer} className="h-full w-full" />
 
-            {/* Render Battle Markers */}
+            {/* Initial Draw Button */}
+            {phase === 'DRAWING' && !isInitialDrawingActive && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center pointer-events-none">
+                    <div className="bg-slate-900/80 backdrop-blur-md p-8 rounded-2xl border border-orange-500/30 shadow-2xl text-center pointer-events-auto max-w-md mx-4">
+                        <h1 className="text-4xl font-bold text-white mb-4">Welcome to GeoDraw</h1>
+                        <p className="text-gray-300 mb-8 text-lg">
+                            Explore the map, then claim your starting territory to begin your nation's journey.
+                        </p>
+                        <button
+                            onClick={() => setIsInitialDrawingActive(true)}
+                            className="px-8 py-4 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold text-xl rounded-xl shadow-lg transition-all hover:scale-105 flex items-center justify-center gap-3 mx-auto"
+                        >
+                            <span>✏️</span>
+                            <span>Draw Territory</span>
+                        </button>
+                    </div>
+                </div>
+            )}
+
+            {/* Cancel Initial Draw Button */}
+            {phase === 'DRAWING' && isInitialDrawingActive && (
+                <button
+                    onClick={() => setIsInitialDrawingActive(false)}
+                    className="absolute top-4 right-4 z-20 px-4 py-2 bg-gray-800 hover:bg-gray-700 text-white rounded-lg shadow-lg transition-all flex items-center gap-2"
+                >
+                    <span>✕</span>
+                    <span>Cancel Drawing</span>
+                </button>
+            )}
+
+            {/* Active Battles */}
             {map.current && activeBattles.map(battle => (
                 <BattleMarker key={battle.id} battle={battle} map={map.current!} />
+            ))}
+
+            {/* AI vs AI Wars */}
+            {/* AI vs AI Wars */}
+            {map.current && aiWars.map(war => (
+                <WarMapMarker
+                    key={war.id}
+                    war={war}
+                    map={map.current!}
+                    aiTerritories={aiTerritories}
+                    onClick={() => setSelectedWarId(war.id)}
+                />
             ))}
 
             {/* Claim Territory Button - shows in RESULTS phase */}
@@ -1068,6 +1395,14 @@ export function GameMap({ onCountryClick }: { onCountryClick?: (code: string) =>
                 >
                     ✕ Cancel
                 </button>
+            )}
+
+            {/* War Detail Modal */}
+            {selectedWarId && (
+                <WarDetailModal
+                    warId={selectedWarId}
+                    onClose={() => setSelectedWarId(null)}
+                />
             )}
         </>
     )

@@ -152,32 +152,61 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
             )
             const playerPoly = useGameStore.getState().playerTerritories[0]
 
-            if (countryFeature && playerPoly) {
-                import('../utils/territoryUtils').then(({ calculateConquest }) => {
-                    const conquest = calculateConquest(
-                        playerPoly as any,
-                        countryFeature as any,
-                        result.decisiveness,
-                        claimId ? useGameStore.getState().activeClaims.find(c => c.id === claimId)?.polygon as any : undefined
-                    )
-                    if (conquest) addTerritory(conquest)
-                })
-            }
-
-            // Handle Claim Fulfillment
+            // Handle Claim-based conquest
             if (claimId) {
                 const claim = useGameStore.getState().activeClaims.find(c => c.id === claimId)
-                if (claim) {
+                if (claim && claim.polygon) {
+                    console.log('🏴 Claim victory! Adding claim polygon as territory')
+
+                    // If decisive victory (>0.8), add the entire claim
+                    if (result.decisiveness > 0.8) {
+                        addTerritory(claim.polygon)
+                    } else {
+                        // Partial victory - add portion of claim based on decisiveness
+                        // For simplicity, we add the whole claim but could use calculateConquest
+                        import('../utils/territoryUtils').then(({ calculateConquest }) => {
+                            const conquest = calculateConquest(
+                                playerPoly as any,
+                                claim.polygon as any,
+                                result.decisiveness,
+                                undefined,
+                                battle.plan,
+                                battle.location
+                            )
+                            if (conquest) {
+                                addTerritory(conquest)
+                            } else {
+                                // Fallback: if conquest calc fails, add the claim scaled by decisiveness
+                                // For now, just add the whole claim on any victory
+                                console.log('⚠️ Conquest calc failed, adding full claim')
+                                addTerritory(claim.polygon)
+                            }
+                        })
+                    }
+
                     const targetInfo = claim.targetCountries.find(t => t.code === defenderCode)
                     if (targetInfo) updateOccupation(defenderCode, targetInfo.percentageClaimed)
                     removeActiveClaim(claimId)
                     if (currentClaim?.id === claimId) setCurrentClaim(null)
                 }
+            } else if (countryFeature && playerPoly) {
+                // No claim - general conquest, buffer from player territory
+                import('../utils/territoryUtils').then(({ calculateConquest }) => {
+                    const conquest = calculateConquest(
+                        playerPoly as any,
+                        countryFeature as any,
+                        result.decisiveness,
+                        undefined,
+                        battle.plan,
+                        battle.location
+                    )
+                    if (conquest) addTerritory(conquest)
+                })
             }
 
             addDiplomaticEvents([{
                 id: `victory-${Date.now()}`,
-                type: 'PEACE_TREATY', // Maybe change type to BATTLE_WON?
+                type: 'PEACE_TREATY',
                 severity: 2,
                 title: 'Victory',
                 description: `You defeated ${defenderName} and seized territory.`,
@@ -205,7 +234,10 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
                     const lostArea = calculateConquest(
                         enemyFeature as any,
                         playerPoly as any,
-                        result.decisiveness
+                        result.decisiveness,
+                        undefined,
+                        undefined,
+                        battle.location
                     )
                     if (lostArea) {
                         removeTerritory(lostArea)

@@ -7,6 +7,7 @@ import { getPrimaryLanguage, getPrimaryCulture, getPrimaryReligion } from '../ut
 import { LANGUAGES, CULTURES, RELIGIONS } from '../types/game'
 import type { Nation, FlagData, FlagPattern } from '../types/game'
 import { Flag } from './Flag'
+import countriesData from '../data/countries.json'
 
 // Expanded color palettes
 const PALETTES = [
@@ -46,6 +47,8 @@ export function ConstitutionModal() {
         capturedCities,
         consequences,
         infrastructureStats,
+        selectedCountryName,
+        gameSettings,
         setNation,
         setPhase,
         reset
@@ -53,7 +56,7 @@ export function ConstitutionModal() {
 
     const { initializeAICountries } = useWorldStore()
 
-    const [nationName, setNationName] = useState('')
+    const [nationName, setNationName] = useState(selectedCountryName || '')
     const [flag, setFlag] = useState<FlagData>(generateFlag)
 
     // Editable constitution state
@@ -80,25 +83,27 @@ export function ConstitutionModal() {
             religionCounts[rel] = (religionCounts[rel] || 0) + pop
         })
 
-        const getMax = (counts: Record<string, number>, defaultVal: string) =>
-            Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] || defaultVal
+        const topLang = Object.entries(languageCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || 'English'
+        const topCult = Object.entries(cultureCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || 'Western'
+        const topRel = Object.entries(religionCounts).sort(([, a], [, b]) => b - a)[0]?.[0] || 'Christianity'
 
-        const defaultLanguage = getMax(languageCounts, LANGUAGES[0])
-        const defaultCulture = getMax(cultureCounts, CULTURES[0])
-        const defaultReligion = getMax(religionCounts, RELIGIONS[0])
-
-        if (!selectedLanguage) setSelectedLanguage(defaultLanguage)
-        if (!selectedCulture) setSelectedCulture(defaultCulture)
-        if (!selectedReligion) setSelectedReligion(defaultReligion)
-    }, [consequences]) // Run when consequences change
+        setSelectedLanguage(topLang)
+        setSelectedCulture(topCult)
+        setSelectedReligion(topRel)
+    }, [consequences])
 
     const cityStats = useMemo(() => getCityCaptureStats(capturedCities), [capturedCities])
     const totalPopFromCountries = consequences.reduce((sum, c) => sum + c.populationCaptured, 0)
     const totalPop = totalPopFromCountries + cityStats.totalPopulation
 
-    // Budget Calculation
-    const BUDGET = 5000
+    // Check if we're starting from an existing country (skip budget check)
+    const isExistingCountry = gameSettings?.startMode === 'EXISTING_COUNTRY'
+
+    // Budget Calculation (only for freeform mode)
+    const BUDGET = gameSettings?.expansionPoints || 5000
     const cost = useMemo(() => {
+        if (isExistingCountry) return 0 // No cost for existing countries
+
         let total = 0
 
         // Population cost: 200 per million
@@ -121,9 +126,9 @@ export function ConstitutionModal() {
         }
 
         return Math.round(total)
-    }, [totalPop, infrastructureStats])
+    }, [totalPop, infrastructureStats, isExistingCountry])
 
-    const isOverBudget = cost > BUDGET
+    const isOverBudget = !isExistingCountry && cost > BUDGET
 
     // Don't show if not in constitution phase
     if (phase !== 'CONSTITUTION') {
@@ -162,7 +167,9 @@ export function ConstitutionModal() {
                 taxIncome: 0,
                 expenses: 0
             },
-            buildings: []
+            buildings: [],
+            units: [],
+            warPlans: []
         }
 
         // Initialize AI countries from consequences
@@ -170,9 +177,13 @@ export function ConstitutionModal() {
             language: selectedLanguage,
             culture: selectedCulture,
             religion: selectedReligion
-        })
+        }, countriesData as any)
 
         setNation(nation)
+        // Set selectedCountry to 'PLAYER' for custom nations so coalition system works
+        if (!isExistingCountry) {
+            useGameStore.getState().setSelectedCountry('PLAYER')
+        }
         setPhase('RESULTS')
     }
 
@@ -194,26 +205,28 @@ export function ConstitutionModal() {
                     </p>
                 </div>
 
-                {/* Budget Section */}
-                <div className={`p-4 border-b border-white/5 ${isOverBudget ? 'bg-red-900/20' : 'bg-emerald-900/10'}`}>
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="text-sm font-bold text-gray-300">Expansion Budget</span>
-                        <span className={`font-mono font-bold ${isOverBudget ? 'text-red-400' : 'text-emerald-400'}`}>
-                            {cost} / {BUDGET} pts
-                        </span>
+                {/* Budget Section - Only show for freeform mode */}
+                {!isExistingCountry && (
+                    <div className={`p-4 border-b border-white/5 ${isOverBudget ? 'bg-red-900/20' : 'bg-emerald-900/10'}`}>
+                        <div className="flex justify-between items-center mb-2">
+                            <span className="text-sm font-bold text-gray-300">Expansion Budget</span>
+                            <span className={`font-mono font-bold ${isOverBudget ? 'text-red-400' : 'text-emerald-400'}`}>
+                                {cost} / {BUDGET} pts
+                            </span>
+                        </div>
+                        <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
+                            <div
+                                className={`h-full transition-all duration-500 ${isOverBudget ? 'bg-red-500' : 'bg-emerald-500'}`}
+                                style={{ width: `${Math.min((cost / BUDGET) * 100, 100)}%` }}
+                            />
+                        </div>
+                        {isOverBudget && (
+                            <p className="text-xs text-red-400 mt-2 text-center">
+                                ⚠️ Territory too expensive! Reduce size or capture fewer major cities/ports.
+                            </p>
+                        )}
                     </div>
-                    <div className="w-full bg-gray-800 rounded-full h-2 overflow-hidden">
-                        <div
-                            className={`h-full transition-all duration-500 ${isOverBudget ? 'bg-red-500' : 'bg-emerald-500'}`}
-                            style={{ width: `${Math.min((cost / BUDGET) * 100, 100)}%` }}
-                        />
-                    </div>
-                    {isOverBudget && (
-                        <p className="text-xs text-red-400 mt-2 text-center">
-                            ⚠️ Territory too expensive! Reduce size or capture fewer major cities/ports.
-                        </p>
-                    )}
-                </div>
+                )}
 
                 {/* Stats Summary */}
                 <div className="p-4 bg-black/30 border-b border-white/5">

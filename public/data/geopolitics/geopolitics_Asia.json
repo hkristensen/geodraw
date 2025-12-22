@@ -1,0 +1,1595 @@
+{
+    "continent": "Asia",
+    "last_updated": "2025-12-18",
+    "countries": [
+        {
+            "name": "Afghanistan",
+            "leader": "Hibatullah Akhundzada",
+            "orientation": "Theocratic",
+            "gov_type": "Theocratic Emirate",
+            "policies": [
+                "Sharia Consolidation",
+                "Mining Expansion",
+                "Regional Trade Recognition"
+            ],
+            "allies": [
+                "China",
+                "Pakistan",
+                "Qatar"
+            ],
+            "enemies": [
+                "USA",
+                "Tajikistan",
+                "IS-K"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 3,
+            "leader_pop": 4,
+            "freedom": 1,
+            "military": 2,
+            "aggression": 3,
+            "trade": [
+                "China",
+                "Pakistan",
+                "UAE"
+            ]
+        },
+        {
+            "name": "Armenia",
+            "leader": "Nikol Pashinyan",
+            "orientation": "Center-Left",
+            "gov_type": "Parliamentary Republic",
+            "policies": [
+                "EU Integration Pivot",
+                "Border Demarcation",
+                "Tech Sector Growth"
+            ],
+            "allies": [
+                "France",
+                "USA",
+                "India"
+            ],
+            "enemies": [
+                "Azerbaijan",
+                "Russia (Tense)"
+            ],
+            "religions": [
+                "Christianity"
+            ],
+            "unrest": 4,
+            "leader_pop": 2,
+            "freedom": 4,
+            "military": 2,
+            "aggression": 1,
+            "trade": [
+                "Russia",
+                "China",
+                "UAE"
+            ]
+        },
+        {
+            "name": "Azerbaijan",
+            "leader": "Ilham Aliyev",
+            "orientation": "Nationalist",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "Zangezur Corridor",
+                "Gas Export Expansion",
+                "Green Energy Transition"
+            ],
+            "allies": [
+                "Turkey",
+                "Israel",
+                "Pakistan"
+            ],
+            "enemies": [
+                "Armenia",
+                "France"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 2,
+            "leader_pop": 5,
+            "freedom": 1,
+            "military": 4,
+            "aggression": 4,
+            "trade": [
+                "Italy",
+                "Turkey",
+                "Israel"
+            ]
+        },
+        {
+            "name": "Bahrain",
+            "leader": "King Hamad bin Isa Al Khalifa",
+            "orientation": "Conservative",
+            "gov_type": "Constitutional Monarchy",
+            "policies": [
+                "Economic Vision 2030",
+                "Regional Defense Integration"
+            ],
+            "allies": [
+                "USA",
+                "Saudi Arabia",
+                "UAE"
+            ],
+            "enemies": [
+                "Iran (Tense)"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 3,
+            "leader_pop": 4,
+            "freedom": 2,
+            "military": 2,
+            "aggression": 1,
+            "trade": [
+                "Saudi Arabia",
+                "USA",
+                "UAE"
+            ]
+        },
+        {
+            "name": "Bangladesh",
+            "leader": "Muhammad Yunus (Interim)",
+            "orientation": "Center-Left",
+            "gov_type": "Interim Government",
+            "policies": [
+                "Democratic Restoration",
+                "Garment Export Stability",
+                "Judicial Reform"
+            ],
+            "allies": [
+                "USA",
+                "EU",
+                "India (Strategic)"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 4,
+            "leader_pop": 4,
+            "freedom": 3,
+            "military": 2,
+            "aggression": 1,
+            "trade": [
+                "USA",
+                "Germany",
+                "China"
+            ]
+        },
+        {
+            "name": "Bhutan",
+            "leader": "Tshering Tobgay",
+            "orientation": "Centrist",
+            "gov_type": "Constitutional Monarchy",
+            "policies": [
+                "Gross National Happiness",
+                "Gelephu Mindfulness City",
+                "Hydropower Exports"
+            ],
+            "allies": [
+                "India",
+                "Japan"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Buddhism"
+            ],
+            "unrest": 1,
+            "leader_pop": 5,
+            "freedom": 4,
+            "military": 1,
+            "aggression": 1,
+            "trade": [
+                "India",
+                "South Korea"
+            ]
+        },
+        {
+            "name": "Brunei",
+            "leader": "Hassanal Bolkiah",
+            "orientation": "Conservative",
+            "gov_type": "Absolute Monarchy",
+            "policies": [
+                "Oil Wealth Diversification",
+                "Sharia Law Maintenance"
+            ],
+            "allies": [
+                "Singapore",
+                "UK",
+                "China"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 1,
+            "leader_pop": 5,
+            "freedom": 1,
+            "military": 1,
+            "aggression": 1,
+            "trade": [
+                "Australia",
+                "Japan",
+                "China"
+            ]
+        },
+        {
+            "name": "Cambodia",
+            "leader": "Hun Manet",
+            "orientation": "Right-Wing",
+            "gov_type": "Parliamentary Republic (Dominant Party)",
+            "policies": [
+                "Pentagonal Strategy",
+                "Ream Naval Base Expansion"
+            ],
+            "allies": [
+                "China",
+                "Vietnam"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Buddhism"
+            ],
+            "unrest": 2,
+            "leader_pop": 4,
+            "freedom": 2,
+            "military": 2,
+            "aggression": 2,
+            "trade": [
+                "China",
+                "USA",
+                "Thailand"
+            ]
+        },
+        {
+            "name": "China",
+            "leader": "Xi Jinping",
+            "orientation": "Communist (CCP)",
+            "gov_type": "One-Party State",
+            "policies": [
+                "New Productive Forces",
+                "Taiwan Reunification",
+                "AI Supremacy"
+            ],
+            "allies": [
+                "Russia",
+                "Pakistan",
+                "Iran",
+                "North Korea"
+            ],
+            "enemies": [
+                "USA",
+                "India",
+                "Taiwan",
+                "Japan"
+            ],
+            "religions": [
+                "Irreligious",
+                "Buddhism"
+            ],
+            "unrest": 2,
+            "leader_pop": 4,
+            "freedom": 1,
+            "military": 5,
+            "aggression": 4,
+            "trade": [
+                "USA",
+                "ASEAN",
+                "EU"
+            ]
+        },
+        {
+            "name": "Cyprus",
+            "leader": "Nikos Christodoulides",
+            "orientation": "Centrist",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "Maritime Energy Hub",
+                "EU Border Security"
+            ],
+            "allies": [
+                "Greece",
+                "USA",
+                "Israel"
+            ],
+            "enemies": [
+                "Turkey"
+            ],
+            "religions": [
+                "Christianity"
+            ],
+            "unrest": 2,
+            "leader_pop": 3,
+            "freedom": 5,
+            "military": 2,
+            "aggression": 1,
+            "trade": [
+                "Greece",
+                "UK",
+                "Israel"
+            ]
+        },
+        {
+            "name": "Georgia",
+            "leader": "Irakli Kobakhidze",
+            "orientation": "Right-Wing Populist",
+            "gov_type": "Parliamentary Republic",
+            "policies": [
+                "EU Candidacy Neutralization",
+                "Foreign Influence Laws"
+            ],
+            "allies": [
+                "Russia (Strategic)",
+                "China",
+                "Hungary"
+            ],
+            "enemies": [
+                "USA (Tense)",
+                "EU Leadership"
+            ],
+            "religions": [
+                "Christianity"
+            ],
+            "unrest": 5,
+            "leader_pop": 3,
+            "freedom": 3,
+            "military": 2,
+            "aggression": 2,
+            "trade": [
+                "Turkey",
+                "Russia",
+                "China"
+            ]
+        },
+        {
+            "name": "India",
+            "leader": "Narendra Modi",
+            "orientation": "Right-Wing Nationalist",
+            "gov_type": "Parliamentary Republic",
+            "policies": [
+                "Viksit Bharat 2047",
+                "Global South Leadership",
+                "Semiconductor Mission"
+            ],
+            "allies": [
+                "USA",
+                "France",
+                "UAE",
+                "Russia"
+            ],
+            "enemies": [
+                "Pakistan",
+                "China"
+            ],
+            "religions": [
+                "Hinduism",
+                "Islam",
+                "Sikhism"
+            ],
+            "unrest": 3,
+            "leader_pop": 5,
+            "freedom": 3,
+            "military": 5,
+            "aggression": 3,
+            "trade": [
+                "USA",
+                "UAE",
+                "China"
+            ]
+        },
+        {
+            "name": "Indonesia",
+            "leader": "Prabowo Subianto",
+            "orientation": "Nationalist",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "Downstreaming Nickel",
+                "IKN Capital Completion",
+                "Non-Aligned Defense"
+            ],
+            "allies": [
+                "China",
+                "USA",
+                "Australia"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 3,
+            "leader_pop": 4,
+            "freedom": 3,
+            "military": 4,
+            "aggression": 2,
+            "trade": [
+                "China",
+                "USA",
+                "Japan"
+            ]
+        },
+        {
+            "name": "Iran",
+            "leader": "Ali Khamenei / Masoud Pezeshkian",
+            "orientation": "Conservative",
+            "gov_type": "Theocratic Republic",
+            "policies": [
+                "Nuclear Program Pivot",
+                "Resistance Axis Funding",
+                "Sanction Evasion"
+            ],
+            "allies": [
+                "Russia",
+                "China",
+                "Syria"
+            ],
+            "enemies": [
+                "Israel",
+                "USA",
+                "Saudi Arabia (Tense)"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 4,
+            "leader_pop": 2,
+            "freedom": 1,
+            "military": 4,
+            "aggression": 5,
+            "trade": [
+                "China",
+                "Russia",
+                "UAE"
+            ]
+        },
+        {
+            "name": "Iraq",
+            "leader": "Mohammed Shia' al-Sudani",
+            "orientation": "Center-Right",
+            "gov_type": "Parliamentary Republic",
+            "policies": [
+                "Development Road Project",
+                "US Troop Withdrawal Talks"
+            ],
+            "allies": [
+                "Iran",
+                "USA (Security)",
+                "Turkey"
+            ],
+            "enemies": [
+                "ISIL"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 4,
+            "leader_pop": 3,
+            "freedom": 3,
+            "military": 3,
+            "aggression": 2,
+            "trade": [
+                "China",
+                "Turkey",
+                "India"
+            ]
+        },
+        {
+            "name": "Israel",
+            "leader": "Benjamin Netanyahu",
+            "orientation": "Right-Wing",
+            "gov_type": "Parliamentary Democracy",
+            "policies": [
+                "Hamas/Hezbollah Erasure",
+                "Iran Containment",
+                "Abraham Accords Expansion"
+            ],
+            "allies": [
+                "USA",
+                "Germany",
+                "UK",
+                "Czechia"
+            ],
+            "enemies": [
+                "Iran",
+                "Lebanon",
+                "Syria"
+            ],
+            "religions": [
+                "Judaism",
+                "Islam"
+            ],
+            "unrest": 4,
+            "leader_pop": 2,
+            "freedom": 4,
+            "military": 5,
+            "aggression": 5,
+            "trade": [
+                "USA",
+                "China",
+                "Belgium"
+            ]
+        },
+        {
+            "name": "Japan",
+            "leader": "Shigeru Ishiba",
+            "orientation": "Center-Right",
+            "gov_type": "Constitutional Monarchy",
+            "policies": [
+                "Asian NATO Vision",
+                "Economic Security",
+                "Natalist Support"
+            ],
+            "allies": [
+                "USA",
+                "Australia",
+                "South Korea",
+                "UK"
+            ],
+            "enemies": [
+                "China",
+                "North Korea",
+                "Russia"
+            ],
+            "religions": [
+                "Shinto",
+                "Buddhism"
+            ],
+            "unrest": 1,
+            "leader_pop": 3,
+            "freedom": 5,
+            "military": 4,
+            "aggression": 2,
+            "trade": [
+                "China",
+                "USA",
+                "Australia"
+            ]
+        },
+        {
+            "name": "Jordan",
+            "leader": "King Abdullah II",
+            "orientation": "Centrist",
+            "gov_type": "Constitutional Monarchy",
+            "policies": [
+                "Regional Buffer Stability",
+                "Water-for-Energy Pacts"
+            ],
+            "allies": [
+                "USA",
+                "UK",
+                "Saudi Arabia"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 4,
+            "leader_pop": 4,
+            "freedom": 3,
+            "military": 3,
+            "aggression": 1,
+            "trade": [
+                "USA",
+                "Saudi Arabia",
+                "China"
+            ]
+        },
+        {
+            "name": "Kazakhstan",
+            "leader": "Kassym-Jomart Tokayev",
+            "orientation": "Nationalist",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "Multi-Vector Diplomacy",
+                "Rare Earth Mining"
+            ],
+            "allies": [
+                "Russia",
+                "China",
+                "USA",
+                "Turkey"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Islam",
+                "Christianity"
+            ],
+            "unrest": 2,
+            "leader_pop": 4,
+            "freedom": 2,
+            "military": 3,
+            "aggression": 1,
+            "trade": [
+                "China",
+                "Russia",
+                "Italy"
+            ]
+        },
+        {
+            "name": "Kuwait",
+            "leader": "Mishal Al-Ahmad Al-Jaber Al-Sabah",
+            "orientation": "Conservative",
+            "gov_type": "Constitutional Monarchy",
+            "policies": [
+                "Parliamentary Restructuring",
+                "Oil Neutrality"
+            ],
+            "allies": [
+                "USA",
+                "Saudi Arabia",
+                "UK"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 2,
+            "leader_pop": 4,
+            "freedom": 2,
+            "military": 2,
+            "aggression": 1,
+            "trade": [
+                "China",
+                "USA",
+                "India"
+            ]
+        },
+        {
+            "name": "Kyrgyzstan",
+            "leader": "Sadyr Japarov",
+            "orientation": "Nationalist",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "China-Kyrgyzstan-Uzbekistan Rail",
+                "Gold Sovereignty"
+            ],
+            "allies": [
+                "Russia",
+                "China",
+                "Turkey"
+            ],
+            "enemies": [
+                "Tajikistan (Border Tensions)"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 3,
+            "leader_pop": 4,
+            "freedom": 2,
+            "military": 2,
+            "aggression": 3,
+            "trade": [
+                "China",
+                "Russia",
+                "Kazakhstan"
+            ]
+        },
+        {
+            "name": "Laos",
+            "leader": "Thongloun Sisoulith",
+            "orientation": "Communist",
+            "gov_type": "One-Party State",
+            "policies": [
+                "ASEAN Integration",
+                "Hydropower Battery of Asia"
+            ],
+            "allies": [
+                "China",
+                "Vietnam",
+                "Thailand"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Buddhism"
+            ],
+            "unrest": 3,
+            "leader_pop": 3,
+            "freedom": 1,
+            "military": 1,
+            "aggression": 1,
+            "trade": [
+                "Thailand",
+                "China",
+                "Vietnam"
+            ]
+        },
+        {
+            "name": "Lebanon",
+            "leader": "Najib Mikati",
+            "orientation": "Centrist",
+            "gov_type": "Parliamentary Republic",
+            "policies": [
+                "Border Stabilization",
+                "Banking Restructuring"
+            ],
+            "allies": [
+                "France",
+                "USA",
+                "Iran (via Hezbollah)"
+            ],
+            "enemies": [
+                "Israel"
+            ],
+            "religions": [
+                "Islam",
+                "Christianity"
+            ],
+            "unrest": 5,
+            "leader_pop": 1,
+            "freedom": 3,
+            "military": 2,
+            "aggression": 4,
+            "trade": [
+                "UAE",
+                "China",
+                "Turkey"
+            ]
+        },
+        {
+            "name": "Malaysia",
+            "leader": "Anwar Ibrahim",
+            "orientation": "Center-Left",
+            "gov_type": "Constitutional Monarchy",
+            "policies": [
+                "BRICS Membership Drive",
+                "Digital Economy Blueprint"
+            ],
+            "allies": [
+                "China",
+                "Indonesia",
+                "Turkey"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Islam",
+                "Buddhism",
+                "Hinduism"
+            ],
+            "unrest": 2,
+            "leader_pop": 3,
+            "freedom": 4,
+            "military": 3,
+            "aggression": 2,
+            "trade": [
+                "China",
+                "Singapore",
+                "USA"
+            ]
+        },
+        {
+            "name": "Maldives",
+            "leader": "Mohamed Muizzu",
+            "orientation": "Nationalist",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "India-Out Policy",
+                "China Free Trade",
+                "Climate Resilience"
+            ],
+            "allies": [
+                "China",
+                "Turkey",
+                "UAE"
+            ],
+            "enemies": [
+                "India (Tense)"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 3,
+            "leader_pop": 4,
+            "freedom": 3,
+            "military": 1,
+            "aggression": 2,
+            "trade": [
+                "China",
+                "India",
+                "Thailand"
+            ]
+        },
+        {
+            "name": "Mongolia",
+            "leader": "Luvsannamsrain Oyun-Erdene",
+            "orientation": "Centrist",
+            "gov_type": "Parliamentary Republic",
+            "policies": [
+                "Third Neighbor Policy",
+                "Copper Sector Expansion"
+            ],
+            "allies": [
+                "USA",
+                "Japan",
+                "South Korea"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Buddhism",
+                "Shamanism"
+            ],
+            "unrest": 2,
+            "leader_pop": 3,
+            "freedom": 4,
+            "military": 2,
+            "aggression": 1,
+            "trade": [
+                "China",
+                "Russia",
+                "Switzerland"
+            ]
+        },
+        {
+            "name": "Myanmar",
+            "leader": "Min Aung Hlaing",
+            "orientation": "Far-Right (Military)",
+            "gov_type": "Military Junta",
+            "policies": [
+                "Counter-Insurgency",
+                "Alternative Trade Corridors"
+            ],
+            "allies": [
+                "Russia",
+                "China",
+                "Thailand"
+            ],
+            "enemies": [
+                "NUG (Internal)",
+                "Ethnic Armed Orgs"
+            ],
+            "religions": [
+                "Buddhism"
+            ],
+            "unrest": 5,
+            "leader_pop": 1,
+            "freedom": 1,
+            "military": 3,
+            "aggression": 4,
+            "trade": [
+                "China",
+                "Thailand",
+                "India"
+            ]
+        },
+        {
+            "name": "Nepal",
+            "leader": "KP Sharma Oli",
+            "orientation": "Left-Wing",
+            "gov_type": "Parliamentary Republic",
+            "policies": [
+                "Equidistance Diplomacy",
+                "Hydropower Industrialization"
+            ],
+            "allies": [
+                "China",
+                "India",
+                "USA"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Hinduism",
+                "Buddhism"
+            ],
+            "unrest": 3,
+            "leader_pop": 3,
+            "freedom": 4,
+            "military": 2,
+            "aggression": 1,
+            "trade": [
+                "India",
+                "China",
+                "USA"
+            ]
+        },
+        {
+            "name": "North Korea",
+            "leader": "Kim Jong Un",
+            "orientation": "Communist (Juche)",
+            "gov_type": "Totalitarian Dictatorship",
+            "policies": [
+                "Nuclear Triad Expansion",
+                "Russian Military Tech Exchange"
+            ],
+            "allies": [
+                "Russia",
+                "China"
+            ],
+            "enemies": [
+                "South Korea",
+                "USA",
+                "Japan"
+            ],
+            "religions": [
+                "Irreligious"
+            ],
+            "unrest": 1,
+            "leader_pop": 5,
+            "freedom": 1,
+            "military": 4,
+            "aggression": 5,
+            "trade": [
+                "China",
+                "Russia"
+            ]
+        },
+        {
+            "name": "Oman",
+            "leader": "Haitham bin Tariq",
+            "orientation": "Centrist",
+            "gov_type": "Absolute Monarchy",
+            "policies": [
+                "Vision 2040",
+                "Regional Neutral Mediation"
+            ],
+            "allies": [
+                "UK",
+                "USA",
+                "Iran",
+                "India"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 1,
+            "leader_pop": 5,
+            "freedom": 2,
+            "military": 3,
+            "aggression": 1,
+            "trade": [
+                "China",
+                "UAE",
+                "Saudi Arabia"
+            ]
+        },
+        {
+            "name": "Pakistan",
+            "leader": "Shehbaz Sharif",
+            "orientation": "Center-Right",
+            "gov_type": "Parliamentary Republic",
+            "policies": [
+                "CPEC Phase 2",
+                "IMF Stabilization",
+                "Counter-Terrorism Ops"
+            ],
+            "allies": [
+                "China",
+                "Saudi Arabia",
+                "Turkey"
+            ],
+            "enemies": [
+                "India",
+                "Afghanistan (Tense)"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 5,
+            "leader_pop": 2,
+            "freedom": 3,
+            "military": 4,
+            "aggression": 3,
+            "trade": [
+                "China",
+                "USA",
+                "UAE"
+            ]
+        },
+        {
+            "name": "Palestine",
+            "leader": "Mahmoud Abbas",
+            "orientation": "Nationalist",
+            "gov_type": "Presidential (Contested)",
+            "policies": [
+                "Statehood Recognition",
+                "Reconstruction Diplomacy"
+            ],
+            "allies": [
+                "Jordan",
+                "Egypt",
+                "China",
+                "Russia"
+            ],
+            "enemies": [
+                "Israel"
+            ],
+            "religions": [
+                "Islam",
+                "Christianity"
+            ],
+            "unrest": 5,
+            "leader_pop": 2,
+            "freedom": 2,
+            "military": 1,
+            "aggression": 3,
+            "trade": [
+                "Israel",
+                "Jordan"
+            ]
+        },
+        {
+            "name": "Philippines",
+            "leader": "Ferdinand Marcos Jr.",
+            "orientation": "Center-Right",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "West Philippine Sea Defense",
+                "US Basing Expansion",
+                "Modernization"
+            ],
+            "allies": [
+                "USA",
+                "Japan",
+                "Vietnam"
+            ],
+            "enemies": [
+                "China"
+            ],
+            "religions": [
+                "Christianity"
+            ],
+            "unrest": 3,
+            "leader_pop": 4,
+            "freedom": 4,
+            "military": 3,
+            "aggression": 3,
+            "trade": [
+                "China",
+                "USA",
+                "Japan"
+            ]
+        },
+        {
+            "name": "Qatar",
+            "leader": "Tamim bin Hamad Al Thani",
+            "orientation": "Centrist",
+            "gov_type": "Constitutional Monarchy",
+            "policies": [
+                "Global Mediation Hub",
+                "LNG Expansion 2026",
+                "Soft Power Assets"
+            ],
+            "allies": [
+                "USA",
+                "Turkey",
+                "Iran"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 1,
+            "leader_pop": 5,
+            "freedom": 2,
+            "military": 3,
+            "aggression": 2,
+            "trade": [
+                "China",
+                "USA",
+                "Japan"
+            ]
+        },
+        {
+            "name": "Saudi Arabia",
+            "leader": "Mohammed bin Salman",
+            "orientation": "Nationalist",
+            "gov_type": "Absolute Monarchy",
+            "policies": [
+                "Vision 2030",
+                "Giga-Project Funding",
+                "Strategic Autonomy"
+            ],
+            "allies": [
+                "USA (Strategic)",
+                "UAE",
+                "Egypt",
+                "China"
+            ],
+            "enemies": [
+                "Iran (Historical Rival)",
+                "Houthis"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 1,
+            "leader_pop": 5,
+            "freedom": 1,
+            "military": 4,
+            "aggression": 4,
+            "trade": [
+                "China",
+                "Japan",
+                "India"
+            ]
+        },
+        {
+            "name": "Singapore",
+            "leader": "Lawrence Wong",
+            "orientation": "Center-Right",
+            "gov_type": "Parliamentary Republic",
+            "policies": [
+                "Supply Chain Resiliency",
+                "AI Governance Leadership"
+            ],
+            "allies": [
+                "USA",
+                "China",
+                "ASEAN"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Buddhism",
+                "Christianity",
+                "Islam"
+            ],
+            "unrest": 1,
+            "leader_pop": 4,
+            "freedom": 4,
+            "military": 4,
+            "aggression": 1,
+            "trade": [
+                "China",
+                "USA",
+                "Malaysia"
+            ]
+        },
+        {
+            "name": "South Korea",
+            "leader": "Yoon Suk Yeol",
+            "orientation": "Right-Wing",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "Nuclear Deterrence Shield",
+                "Global Pivot State",
+                "Export Modernization"
+            ],
+            "allies": [
+                "USA",
+                "Japan",
+                "Australia"
+            ],
+            "enemies": [
+                "North Korea",
+                "Russia (Tense)"
+            ],
+            "religions": [
+                "Christianity",
+                "Buddhism",
+                "Secular"
+            ],
+            "unrest": 4,
+            "leader_pop": 2,
+            "freedom": 5,
+            "military": 5,
+            "aggression": 2,
+            "trade": [
+                "China",
+                "USA",
+                "Vietnam"
+            ]
+        },
+        {
+            "name": "Sri Lanka",
+            "leader": "Anura Kumara Dissanayake",
+            "orientation": "Far-Left",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "IMF Renegotiation",
+                "Anti-Corruption",
+                "Agricultural Subsidy"
+            ],
+            "allies": [
+                "India",
+                "China"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Buddhism",
+                "Hinduism"
+            ],
+            "unrest": 3,
+            "leader_pop": 4,
+            "freedom": 4,
+            "military": 2,
+            "aggression": 1,
+            "trade": [
+                "USA",
+                "India",
+                "UK"
+            ]
+        },
+        {
+            "name": "Syria",
+            "leader": "Bashar al-Assad",
+            "orientation": "Far-Left (Arab Nationalist)",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "Arab League Reintegration",
+                "Territorial Recapture"
+            ],
+            "allies": [
+                "Russia",
+                "Iran",
+                "UAE"
+            ],
+            "enemies": [
+                "Turkey",
+                "Israel",
+                "USA"
+            ],
+            "religions": [
+                "Islam",
+                "Christianity"
+            ],
+            "unrest": 5,
+            "leader_pop": 3,
+            "freedom": 1,
+            "military": 3,
+            "aggression": 4,
+            "trade": [
+                "Russia",
+                "China",
+                "Iran"
+            ]
+        },
+        {
+            "name": "Taiwan",
+            "leader": "Lai Ching-te",
+            "orientation": "Center-Left",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "Asymmetric Defense",
+                "Silicon Shield Expansion"
+            ],
+            "allies": [
+                "USA",
+                "Japan",
+                "Lithuania"
+            ],
+            "enemies": [
+                "China"
+            ],
+            "religions": [
+                "Buddhism",
+                "Taoism"
+            ],
+            "unrest": 2,
+            "leader_pop": 4,
+            "freedom": 5,
+            "military": 4,
+            "aggression": 2,
+            "trade": [
+                "China",
+                "USA",
+                "Japan"
+            ]
+        },
+        {
+            "name": "Tajikistan",
+            "leader": "Emomali Rahmon",
+            "orientation": "Nationalist",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "Anti-Taliban Border Shield",
+                "Rogun Dam Completion"
+            ],
+            "allies": [
+                "Russia",
+                "China",
+                "India"
+            ],
+            "enemies": [
+                "Afghanistan",
+                "Kyrgyzstan (Tense)"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 3,
+            "leader_pop": 4,
+            "freedom": 1,
+            "military": 2,
+            "aggression": 3,
+            "trade": [
+                "China",
+                "Russia",
+                "Kazakhstan"
+            ]
+        },
+        {
+            "name": "Thailand",
+            "leader": "Paetongtarn Shinawatra",
+            "orientation": "Centrist",
+            "gov_type": "Constitutional Monarchy",
+            "policies": [
+                "Digital Wallet Stimulus",
+                "Land Bridge Mega-Project"
+            ],
+            "allies": [
+                "China",
+                "USA",
+                "Japan"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Buddhism"
+            ],
+            "unrest": 3,
+            "leader_pop": 3,
+            "freedom": 3,
+            "military": 3,
+            "aggression": 1,
+            "trade": [
+                "China",
+                "USA",
+                "Japan"
+            ]
+        },
+        {
+            "name": "Timor-Leste",
+            "leader": "José Ramos-Horta",
+            "orientation": "Center-Left",
+            "gov_type": "Parliamentary Republic",
+            "policies": [
+                "ASEAN Entry 2025",
+                "Greater Sunrise Gas"
+            ],
+            "allies": [
+                "Australia",
+                "Portugal",
+                "Indonesia"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Christianity"
+            ],
+            "unrest": 2,
+            "leader_pop": 5,
+            "freedom": 5,
+            "military": 1,
+            "aggression": 1,
+            "trade": [
+                "Indonesia",
+                "China",
+                "Australia"
+            ]
+        },
+        {
+            "name": "Turkey",
+            "leader": "Recep Tayyip Erdoğan",
+            "orientation": "Right-Wing Populist",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "Steel Dome Defense",
+                "Regional Mediation",
+                "Blue Homeland"
+            ],
+            "allies": [
+                "Azerbaijan",
+                "Qatar",
+                "NATO"
+            ],
+            "enemies": [
+                "Syrian Kurds",
+                "Cyprus (Tense)"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 3,
+            "leader_pop": 3,
+            "freedom": 2,
+            "military": 4,
+            "aggression": 4,
+            "trade": [
+                "Germany",
+                "Russia",
+                "China"
+            ]
+        },
+        {
+            "name": "Turkmenistan",
+            "leader": "Serdar Berdimuhamedov",
+            "orientation": "Nationalist",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "Permanent Neutrality",
+                "TAPI Pipeline Expansion"
+            ],
+            "allies": [
+                "Turkey",
+                "Russia",
+                "China"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 1,
+            "leader_pop": 5,
+            "freedom": 1,
+            "military": 2,
+            "aggression": 1,
+            "trade": [
+                "China",
+                "Turkey",
+                "Russia"
+            ]
+        },
+        {
+            "name": "UAE",
+            "leader": "Mohamed bin Zayed Al Nahyan",
+            "orientation": "Conservative-Modernist",
+            "gov_type": "Federal Monarchy",
+            "policies": [
+                "Beyond Oil Strategy",
+                "AI Sovereignty",
+                "Global Logistic Hub"
+            ],
+            "allies": [
+                "Saudi Arabia",
+                "USA",
+                "India",
+                "Egypt"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 1,
+            "leader_pop": 5,
+            "freedom": 2,
+            "military": 4,
+            "aggression": 3,
+            "trade": [
+                "China",
+                "India",
+                "USA"
+            ]
+        },
+        {
+            "name": "Uzbekistan",
+            "leader": "Shavkat Mirziyoyev",
+            "orientation": "Centrist",
+            "gov_type": "Presidential Republic",
+            "policies": [
+                "New Uzbekistan Reforms",
+                "Privatization Drive"
+            ],
+            "allies": [
+                "Russia",
+                "China",
+                "Turkey"
+            ],
+            "enemies": [
+                "None"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 2,
+            "leader_pop": 4,
+            "freedom": 2,
+            "military": 3,
+            "aggression": 1,
+            "trade": [
+                "China",
+                "Russia",
+                "Kazakhstan"
+            ]
+        },
+        {
+            "name": "Vietnam",
+            "leader": "To Lam",
+            "orientation": "Communist",
+            "gov_type": "One-Party State",
+            "policies": [
+                "Bamboo Diplomacy",
+                "Tech-Up Global Value Chain"
+            ],
+            "allies": [
+                "China",
+                "USA",
+                "Russia",
+                "Japan"
+            ],
+            "enemies": [
+                "China (Maritime Dispute)"
+            ],
+            "religions": [
+                "Irreligious",
+                "Buddhism"
+            ],
+            "unrest": 2,
+            "leader_pop": 4,
+            "freedom": 2,
+            "military": 4,
+            "aggression": 3,
+            "trade": [
+                "USA",
+                "China",
+                "South Korea"
+            ]
+        },
+        {
+            "name": "Yemen",
+            "leader": "Rashad al-Alimi",
+            "orientation": "Centrist (Transitional)",
+            "gov_type": "Presidential Council",
+            "policies": [
+                "Territorial Unity",
+                "Houthi Counter-Insurgency"
+            ],
+            "allies": [
+                "Saudi Arabia",
+                "UAE",
+                "USA",
+                "UK"
+            ],
+            "enemies": [
+                "Houthi Rebels",
+                "Iran"
+            ],
+            "religions": [
+                "Islam"
+            ],
+            "unrest": 5,
+            "leader_pop": 2,
+            "freedom": 2,
+            "military": 2,
+            "aggression": 3,
+            "trade": [
+                "China",
+                "Saudi Arabia",
+                "Thailand"
+            ]
+        }
+    ]
+}

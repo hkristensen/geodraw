@@ -51,9 +51,9 @@ let loadingPromise: Promise<void> | null = null
 async function loadInfrastructureData(): Promise<void> {
     try {
         const [airportsRes, portsRes, citiesRes] = await Promise.all([
-            fetch('/src/data/airports.geojson'),
-            fetch('/src/data/ports.geojson'),
-            fetch('/src/data/populated_places.geojson'),
+            fetch('/data/airports.geojson'),
+            fetch('/data/ports.geojson'),
+            fetch('/data/populated_places.geojson'),
         ])
 
         const [airportsFC, portsFC, citiesFC] = await Promise.all([

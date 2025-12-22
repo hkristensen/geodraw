@@ -1,0 +1,1549 @@
+{
+  "continent": "Europe",
+  "data_version": "2025.Q4",
+  "countries": [
+    {
+      "name": "Germany",
+      "leader": "Friedrich Merz",
+      "orientation": "Center-Right",
+      "gov_type": "Federal Republic",
+      "policies": [
+        "Defense Spending (3% GDP)",
+        "Industrial De-risking",
+        "Migration Caps"
+      ],
+      "allies": [
+        "USA",
+        "France",
+        "Poland"
+      ],
+      "enemies": [
+        "Russia"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "trade": [
+        "China",
+        "USA",
+        "France"
+      ],
+      "stats": {
+        "unrest": 3,
+        "popularity": 3,
+        "freedom": 5,
+        "military": 4,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "France",
+      "leader": "Emmanuel Macron",
+      "orientation": "Centrist",
+      "gov_type": "Semi-Presidential",
+      "policies": [
+        "EU Strategic Autonomy",
+        "Nuclear Energy Expansion",
+        "Labor Reform"
+      ],
+      "allies": [
+        "Germany",
+        "UK",
+        "Morocco"
+      ],
+      "enemies": [
+        "Russia",
+        "Azerbaijan"
+      ],
+      "religions": [
+        "Secular",
+        "Christianity",
+        "Islam"
+      ],
+      "trade": [
+        "Germany",
+        "Italy",
+        "USA"
+      ],
+      "stats": {
+        "unrest": 5,
+        "popularity": 1,
+        "freedom": 5,
+        "military": 4,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "United Kingdom",
+      "leader": "Keir Starmer",
+      "orientation": "Center-Left",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Green Energy Superpower",
+        "EU Security Cooperation",
+        "NHS Recovery"
+      ],
+      "allies": [
+        "USA",
+        "Ukraine",
+        "Norway"
+      ],
+      "enemies": [
+        "Russia",
+        "Iran"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "trade": [
+        "EU",
+        "USA",
+        "China"
+      ],
+      "stats": {
+        "unrest": 4,
+        "popularity": 1,
+        "freedom": 5,
+        "military": 4,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Russia",
+      "leader": "Vladimir Putin",
+      "orientation": "Far-Right Nationalist",
+      "gov_type": "Authoritarian",
+      "policies": [
+        "War Mobilization",
+        "Eurasian Integration",
+        "Sovereign Internet"
+      ],
+      "allies": [
+        "China",
+        "Iran",
+        "North Korea"
+      ],
+      "enemies": [
+        "Ukraine",
+        "USA",
+        "NATO"
+      ],
+      "religions": [
+        "Orthodox",
+        "Islam"
+      ],
+      "trade": [
+        "China",
+        "India",
+        "Turkey"
+      ],
+      "stats": {
+        "unrest": 4,
+        "popularity": 4,
+        "freedom": 1,
+        "military": 5,
+        "aggressiveness": 5
+      }
+    },
+    {
+      "name": "Ukraine",
+      "leader": "Volodymyr Zelenskyy",
+      "orientation": "National Centrist",
+      "gov_type": "Semi-Presidential",
+      "policies": [
+        "Territorial Defense",
+        "EU Integration",
+        "Anti-Corruption"
+      ],
+      "allies": [
+        "USA",
+        "Poland",
+        "UK"
+      ],
+      "enemies": [
+        "Russia",
+        "Belarus"
+      ],
+      "religions": [
+        "Orthodox"
+      ],
+      "trade": [
+        "EU",
+        "China",
+        "Turkey"
+      ],
+      "stats": {
+        "unrest": 3,
+        "popularity": 4,
+        "freedom": 4,
+        "military": 4,
+        "aggressiveness": 3
+      }
+    },
+    {
+      "name": "Italy",
+      "leader": "Giorgia Meloni",
+      "orientation": "Right-Wing",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Mattei Plan",
+        "Border Control",
+        "Direct Election Reform"
+      ],
+      "allies": [
+        "USA",
+        "Albania",
+        "EU"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "France",
+        "USA"
+      ],
+      "stats": {
+        "unrest": 4,
+        "popularity": 3,
+        "freedom": 4,
+        "military": 3,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Poland",
+      "leader": "Karol Nawrocki",
+      "orientation": "Right-Wing",
+      "gov_type": "Semi-Presidential",
+      "policies": [
+        "Military Modernization",
+        "Eastern Shield",
+        "Nuclear Power"
+      ],
+      "allies": [
+        "USA",
+        "Ukraine",
+        "Baltics"
+      ],
+      "enemies": [
+        "Russia",
+        "Belarus"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "Czechia",
+        "China"
+      ],
+      "stats": {
+        "unrest": 3,
+        "popularity": 3,
+        "freedom": 4,
+        "military": 4,
+        "aggressiveness": 3
+      }
+    },
+    {
+      "name": "Spain",
+      "leader": "Pedro Sánchez",
+      "orientation": "Left-Wing",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Amnesty Law",
+        "Social Housing",
+        "Mediterranean Diplomacy"
+      ],
+      "allies": [
+        "EU",
+        "Morocco",
+        "Latin America"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "trade": [
+        "France",
+        "Germany",
+        "Italy"
+      ],
+      "stats": {
+        "unrest": 4,
+        "popularity": 2,
+        "freedom": 5,
+        "military": 3,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Turkey",
+      "leader": "Recep Tayyip Erdoğan",
+      "orientation": "Right-Wing Populist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Regional Mediation",
+        "Defense Exports",
+        "Inflation Control"
+      ],
+      "allies": [
+        "Azerbaijan",
+        "Qatar",
+        "NATO"
+      ],
+      "enemies": [
+        "Syrian Kurds",
+        "Cyprus"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "trade": [
+        "Germany",
+        "Russia",
+        "China"
+      ],
+      "stats": {
+        "unrest": 3,
+        "popularity": 3,
+        "freedom": 2,
+        "military": 4,
+        "aggressiveness": 4
+      }
+    },
+    {
+      "name": "Ireland",
+      "leader": "Catherine Connolly",
+      "orientation": "Independent-Left",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Housing Rights",
+        "Neutrality Review",
+        "Tech Tax"
+      ],
+      "allies": [
+        "EU",
+        "USA"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "trade": [
+        "USA",
+        "UK",
+        "EU"
+      ],
+      "stats": {
+        "unrest": 2,
+        "popularity": 4,
+        "freedom": 5,
+        "military": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Austria",
+      "leader": "Christian Stocker",
+      "orientation": "Center-Right",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Neutrality Preservation",
+        "Security Reform",
+        "EU Stability"
+      ],
+      "allies": [
+        "Germany",
+        "EU"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "Italy",
+        "Switzerland"
+      ],
+      "stats": {
+        "unrest": 2,
+        "popularity": 3,
+        "freedom": 5,
+        "military": 2,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Hungary",
+      "leader": "Viktor Orbán",
+      "orientation": "Right-Wing Populist",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Anti-Sanction Diplomacy",
+        "Family Subsidies",
+        "Sovereignty Protection"
+      ],
+      "allies": [
+        "Russia",
+        "China",
+        "Slovakia"
+      ],
+      "enemies": [
+        "EU Leadership"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "China",
+        "Austria"
+      ],
+      "stats": {
+        "unrest": 3,
+        "popularity": 4,
+        "freedom": 2,
+        "military": 2,
+        "aggressiveness": 3
+      }
+    },
+    {
+      "name": "Romania",
+      "leader": "Nicușor Dan",
+      "orientation": "Center-Right",
+      "gov_type": "Semi-Presidential",
+      "policies": [
+        "Urban Modernization",
+        "Anti-Corruption",
+        "Black Sea Security"
+      ],
+      "allies": [
+        "USA",
+        "EU",
+        "Moldova"
+      ],
+      "enemies": [
+        "Russia"
+      ],
+      "religions": [
+        "Orthodox"
+      ],
+      "trade": [
+        "Germany",
+        "Italy",
+        "Hungary"
+      ],
+      "stats": {
+        "unrest": 3,
+        "popularity": 4,
+        "freedom": 4,
+        "military": 3,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Greece",
+      "leader": "Kyriakos Mitsotakis",
+      "orientation": "Center-Right",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Debt Reduction",
+        "Migration Management",
+        "Defense Buildup"
+      ],
+      "allies": [
+        "USA",
+        "France",
+        "Israel"
+      ],
+      "enemies": [
+        "Turkey (Tense)"
+      ],
+      "religions": [
+        "Orthodox"
+      ],
+      "trade": [
+        "Italy",
+        "Germany",
+        "China"
+      ],
+      "stats": {
+        "unrest": 3,
+        "popularity": 3,
+        "freedom": 4,
+        "military": 3,
+        "aggressiveness": 3
+      }
+    },
+    {
+      "name": "Netherlands",
+      "leader": "Dick Schoof",
+      "orientation": "Right-Wing (Technocratic)",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Asylum Restriction",
+        "Agricultural Support",
+        "NATO Funding"
+      ],
+      "allies": [
+        "USA",
+        "Germany",
+        "Belgium"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Secular",
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "Belgium",
+        "China"
+      ],
+      "stats": {
+        "unrest": 3,
+        "popularity": 2,
+        "freedom": 5,
+        "military": 3,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Sweden",
+      "leader": "Ulf Kristersson",
+      "orientation": "Center-Right",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "NATO Integration",
+        "Nuclear Power Revival",
+        "Gang Violence Suppression"
+      ],
+      "allies": [
+        "USA",
+        "Finland",
+        "Norway"
+      ],
+      "enemies": [
+        "Russia"
+      ],
+      "religions": [
+        "Secular",
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "Norway",
+        "USA"
+      ],
+      "stats": {
+        "unrest": 2,
+        "popularity": 3,
+        "freedom": 5,
+        "military": 3,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Norway",
+      "leader": "Jonas Gahr Støre",
+      "orientation": "Center-Left",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Energy Security",
+        "Arctic Defense",
+        "Wealth Fund Management"
+      ],
+      "allies": [
+        "USA",
+        "UK",
+        "Sweden"
+      ],
+      "enemies": [
+        "Russia"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "trade": [
+        "EU",
+        "UK",
+        "Germany"
+      ],
+      "stats": {
+        "unrest": 1,
+        "popularity": 2,
+        "freedom": 5,
+        "military": 3,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Switzerland",
+      "leader": "Viola Amherd",
+      "orientation": "Centrist",
+      "gov_type": "Direct Democracy",
+      "policies": [
+        "Active Neutrality",
+        "Banking Transparency",
+        "EU Bilaterals"
+      ],
+      "allies": [
+        "EU",
+        "USA"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "trade": [
+        "USA",
+        "Germany",
+        "Italy"
+      ],
+      "stats": {
+        "unrest": 1,
+        "popularity": 4,
+        "freedom": 5,
+        "military": 2,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Belgium",
+      "leader": "Alexander De Croo",
+      "orientation": "Centrist",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "EU Institutional Reform",
+        "Energy Transition",
+        "Fiscal Consolidation"
+      ],
+      "allies": [
+        "France",
+        "Germany",
+        "Netherlands"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "France",
+        "Netherlands"
+      ],
+      "stats": {
+        "unrest": 3,
+        "popularity": 2,
+        "freedom": 5,
+        "military": 2,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Portugal",
+      "leader": "Luís Montenegro",
+      "orientation": "Center-Right",
+      "gov_type": "Semi-Presidential",
+      "policies": [
+        "Economic Liberalization",
+        "Tourism Housing Reform",
+        "Maritime Green Transition"
+      ],
+      "allies": [
+        "Spain",
+        "USA",
+        "UK"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Spain",
+        "France",
+        "Germany"
+      ],
+      "stats": {
+        "unrest": 2,
+        "popularity": 3,
+        "freedom": 5,
+        "military": 2,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Czechia",
+      "leader": "Petr Fiala",
+      "orientation": "Center-Right",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Ukraine Military Support",
+        "Nuclear Energy",
+        "Eurozone Discussion"
+      ],
+      "allies": [
+        "USA",
+        "Poland",
+        "Germany"
+      ],
+      "enemies": [
+        "Russia"
+      ],
+      "religions": [
+        "Secular",
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "Slovakia",
+        "Poland"
+      ],
+      "stats": {
+        "unrest": 2,
+        "popularity": 2,
+        "freedom": 5,
+        "military": 3,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Denmark",
+      "leader": "Mette Frederiksen",
+      "orientation": "Center-Left",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Welfare Resilience",
+        "Restrictive Migration",
+        "Green Hydrogen"
+      ],
+      "allies": [
+        "USA",
+        "Sweden",
+        "Norway"
+      ],
+      "enemies": [
+        "Russia"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "trade": [
+        "Germany",
+        "Sweden",
+        "USA"
+      ],
+      "stats": {
+        "unrest": 1,
+        "popularity": 3,
+        "freedom": 5,
+        "military": 2,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Finland",
+      "leader": "Alexander Stubb",
+      "orientation": "Center-Right",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "NATO Border Hardening",
+        "Strategic Reserves",
+        "Education Tech"
+      ],
+      "allies": [
+        "USA",
+        "Sweden",
+        "Estonia"
+      ],
+      "enemies": [
+        "Russia"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "trade": [
+        "Germany",
+        "Sweden",
+        "USA"
+      ],
+      "stats": {
+        "unrest": 1,
+        "popularity": 4,
+        "freedom": 5,
+        "military": 4,
+        "aggressiveness": 3
+      }
+    },
+    {
+      "name": "Slovakia",
+      "leader": "Robert Fico",
+      "orientation": "Left-Populist",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "V4 Cooperation",
+        "Peace Lobbying",
+        "Energy Price Caps"
+      ],
+      "allies": [
+        "Hungary",
+        "Russia (Strategic)"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "Czechia",
+        "China"
+      ],
+      "stats": {
+        "unrest": 4,
+        "popularity": 3,
+        "freedom": 3,
+        "military": 2,
+        "aggressiveness": 3
+      }
+    },
+    {
+      "name": "Bulgaria",
+      "leader": "Rumen Radev",
+      "orientation": "Centrist/Technocratic",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Schengen Entry",
+        "Inflation Neutrality",
+        "Black Sea NATO role"
+      ],
+      "allies": [
+        "USA",
+        "EU",
+        "Greece"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Orthodox"
+      ],
+      "trade": [
+        "Germany",
+        "Turkey",
+        "Italy"
+      ],
+      "stats": {
+        "unrest": 4,
+        "popularity": 3,
+        "freedom": 4,
+        "military": 2,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Croatia",
+      "leader": "Andrej Plenković",
+      "orientation": "Center-Right",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Eurozone Stability",
+        "Tourism Expansion",
+        "Balkan Integration"
+      ],
+      "allies": [
+        "EU",
+        "USA"
+      ],
+      "enemies": [
+        "Serbia (Tense)"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "Italy",
+        "Slovenia"
+      ],
+      "stats": {
+        "unrest": 2,
+        "popularity": 4,
+        "freedom": 5,
+        "military": 2,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Serbia",
+      "leader": "Aleksandar Vučić",
+      "orientation": "Right-Wing Populist",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Military Neutrality",
+        "EU Accession/Russian Ties Balance",
+        "Infrastructure Development"
+      ],
+      "allies": [
+        "Russia",
+        "China",
+        "Hungary"
+      ],
+      "enemies": [
+        "Kosovo"
+      ],
+      "religions": [
+        "Orthodox"
+      ],
+      "trade": [
+        "Germany",
+        "China",
+        "Italy"
+      ],
+      "stats": {
+        "unrest": 4,
+        "popularity": 4,
+        "freedom": 2,
+        "military": 3,
+        "aggressiveness": 4
+      }
+    },
+    {
+      "name": "Belarus",
+      "leader": "Alexander Lukashenko",
+      "orientation": "Far-Right Authoritarian",
+      "gov_type": "Authoritarian",
+      "policies": [
+        "Integration with Russia",
+        "Political Stability",
+        "State Control Economy"
+      ],
+      "allies": [
+        "Russia",
+        "China"
+      ],
+      "enemies": [
+        "Poland",
+        "Lithuania",
+        "Ukraine"
+      ],
+      "religions": [
+        "Orthodox"
+      ],
+      "trade": [
+        "Russia",
+        "China",
+        "UAE"
+      ],
+      "stats": {
+        "unrest": 2,
+        "popularity": 5,
+        "freedom": 1,
+        "military": 3,
+        "aggressiveness": 4
+      }
+    },
+    {
+      "name": "Moldova",
+      "leader": "Maia Sandu",
+      "orientation": "Center-Right",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "EU Accession",
+        "Anti-Corruption",
+        "Energy Independence"
+      ],
+      "allies": [
+        "Romania",
+        "EU",
+        "USA"
+      ],
+      "enemies": [
+        "Russia"
+      ],
+      "religions": [
+        "Orthodox"
+      ],
+      "trade": [
+        "Romania",
+        "Russia",
+        "Italy"
+      ],
+      "stats": {
+        "unrest": 4,
+        "popularity": 4,
+        "freedom": 4,
+        "military": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Lithuania",
+      "leader": "Gitanas Nausėda",
+      "orientation": "Center-Right",
+      "gov_type": "Semi-Presidential",
+      "policies": [
+        "NATO Forward Presence",
+        "Energy Autonomy",
+        "Taiwan Support"
+      ],
+      "allies": [
+        "USA",
+        "Poland",
+        "Latvia"
+      ],
+      "enemies": [
+        "Russia",
+        "Belarus"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "Poland",
+        "Latvia"
+      ],
+      "stats": {
+        "unrest": 2,
+        "popularity": 4,
+        "freedom": 5,
+        "military": 3,
+        "aggressiveness": 3
+      }
+    },
+    {
+      "name": "Latvia",
+      "leader": "Edgars Rinkēvičs",
+      "orientation": "Center-Right",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Conscription Implementation",
+        "Language Reform",
+        "Tech Innovation"
+      ],
+      "allies": [
+        "Estonia",
+        "Lithuania",
+        "USA"
+      ],
+      "enemies": [
+        "Russia"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "trade": [
+        "Lithuania",
+        "Estonia",
+        "Germany"
+      ],
+      "stats": {
+        "unrest": 2,
+        "popularity": 4,
+        "freedom": 5,
+        "military": 2,
+        "aggressiveness": 3
+      }
+    },
+    {
+      "name": "Estonia",
+      "leader": "Kristen Michal",
+      "orientation": "Center-Right",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Digital Defense",
+        "e-Governance",
+        "Defense Taxation"
+      ],
+      "allies": [
+        "Finland",
+        "Latvia",
+        "USA"
+      ],
+      "enemies": [
+        "Russia"
+      ],
+      "religions": [
+        "Secular"
+      ],
+      "trade": [
+        "Finland",
+        "Sweden",
+        "Latvia"
+      ],
+      "stats": {
+        "unrest": 1,
+        "popularity": 3,
+        "freedom": 5,
+        "military": 3,
+        "aggressiveness": 3
+      }
+    },
+    {
+      "name": "Slovenia",
+      "leader": "Robert Golob",
+      "orientation": "Center-Left",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Healthcare Reform",
+        "Green Energy Transition",
+        "EU Solidary"
+      ],
+      "allies": [
+        "EU",
+        "Croatia"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "Italy",
+        "Austria"
+      ],
+      "stats": {
+        "unrest": 2,
+        "popularity": 2,
+        "freedom": 5,
+        "military": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Bosnia and Herzegovina",
+      "leader": "Denis Bećirović",
+      "orientation": "Centrist",
+      "gov_type": "Federal Parliamentary",
+      "policies": [
+        "EU Candidacy",
+        "State Centralization",
+        "Peace Accord Integrity"
+      ],
+      "allies": [
+        "USA",
+        "Croatia",
+        "Turkey"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Islam",
+        "Orthodox",
+        "Catholicism"
+      ],
+      "trade": [
+        "Germany",
+        "Italy",
+        "Croatia"
+      ],
+      "stats": {
+        "unrest": 4,
+        "popularity": 3,
+        "freedom": 3,
+        "military": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Albania",
+      "leader": "Edi Rama",
+      "orientation": "Center-Left",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "EU Accession",
+        "Regional Integration",
+        "Tech Ecosystem"
+      ],
+      "allies": [
+        "USA",
+        "Italy",
+        "Turkey"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Islam",
+        "Christianity"
+      ],
+      "trade": [
+        "Italy",
+        "China",
+        "Greece"
+      ],
+      "stats": {
+        "unrest": 3,
+        "popularity": 4,
+        "freedom": 4,
+        "military": 1,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Luxembourg",
+      "leader": "Luc Frieden",
+      "orientation": "Center-Right",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Financial Sector Competitiveness",
+        "Housing Market Stability",
+        "EU Multilateralism"
+      ],
+      "allies": [
+        "Germany",
+        "France",
+        "Belgium"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Germany",
+        "France",
+        "Belgium"
+      ],
+      "stats": {
+        "unrest": 1,
+        "popularity": 4,
+        "freedom": 5,
+        "military": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Iceland",
+      "leader": "Halla Tómasdóttir",
+      "orientation": "Centrist",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Geothermal Export",
+        "Gender Equality",
+        "Arctic Governance"
+      ],
+      "allies": [
+        "USA",
+        "Norway",
+        "UK"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "trade": [
+        "Netherlands",
+        "UK",
+        "Germany"
+      ],
+      "stats": {
+        "unrest": 1,
+        "popularity": 5,
+        "freedom": 5,
+        "military": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Malta",
+      "leader": "Robert Abela",
+      "orientation": "Center-Left",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Maritime Services",
+        "Inflation Mitigation",
+        "Med-Diplomacy"
+      ],
+      "allies": [
+        "EU",
+        "Italy"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Italy",
+        "Germany",
+        "France"
+      ],
+      "stats": {
+        "unrest": 3,
+        "popularity": 3,
+        "freedom": 4,
+        "military": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Montenegro",
+      "leader": "Milojko Spajić",
+      "orientation": "Centrist (Europe Now)",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "EU Accession 2028",
+        "Pension Reform",
+        "Foreign Investment"
+      ],
+      "allies": [
+        "USA",
+        "Croatia",
+        "NATO"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Orthodox"
+      ],
+      "trade": [
+        "Serbia",
+        "Germany",
+        "China"
+      ],
+      "stats": {
+        "unrest": 2,
+        "popularity": 4,
+        "freedom": 4,
+        "military": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "North Macedonia",
+      "leader": "Hristijan Mickoski",
+      "orientation": "Right-Wing",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Anti-Corruption",
+        "Economic Modernization",
+        "EU Veto Resolution"
+      ],
+      "allies": [
+        "USA",
+        "Hungary",
+        "NATO"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Orthodox",
+        "Islam"
+      ],
+      "trade": [
+        "Germany",
+        "UK",
+        "Greece"
+      ],
+      "stats": {
+        "unrest": 3,
+        "popularity": 3,
+        "freedom": 4,
+        "military": 1,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Cyprus",
+      "leader": "Nikos Christodoulides",
+      "orientation": "Centrist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Reunification Talks",
+        "Energy Hub Development",
+        "Sanction Compliance"
+      ],
+      "allies": [
+        "Greece",
+        "USA",
+        "Israel"
+      ],
+      "enemies": [
+        "Turkey"
+      ],
+      "religions": [
+        "Orthodox",
+        "Islam"
+      ],
+      "trade": [
+        "Greece",
+        "UK",
+        "Italy"
+      ],
+      "stats": {
+        "unrest": 2,
+        "popularity": 3,
+        "freedom": 5,
+        "military": 2,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Monaco",
+      "leader": "Prince Albert II",
+      "orientation": "Conservative",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Sustainable Development",
+        "Finance Luxury Hub",
+        "Maritime Security"
+      ],
+      "allies": [
+        "France",
+        "Italy"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "EU",
+        "France"
+      ],
+      "stats": {
+        "unrest": 1,
+        "popularity": 5,
+        "freedom": 4,
+        "military": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "San Marino",
+      "leader": "Various",
+      "orientation": "Centrist",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Fiscal Transparency",
+        "Italian Integration",
+        "Tourism"
+      ],
+      "allies": [
+        "Italy",
+        "EU"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Italy"
+      ],
+      "stats": {
+        "unrest": 1,
+        "popularity": 4,
+        "freedom": 5,
+        "military": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Andorra",
+      "leader": "Josep-Lluís Serrano Pentinat",
+      "orientation": "Conservative",
+      "gov_type": "Constitutional Co-Principality",
+      "policies": [
+        "EU Association",
+        "Banking Reform",
+        "Tourism Expansion"
+      ],
+      "allies": [
+        "Spain",
+        "France",
+        "EU"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "trade": [
+        "Spain",
+        "France"
+      ],
+      "stats": {
+        "unrest": 1,
+        "popularity": 4,
+        "freedom": 5,
+        "military": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Vatican City",
+      "leader": "Pope Leo XIV",
+      "orientation": "Theocratic",
+      "gov_type": "Absolute Monarchy",
+      "policies": [
+        "Diplomatic Mediation",
+        "Interfaith Dialogue",
+        "Moral Authority"
+      ],
+      "allies": [
+        "All Nations (Diplomatic)"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Catholicism"
+      ],
+      "trade": [
+        "Italy"
+      ],
+      "stats": {
+        "unrest": 1,
+        "popularity": 5,
+        "freedom": 1,
+        "military": 1,
+        "aggressiveness": 1
+      }
+    }
+  ]
+}

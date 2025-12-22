@@ -21,7 +21,8 @@ const FILL_LAYER_ID = 'freeform-draw-fill'
 export function initFreeformDraw(
     map: Map,
     onComplete: (polygon: Feature<Polygon>) => void,
-    style: { lineColor: string; fillColor: string } = { lineColor: '#f97316', fillColor: 'rgba(249, 115, 22, 0.3)' }
+    style: { lineColor: string; fillColor: string } = { lineColor: '#f97316', fillColor: 'rgba(249, 115, 22, 0.3)' },
+    callbacks?: { onDrawStart?: () => void; onDrawEnd?: () => void }
 ): { cleanup: () => void; start: () => void; stop: () => void } {
 
     const state: FreeformDrawState = {
@@ -118,6 +119,7 @@ export function initFreeformDraw(
 
         map.getCanvas().style.cursor = 'crosshair'
         console.log('🖊️ Freeform draw started')
+        callbacks?.onDrawStart?.()
     }
 
     const onMouseMove = (e: MapMouseEvent) => {
@@ -142,6 +144,7 @@ export function initFreeformDraw(
         map.dragPan.enable()
         state.isDrawing = false
         map.getCanvas().style.cursor = ''
+        callbacks?.onDrawEnd?.()
 
         console.log('✅ Freeform draw complete:', state.points.length, 'points')
 

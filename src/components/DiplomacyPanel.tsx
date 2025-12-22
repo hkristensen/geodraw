@@ -127,8 +127,6 @@ export function DiplomacyPanel({ onStartWar }: DiplomacyPanelProps) {
     const { phase, nation, addDiplomaticEvents, annexedCountries, removeTerritory, addTerritory, removeActiveClaim, setCurrentClaim, currentClaim } = useGameStore()
     const { aiCountries, updateRelations, declareWar, makePeace, formAlliance } = useWorldStore()
 
-    const [isMinimized, setIsMinimized] = useState(false)
-
     // Only show after nation is formed
     if (phase !== 'RESULTS' || !nation) {
         return null
@@ -292,22 +290,10 @@ export function DiplomacyPanel({ onStartWar }: DiplomacyPanelProps) {
     const atWarCount = countries.filter(c => c.isAtWar).length
     const hostileCount = countries.filter(c => c.disposition === 'hostile').length
 
-    if (isMinimized) {
-        return (
-            <button
-                onClick={() => setIsMinimized(false)}
-                className="absolute top-4 left-80 ml-4 bg-slate-900/90 backdrop-blur-md px-4 py-2 rounded-b-xl border-x border-b border-purple-500/30 shadow-2xl z-10 hover:bg-slate-800 transition-colors flex items-center gap-2"
-            >
-                <span className="text-xl">🌐</span>
-                {atWarCount > 0 && <span className="text-red-400 text-xs font-bold">{atWarCount}</span>}
-            </button>
-        )
-    }
-
     return (
-        <div className="absolute top-4 left-80 ml-4 w-72 max-h-[calc(100vh-5rem)] bg-slate-900/90 backdrop-blur-md rounded-xl border border-orange-500/30 shadow-2xl overflow-hidden z-10 transition-all duration-300">
+        <div className="w-full h-full bg-slate-900/90 backdrop-blur-md rounded-xl border border-orange-500/30 shadow-2xl overflow-hidden flex flex-col">
             {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 p-4 border-b border-purple-500/20 flex justify-between items-start">
+            <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 p-4 border-b border-purple-500/20 flex justify-between items-start shrink-0">
                 <div>
                     <h2 className="text-lg font-bold text-white flex items-center gap-2">
                         <span>🌐</span>
@@ -322,17 +308,10 @@ export function DiplomacyPanel({ onStartWar }: DiplomacyPanelProps) {
                         )}
                     </div>
                 </div>
-                <button
-                    onClick={() => setIsMinimized(true)}
-                    className="text-gray-400 hover:text-white transition-colors p-1"
-                    title="Minimize"
-                >
-                    ⬆️
-                </button>
             </div>
 
             {/* Country List */}
-            <div className="p-3 overflow-y-auto max-h-[60vh] custom-scrollbar space-y-2">
+            <div className="p-3 overflow-y-auto custom-scrollbar space-y-2 flex-1">
                 {countries.map(country => (
                     <CountryRow
                         key={country.code}

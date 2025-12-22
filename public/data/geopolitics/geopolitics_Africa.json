@@ -1,0 +1,1718 @@
+{
+  "continent": "Africa",
+  "last_updated": "2025-12-18",
+  "countries": [
+    {
+      "name": "Algeria",
+      "leader": "Abdelmadjid Tebboune",
+      "orientation": "Nationalist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Gas Export Expansion",
+        "Western Sahara Support"
+      ],
+      "allies": [
+        "Russia",
+        "China",
+        "South Africa"
+      ],
+      "enemies": [
+        "Morocco"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 3,
+      "leader_pop": 3,
+      "freedom": 2,
+      "military": 4,
+      "aggression": 4,
+      "trade": [
+        "Italy",
+        "France",
+        "Spain"
+      ]
+    },
+    {
+      "name": "Angola",
+      "leader": "João Lourenço",
+      "orientation": "Centrist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Oil Diversification",
+        "Anti-Corruption"
+      ],
+      "allies": [
+        "USA",
+        "Portugal",
+        "China"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 3,
+      "leader_pop": 3,
+      "freedom": 3,
+      "military": 3,
+      "aggression": 1,
+      "trade": [
+        "China",
+        "India",
+        "USA"
+      ]
+    },
+    {
+      "name": "Benin",
+      "leader": "Patrice Talon",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Port Modernization",
+        "Cotton Exports"
+      ],
+      "allies": [
+        "France",
+        "USA",
+        "Nigeria"
+      ],
+      "enemies": [
+        "Niger (Border Tension)"
+      ],
+      "religions": [
+        "Christianity",
+        "Islam",
+        "Vodun"
+      ],
+      "unrest": 2,
+      "leader_pop": 3,
+      "freedom": 3,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "India",
+        "Nigeria",
+        "China"
+      ]
+    },
+    {
+      "name": "Botswana",
+      "leader": "Duma Gideon Boko",
+      "orientation": "Center-Left",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Diamond Value Addition",
+        "Democratic Reform"
+      ],
+      "allies": [
+        "USA",
+        "South Africa",
+        "UK"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 1,
+      "leader_pop": 5,
+      "freedom": 5,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "UAE",
+        "Belgium",
+        "South Africa"
+      ]
+    },
+    {
+      "name": "Burkina Faso",
+      "leader": "Ibrahim Traoré",
+      "orientation": "Far-Right (Military)",
+      "gov_type": "Military Junta",
+      "policies": [
+        "Sahel Confederation",
+        "Anti-Colonialism"
+      ],
+      "allies": [
+        "Russia",
+        "Mali",
+        "Niger"
+      ],
+      "enemies": [
+        "France",
+        "ECOWAS"
+      ],
+      "religions": [
+        "Islam",
+        "Christianity"
+      ],
+      "unrest": 4,
+      "leader_pop": 4,
+      "freedom": 1,
+      "military": 3,
+      "aggression": 4,
+      "trade": [
+        "Switzerland",
+        "China",
+        "UAE"
+      ]
+    },
+    {
+      "name": "Burundi",
+      "leader": "Évariste Ndayishimiye",
+      "orientation": "Nationalist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Agricultural Reform",
+        "Regional Security"
+      ],
+      "allies": [
+        "Tanzania",
+        "DRC"
+      ],
+      "enemies": [
+        "Rwanda"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 3,
+      "leader_pop": 3,
+      "freedom": 2,
+      "military": 2,
+      "aggression": 3,
+      "trade": [
+        "UAE",
+        "DRC",
+        "Pakistan"
+      ]
+    },
+    {
+      "name": "Cabo Verde",
+      "leader": "José Maria Neves",
+      "orientation": "Center-Left",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Blue Economy",
+        "Renewable Energy"
+      ],
+      "allies": [
+        "Portugal",
+        "USA",
+        "EU"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 1,
+      "leader_pop": 4,
+      "freedom": 5,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "Portugal",
+        "Spain",
+        "USA"
+      ]
+    },
+    {
+      "name": "Cameroon",
+      "leader": "Paul Biya",
+      "orientation": "Conservative",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Succession Management",
+        "Ambazonia Suppression"
+      ],
+      "allies": [
+        "France",
+        "China",
+        "Nigeria"
+      ],
+      "enemies": [
+        "Ambazonia Separatists"
+      ],
+      "religions": [
+        "Christianity",
+        "Islam"
+      ],
+      "unrest": 4,
+      "leader_pop": 2,
+      "freedom": 2,
+      "military": 3,
+      "aggression": 2,
+      "trade": [
+        "China",
+        "Netherlands",
+        "India"
+      ]
+    },
+    {
+      "name": "Central African Republic",
+      "leader": "Faustin-Archange Touadéra",
+      "orientation": "Pro-Russian",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Mining Security",
+        "Russian Alignment"
+      ],
+      "allies": [
+        "Russia",
+        "Rwanda"
+      ],
+      "enemies": [
+        "CPC Rebels"
+      ],
+      "religions": [
+        "Christianity",
+        "Islam"
+      ],
+      "unrest": 5,
+      "leader_pop": 3,
+      "freedom": 1,
+      "military": 2,
+      "aggression": 3,
+      "trade": [
+        "China",
+        "France",
+        "USA"
+      ]
+    },
+    {
+      "name": "Chad",
+      "leader": "Mahamat Idriss Déby",
+      "orientation": "Military-Nationalist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Security Hegemony",
+        "Anti-Terrorism"
+      ],
+      "allies": [
+        "France",
+        "Russia",
+        "UAE"
+      ],
+      "enemies": [
+        "FACT Rebels"
+      ],
+      "religions": [
+        "Islam",
+        "Christianity"
+      ],
+      "unrest": 4,
+      "leader_pop": 3,
+      "freedom": 2,
+      "military": 4,
+      "aggression": 3,
+      "trade": [
+        "USA",
+        "China",
+        "France"
+      ]
+    },
+    {
+      "name": "Comoros",
+      "leader": "Azali Assoumani",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Tourism Growth",
+        "Constitutional Reform"
+      ],
+      "allies": [
+        "France",
+        "Saudi Arabia",
+        "AU"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 3,
+      "leader_pop": 2,
+      "freedom": 2,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "France",
+        "UAE",
+        "India"
+      ]
+    },
+    {
+      "name": "Congo (Brazzaville)",
+      "leader": "Denis Sassou Nguesso",
+      "orientation": "Conservative",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Oil Stability",
+        "Environmental Diplomacy"
+      ],
+      "allies": [
+        "China",
+        "France",
+        "Russia"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 3,
+      "freedom": 2,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "China",
+        "UAE",
+        "France"
+      ]
+    },
+    {
+      "name": "Congo (DRC)",
+      "leader": "Félix Tshisekedi",
+      "orientation": "Centrist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Eastern Security",
+        "Mineral Control"
+      ],
+      "allies": [
+        "Belgium",
+        "USA",
+        "South Africa"
+      ],
+      "enemies": [
+        "Rwanda",
+        "M23 Rebels"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 5,
+      "leader_pop": 3,
+      "freedom": 3,
+      "military": 3,
+      "aggression": 4,
+      "trade": [
+        "China",
+        "UAE",
+        "South Africa"
+      ]
+    },
+    {
+      "name": "Côte d'Ivoire",
+      "leader": "Alassane Ouattara",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Cocoa Dominance",
+        "Infrastructure Boom"
+      ],
+      "allies": [
+        "France",
+        "USA",
+        "EU"
+      ],
+      "enemies": [
+        "Sahel Juntas"
+      ],
+      "religions": [
+        "Islam",
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 4,
+      "military": 3,
+      "aggression": 1,
+      "trade": [
+        "Netherlands",
+        "USA",
+        "France"
+      ]
+    },
+    {
+      "name": "Djibouti",
+      "leader": "Ismaïl Omar Guelleh",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Geopolitic Rent",
+        "Port Logistics"
+      ],
+      "allies": [
+        "China",
+        "USA",
+        "France",
+        "Japan"
+      ],
+      "enemies": [
+        "Eritrea"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 2,
+      "leader_pop": 3,
+      "freedom": 1,
+      "military": 2,
+      "aggression": 2,
+      "trade": [
+        "China",
+        "Saudi Arabia",
+        "India"
+      ]
+    },
+    {
+      "name": "Egypt",
+      "leader": "Abdel Fattah el-Sisi",
+      "orientation": "Right-Wing (Military)",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "New Administrative Capital",
+        "Nile Water Rights"
+      ],
+      "allies": [
+        "Saudi Arabia",
+        "UAE",
+        "USA"
+      ],
+      "enemies": [
+        "Ethiopia",
+        "Sudan RSF"
+      ],
+      "religions": [
+        "Islam",
+        "Christianity"
+      ],
+      "unrest": 3,
+      "leader_pop": 4,
+      "freedom": 2,
+      "military": 5,
+      "aggression": 4,
+      "trade": [
+        "China",
+        "UAE",
+        "USA"
+      ]
+    },
+    {
+      "name": "Equatorial Guinea",
+      "leader": "Teodoro Obiang",
+      "orientation": "Nationalist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Dynastic Succession",
+        "Oil Security"
+      ],
+      "allies": [
+        "China",
+        "USA",
+        "Russia"
+      ],
+      "enemies": [
+        "Opposition in Exile"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 1,
+      "military": 2,
+      "aggression": 2,
+      "trade": [
+        "China",
+        "India",
+        "Spain"
+      ]
+    },
+    {
+      "name": "Eritrea",
+      "leader": "Isaias Afwerki",
+      "orientation": "Far-Left (Totalitarian)",
+      "gov_type": "One-Party State",
+      "policies": [
+        "Self-Reliance",
+        "National Service"
+      ],
+      "allies": [
+        "Russia",
+        "China",
+        "Ethiopia (Tense)"
+      ],
+      "enemies": [
+        "Djibouti",
+        "Sudan"
+      ],
+      "religions": [
+        "Christianity",
+        "Islam"
+      ],
+      "unrest": 1,
+      "leader_pop": 5,
+      "freedom": 1,
+      "military": 3,
+      "aggression": 5,
+      "trade": [
+        "China",
+        "UAE",
+        "Italy"
+      ]
+    },
+    {
+      "name": "Eswatini",
+      "leader": "King Mswati III",
+      "orientation": "Traditionalist",
+      "gov_type": "Absolute Monarchy",
+      "policies": [
+        "Monarchial Preservation",
+        "Taiwan Relations"
+      ],
+      "allies": [
+        "South Africa",
+        "Taiwan"
+      ],
+      "enemies": [
+        "Pro-Democracy Rebels"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 4,
+      "leader_pop": 3,
+      "freedom": 1,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "South Africa",
+        "USA",
+        "China"
+      ]
+    },
+    {
+      "name": "Ethiopia",
+      "leader": "Abiy Ahmed",
+      "orientation": "Nationalist",
+      "gov_type": "Federal Republic",
+      "policies": [
+        "GERD Completion",
+        "Sea Access"
+      ],
+      "allies": [
+        "UAE",
+        "Russia",
+        "China"
+      ],
+      "enemies": [
+        "Egypt",
+        "Somalia",
+        "Sudan"
+      ],
+      "religions": [
+        "Christianity",
+        "Islam"
+      ],
+      "unrest": 5,
+      "leader_pop": 3,
+      "freedom": 2,
+      "military": 4,
+      "aggression": 5,
+      "trade": [
+        "China",
+        "UAE",
+        "India"
+      ]
+    },
+    {
+      "name": "Gabon",
+      "leader": "Brice Oligui Nguema",
+      "orientation": "Transitional (Military)",
+      "gov_type": "Military Junta",
+      "policies": [
+        "Post-Bongo Transition",
+        "Environmental Protection"
+      ],
+      "allies": [
+        "France",
+        "Morocco"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 2,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "China",
+        "India",
+        "France"
+      ]
+    },
+    {
+      "name": "Gambia",
+      "leader": "Adama Barrow",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Judicial Reform",
+        "Tourism Recovery"
+      ],
+      "allies": [
+        "Senegal",
+        "UK",
+        "USA"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 2,
+      "leader_pop": 3,
+      "freedom": 4,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "China",
+        "India",
+        "Senegal"
+      ]
+    },
+    {
+      "name": "Ghana",
+      "leader": "Mahamudu Bawumia",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Digitalization",
+        "Gold-for-Oil"
+      ],
+      "allies": [
+        "USA",
+        "UK",
+        "Nigeria"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity",
+        "Islam"
+      ],
+      "unrest": 3,
+      "leader_pop": 3,
+      "freedom": 5,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "China",
+        "UAE",
+        "Switzerland"
+      ]
+    },
+    {
+      "name": "Guinea",
+      "leader": "Mamady Doumbouya",
+      "orientation": "Nationalist (Military)",
+      "gov_type": "Military Junta",
+      "policies": [
+        "Bauxite Sovereignty",
+        "Transition to 2026"
+      ],
+      "allies": [
+        "Russia",
+        "China"
+      ],
+      "enemies": [
+        "France (Tense)"
+      ],
+      "religions": [
+        "Islam",
+        "Christianity"
+      ],
+      "unrest": 4,
+      "leader_pop": 3,
+      "freedom": 1,
+      "military": 2,
+      "aggression": 3,
+      "trade": [
+        "China",
+        "India",
+        "UAE"
+      ]
+    },
+    {
+      "name": "Guinea-Bissau",
+      "leader": "Umaro Sissoco Embaló",
+      "orientation": "Center-Right",
+      "gov_type": "Semi-Presidential",
+      "policies": [
+        "Anti-Narcotics",
+        "Stability Pact"
+      ],
+      "allies": [
+        "Portugal",
+        "Senegal",
+        "ECOWAS"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Islam",
+        "Traditional"
+      ],
+      "unrest": 4,
+      "leader_pop": 2,
+      "freedom": 3,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "India",
+        "Vietnam",
+        "Senegal"
+      ]
+    },
+    {
+      "name": "Kenya",
+      "leader": "William Ruto",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Haiti Police Mission",
+        "Silicon Savannah"
+      ],
+      "allies": [
+        "USA",
+        "UK",
+        "Tanzania"
+      ],
+      "enemies": [
+        "Al-Shabaab"
+      ],
+      "religions": [
+        "Christianity",
+        "Islam"
+      ],
+      "unrest": 4,
+      "leader_pop": 2,
+      "freedom": 4,
+      "military": 3,
+      "aggression": 2,
+      "trade": [
+        "Uganda",
+        "China",
+        "Pakistan"
+      ]
+    },
+    {
+      "name": "Lesotho",
+      "leader": "Sam Matekane",
+      "orientation": "Center-Right",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Water Export",
+        "Textile Growth"
+      ],
+      "allies": [
+        "South Africa",
+        "USA"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 4,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "South Africa",
+        "USA",
+        "Belgium"
+      ]
+    },
+    {
+      "name": "Liberia",
+      "leader": "Joseph Boakai",
+      "orientation": "Center-Left",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Anti-Corruption",
+        "Resource Transparency"
+      ],
+      "allies": [
+        "USA",
+        "Nigeria"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity",
+        "Islam"
+      ],
+      "unrest": 3,
+      "leader_pop": 3,
+      "freedom": 4,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "Germany",
+        "Japan",
+        "USA"
+      ]
+    },
+    {
+      "name": "Libya",
+      "leader": "Mohamed al-Menfi",
+      "orientation": "Centrist (Transitional)",
+      "gov_type": "Transitional Council",
+      "policies": [
+        "Oil Unification",
+        "Election Prep"
+      ],
+      "allies": [
+        "Turkey",
+        "Italy",
+        "Egypt"
+      ],
+      "enemies": [
+        "Internal Militias"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 5,
+      "leader_pop": 2,
+      "freedom": 2,
+      "military": 3,
+      "aggression": 2,
+      "trade": [
+        "Italy",
+        "China",
+        "Germany"
+      ]
+    },
+    {
+      "name": "Madagascar",
+      "leader": "Michael Randrianirina",
+      "orientation": "Military-Nationalist",
+      "gov_type": "Military Council",
+      "policies": [
+        "Security Restoration",
+        "Mining Regulation"
+      ],
+      "allies": [
+        "France",
+        "Mauritius"
+      ],
+      "enemies": [
+        "SADC (Diplomatic Tension)"
+      ],
+      "religions": [
+        "Christianity",
+        "Traditional"
+      ],
+      "unrest": 4,
+      "leader_pop": 3,
+      "freedom": 2,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "France",
+        "USA",
+        "China"
+      ]
+    },
+    {
+      "name": "Malawi",
+      "leader": "Lazarus Chakwera",
+      "orientation": "Center-Left",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Agricultural Subsidies",
+        "Anti-Corruption"
+      ],
+      "allies": [
+        "USA",
+        "UK",
+        "South Africa"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity",
+        "Islam"
+      ],
+      "unrest": 3,
+      "leader_pop": 2,
+      "freedom": 4,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "South Africa",
+        "UAE",
+        "China"
+      ]
+    },
+    {
+      "name": "Mali",
+      "leader": "Assimi Goïta",
+      "orientation": "Nationalist (Military)",
+      "gov_type": "Military Junta",
+      "policies": [
+        "Sahel Alliance",
+        "Russian PMC Cooperation"
+      ],
+      "allies": [
+        "Russia",
+        "Burkina Faso",
+        "Niger"
+      ],
+      "enemies": [
+        "France",
+        "Ukraine"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 4,
+      "leader_pop": 4,
+      "freedom": 1,
+      "military": 3,
+      "aggression": 4,
+      "trade": [
+        "China",
+        "Russia",
+        "UAE"
+      ]
+    },
+    {
+      "name": "Mauritania",
+      "leader": "Mohamed Ould Ghazouani",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Gas Hub Development",
+        "Counter-Terrorism"
+      ],
+      "allies": [
+        "France",
+        "USA",
+        "UAE"
+      ],
+      "enemies": [
+        "Al-Qaeda in Sahel"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 3,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "China",
+        "Spain",
+        "France"
+      ]
+    },
+    {
+      "name": "Mauritius",
+      "leader": "Navin Ramgoolam",
+      "orientation": "Center-Left",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Financial Sector Reform",
+        "Chagos Sovereignty"
+      ],
+      "allies": [
+        "India",
+        "UK",
+        "France"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Hinduism",
+        "Christianity",
+        "Islam"
+      ],
+      "unrest": 1,
+      "leader_pop": 4,
+      "freedom": 5,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "France",
+        "South Africa",
+        "China"
+      ]
+    },
+    {
+      "name": "Morocco",
+      "leader": "King Mohammed VI",
+      "orientation": "Conservative",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Western Sahara Integration",
+        "Green Energy"
+      ],
+      "allies": [
+        "USA",
+        "Israel",
+        "France",
+        "UAE"
+      ],
+      "enemies": [
+        "Algeria"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 2,
+      "leader_pop": 5,
+      "freedom": 3,
+      "military": 4,
+      "aggression": 3,
+      "trade": [
+        "Spain",
+        "France",
+        "China"
+      ]
+    },
+    {
+      "name": "Mozambique",
+      "leader": "Daniel Chapo",
+      "orientation": "Center-Left",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "LNG Security",
+        "Cabo Delgado Stabilization"
+      ],
+      "allies": [
+        "South Africa",
+        "Portugal",
+        "Rwanda"
+      ],
+      "enemies": [
+        "ISIS-Mozambique"
+      ],
+      "religions": [
+        "Christianity",
+        "Islam"
+      ],
+      "unrest": 4,
+      "leader_pop": 3,
+      "freedom": 3,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "India",
+        "South Africa",
+        "China"
+      ]
+    },
+    {
+      "name": "Namibia",
+      "leader": "Nangolo Mbumba",
+      "orientation": "Center-Left",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Green Hydrogen",
+        "Mineral Processing"
+      ],
+      "allies": [
+        "South Africa",
+        "Germany",
+        "China"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 3,
+      "freedom": 5,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "South Africa",
+        "China",
+        "Botswana"
+      ]
+    },
+    {
+      "name": "Niger",
+      "leader": "Abdourahamane Tchiani",
+      "orientation": "Nationalist (Military)",
+      "gov_type": "Military Junta",
+      "policies": [
+        "Uranium Sovereignty",
+        "Sahel Confederation"
+      ],
+      "allies": [
+        "Russia",
+        "Mali",
+        "Burkina Faso"
+      ],
+      "enemies": [
+        "France",
+        "USA",
+        "Benin"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 4,
+      "leader_pop": 4,
+      "freedom": 1,
+      "military": 2,
+      "aggression": 4,
+      "trade": [
+        "China",
+        "France",
+        "Nigeria"
+      ]
+    },
+    {
+      "name": "Nigeria",
+      "leader": "Bola Tinubu",
+      "orientation": "Center-Right",
+      "gov_type": "Federal Republic",
+      "policies": [
+        "Economic Deregulation",
+        "Anti-Terrorism"
+      ],
+      "allies": [
+        "USA",
+        "UK",
+        "South Africa"
+      ],
+      "enemies": [
+        "Boko Haram",
+        "Sahel Confederacy (Tense)"
+      ],
+      "religions": [
+        "Islam",
+        "Christianity"
+      ],
+      "unrest": 4,
+      "leader_pop": 2,
+      "freedom": 4,
+      "military": 3,
+      "aggression": 2,
+      "trade": [
+        "India",
+        "China",
+        "Spain"
+      ]
+    },
+    {
+      "name": "Rwanda",
+      "leader": "Paul Kagame",
+      "orientation": "Nationalist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Regional Security Intervention",
+        "Tech Hub"
+      ],
+      "allies": [
+        "USA",
+        "UK",
+        "France",
+        "Benin"
+      ],
+      "enemies": [
+        "DRC",
+        "Burundi"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 1,
+      "leader_pop": 5,
+      "freedom": 2,
+      "military": 3,
+      "aggression": 5,
+      "trade": [
+        "UAE",
+        "China",
+        "Tanzania"
+      ]
+    },
+    {
+      "name": "São Tomé and Príncipe",
+      "leader": "Carlos Vila Nova",
+      "orientation": "Center-Right",
+      "gov_type": "Semi-Presidential",
+      "policies": [
+        "Oil Exploration",
+        "Blue Economy"
+      ],
+      "allies": [
+        "Portugal",
+        "Brazil",
+        "USA"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 3,
+      "freedom": 4,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "Portugal",
+        "Spain",
+        "Angola"
+      ]
+    },
+    {
+      "name": "Senegal",
+      "leader": "Bassirou Diomaye Faye",
+      "orientation": "Left-Wing Nationalist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Sovereign Oil Management",
+        "ECOWAS Reform"
+      ],
+      "allies": [
+        "France",
+        "USA",
+        "Mali (Bridge-building)"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 5,
+      "military": 3,
+      "aggression": 1,
+      "trade": [
+        "China",
+        "India",
+        "France"
+      ]
+    },
+    {
+      "name": "Seychelles",
+      "leader": "Wavel Ramkalawan",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Climate Debt Swap",
+        "Fisheries Control"
+      ],
+      "allies": [
+        "India",
+        "UAE",
+        "EU"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 1,
+      "leader_pop": 4,
+      "freedom": 5,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "UAE",
+        "France",
+        "Spain"
+      ]
+    },
+    {
+      "name": "Sierra Leone",
+      "leader": "Julius Maada Bio",
+      "orientation": "Center-Left",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Human Capital Development",
+        "Mining Reform"
+      ],
+      "allies": [
+        "USA",
+        "UK",
+        "Nigeria"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Islam",
+        "Christianity"
+      ],
+      "unrest": 4,
+      "leader_pop": 2,
+      "freedom": 3,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "China",
+        "USA",
+        "Belgium"
+      ]
+    },
+    {
+      "name": "Somalia",
+      "leader": "Hassan Sheikh Mohamud",
+      "orientation": "Centrist",
+      "gov_type": "Federal Republic",
+      "policies": [
+        "Anti-Al-Shabaab War",
+        "Debt Relief"
+      ],
+      "allies": [
+        "Turkey",
+        "USA",
+        "UAE",
+        "Egypt"
+      ],
+      "enemies": [
+        "Al-Shabaab",
+        "Ethiopia"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 5,
+      "leader_pop": 3,
+      "freedom": 3,
+      "military": 3,
+      "aggression": 2,
+      "trade": [
+        "UAE",
+        "China",
+        "India"
+      ]
+    },
+    {
+      "name": "South Africa",
+      "leader": "Cyril Ramaphosa",
+      "orientation": "Center-Left (Coalition)",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "G20 Presidency",
+        "Energy Grid Recovery"
+      ],
+      "allies": [
+        "China",
+        "Russia",
+        "Brazil"
+      ],
+      "enemies": [
+        "Israel"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "unrest": 4,
+      "leader_pop": 3,
+      "freedom": 5,
+      "military": 4,
+      "aggression": 2,
+      "trade": [
+        "China",
+        "USA",
+        "Germany"
+      ]
+    },
+    {
+      "name": "South Sudan",
+      "leader": "Salva Kiir Mayardit",
+      "orientation": "Nationalist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Peace Implementation",
+        "Oil Pipeline Security"
+      ],
+      "allies": [
+        "Kenya",
+        "Uganda",
+        "China"
+      ],
+      "enemies": [
+        "Opposition Militias"
+      ],
+      "religions": [
+        "Christianity",
+        "Traditional"
+      ],
+      "unrest": 5,
+      "leader_pop": 2,
+      "freedom": 1,
+      "military": 3,
+      "aggression": 3,
+      "trade": [
+        "China",
+        "UAE",
+        "Italy"
+      ]
+    },
+    {
+      "name": "Sudan",
+      "leader": "Kamil al-Tayeb Idris (PM)",
+      "orientation": "Technocratic (Military-backed)",
+      "gov_type": "Military Junta",
+      "policies": [
+        "Ceasefire Mediation",
+        "Transition Plan"
+      ],
+      "allies": [
+        "Egypt",
+        "Iran",
+        "Turkey"
+      ],
+      "enemies": [
+        "RSF (Internal)",
+        "Ethiopia"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 5,
+      "leader_pop": 2,
+      "freedom": 1,
+      "military": 3,
+      "aggression": 1,
+      "trade": [
+        "UAE",
+        "China",
+        "Saudi Arabia"
+      ]
+    },
+    {
+      "name": "Tanzania",
+      "leader": "Samia Suluhu Hassan",
+      "orientation": "Centrist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Infrastructure (SGR)",
+        "LNG Export"
+      ],
+      "allies": [
+        "China",
+        "Kenya",
+        "USA"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity",
+        "Islam"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 3,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "India",
+        "UAE",
+        "China"
+      ]
+    },
+    {
+      "name": "Togo",
+      "leader": "Faure Gnassingbé",
+      "orientation": "Conservative",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Port Hub Expansion",
+        "Northern Security"
+      ],
+      "allies": [
+        "France",
+        "USA",
+        "Turkey"
+      ],
+      "enemies": [
+        "Islamist Militants"
+      ],
+      "religions": [
+        "Christianity",
+        "Traditional",
+        "Islam"
+      ],
+      "unrest": 3,
+      "leader_pop": 3,
+      "freedom": 2,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "India",
+        "China",
+        "Burkina Faso"
+      ]
+    },
+    {
+      "name": "Tunisia",
+      "leader": "Kaïs Saïed",
+      "orientation": "Right-Wing Populist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Constitutional Power Consolidation",
+        "Migration Management"
+      ],
+      "allies": [
+        "Italy",
+        "Algeria",
+        "Saudi Arabia"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Islam"
+      ],
+      "unrest": 4,
+      "leader_pop": 3,
+      "freedom": 2,
+      "military": 2,
+      "aggression": 2,
+      "trade": [
+        "France",
+        "Italy",
+        "Germany"
+      ]
+    },
+    {
+      "name": "Uganda",
+      "leader": "Yoweri Museveni",
+      "orientation": "Right-Wing Nationalist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Anti-Homosexuality Laws",
+        "East Africa Crude Oil Pipeline"
+      ],
+      "allies": [
+        "China",
+        "Russia",
+        "USA (Security)"
+      ],
+      "enemies": [
+        "ADF Rebels"
+      ],
+      "religions": [
+        "Christianity",
+        "Islam"
+      ],
+      "unrest": 4,
+      "leader_pop": 3,
+      "freedom": 2,
+      "military": 3,
+      "aggression": 4,
+      "trade": [
+        "UAE",
+        "Kenya",
+        "China"
+      ]
+    },
+    {
+      "name": "Zambia",
+      "leader": "Hakainde Hichilema",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Debt Restructuring",
+        "Copper Production Boost"
+      ],
+      "allies": [
+        "USA",
+        "EU",
+        "IMF"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 3,
+      "leader_pop": 4,
+      "freedom": 4,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "Switzerland",
+        "China",
+        "DRC"
+      ]
+    },
+    {
+      "name": "Zimbabwe",
+      "leader": "Emmerson Mnangagwa",
+      "orientation": "Right-Wing",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Lithium Processing",
+        "Sanction Removal Lobbying"
+      ],
+      "allies": [
+        "China",
+        "Russia",
+        "South Africa"
+      ],
+      "enemies": [
+        "USA",
+        "UK"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 4,
+      "leader_pop": 2,
+      "freedom": 2,
+      "military": 3,
+      "aggression": 1,
+      "trade": [
+        "China",
+        "South Africa",
+        "UAE"
+      ]
+    }
+  ]
+}

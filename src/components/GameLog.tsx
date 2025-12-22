@@ -34,7 +34,12 @@ export function GameLog() {
                         className="bg-black/40 backdrop-blur-sm px-3 py-1.5 rounded-full border border-white/10 text-xs text-white shadow-sm flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-300"
                     >
                         <span>{getIcon(event.type)}</span>
-                        <span className="font-medium text-gray-200">{event.description}</span>
+                        <span className="font-medium text-gray-200">
+                            {event.affectedNations && event.affectedNations.length > 0 && (
+                                <span className="text-orange-400 mr-1">[{event.affectedNations[0]}]</span>
+                            )}
+                            {event.description}
+                        </span>
                     </div>
                 ))}
             </div>

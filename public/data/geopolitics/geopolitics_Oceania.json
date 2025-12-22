@@ -1,0 +1,456 @@
+{
+  "continent": "Oceania",
+  "last_updated": "2025-12-18",
+  "countries": [
+    {
+      "name": "Australia",
+      "leader": "Anthony Albanese",
+      "orientation": "Center-Left (Labor)",
+      "gov_type": "Federal Parliamentary",
+      "policies": [
+        "AUKUS Implementation",
+        "Critical Minerals Export",
+        "Renewable Energy Superpower"
+      ],
+      "allies": [
+        "USA",
+        "UK",
+        "Japan",
+        "New Zealand"
+      ],
+      "enemies": [
+        "China (Economic/Strategic Rival)"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 5,
+      "military": 4,
+      "aggression": 2,
+      "trade": [
+        "China",
+        "Japan",
+        "USA",
+        "South Korea"
+      ]
+    },
+    {
+      "name": "New Zealand",
+      "leader": "Christopher Luxon",
+      "orientation": "Center-Right (National)",
+      "gov_type": "Parliamentary Democracy",
+      "policies": [
+        "Economic Deregulation",
+        "Five Eyes Security Role",
+        "Pacific Resilience Aid"
+      ],
+      "allies": [
+        "Australia",
+        "UK",
+        "USA",
+        "Canada"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "unrest": 2,
+      "leader_pop": 3,
+      "freedom": 5,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "China",
+        "Australia",
+        "USA",
+        "Japan"
+      ]
+    },
+    {
+      "name": "Papua New Guinea",
+      "leader": "James Marape",
+      "orientation": "Centrist",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Defense Pact with USA",
+        "Gold & Copper Sovereignty",
+        "Internal Security Reform"
+      ],
+      "allies": [
+        "Australia",
+        "USA",
+        "Indonesia"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 4,
+      "leader_pop": 3,
+      "freedom": 4,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "Australia",
+        "China",
+        "Japan"
+      ]
+    },
+    {
+      "name": "Fiji",
+      "leader": "Sitiveni Rabuka",
+      "orientation": "Center-Right (Coalition)",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Ocean Protection",
+        "Re-engagement with Australia/NZ",
+        "Tourism Growth"
+      ],
+      "allies": [
+        "Australia",
+        "New Zealand",
+        "USA"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity",
+        "Hinduism"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 4,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "Australia",
+        "China"
+      ]
+    },
+    {
+      "name": "Samoa",
+      "leader": "Laʻauli Leuatea Schmidt",
+      "orientation": "Center-Left",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Constitutional Review",
+        "Climate Resilience",
+        "Debt Restructuring"
+      ],
+      "allies": [
+        "New Zealand",
+        "Australia",
+        "China"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 5,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "New Zealand",
+        "Australia",
+        "USA"
+      ]
+    },
+    {
+      "name": "Solomon Islands",
+      "leader": "Jeremiah Manele",
+      "orientation": "Center-Right",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "China Security Cooperation",
+        "National Infrastructure Plan",
+        "Balanced Diplomacy"
+      ],
+      "allies": [
+        "China",
+        "Australia"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 3,
+      "leader_pop": 3,
+      "freedom": 3,
+      "military": 1,
+      "aggression": 2,
+      "trade": [
+        "China",
+        "Australia",
+        "Taiwan"
+      ]
+    },
+    {
+      "name": "Vanuatu",
+      "leader": "Jotham Napat",
+      "orientation": "Centrist",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Climate Justice Litigation",
+        "Trade Diversification",
+        "Anti-Corruption"
+      ],
+      "allies": [
+        "Australia",
+        "China",
+        "France"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 3,
+      "leader_pop": 2,
+      "freedom": 4,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "Thailand",
+        "Australia",
+        "China"
+      ]
+    },
+    {
+      "name": "Kiribati",
+      "leader": "Taneti Maamau",
+      "orientation": "Pro-China",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "KV20 Development Vision",
+        "Maritime Resource Control",
+        "Climate Adaptation"
+      ],
+      "allies": [
+        "China",
+        "Cuba"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 3,
+      "military": 1,
+      "aggression": 2,
+      "trade": [
+        "China",
+        "Australia",
+        "Thailand"
+      ]
+    },
+    {
+      "name": "Micronesia (FSM)",
+      "leader": "Wesley Simina",
+      "orientation": "Centrist",
+      "gov_type": "Federal Republic",
+      "policies": [
+        "Compact of Free Association (COFA)",
+        "Fisheries Protection"
+      ],
+      "allies": [
+        "USA",
+        "Japan",
+        "Israel"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 1,
+      "leader_pop": 4,
+      "freedom": 5,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "Japan",
+        "Thailand"
+      ]
+    },
+    {
+      "name": "Marshall Islands",
+      "leader": "Hilda Heine",
+      "orientation": "Centrist",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Climate Security Initiative",
+        "US Nuclear Legacy Claims",
+        "Financial Integrity"
+      ],
+      "allies": [
+        "USA",
+        "Taiwan",
+        "Japan"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 1,
+      "leader_pop": 4,
+      "freedom": 5,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "Japan",
+        "South Korea"
+      ]
+    },
+    {
+      "name": "Palau",
+      "leader": "Surangel Whipps Jr.",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Eco-Tourism",
+        "US Military Basing",
+        "Cyber-Financial Hub"
+      ],
+      "allies": [
+        "USA",
+        "Taiwan",
+        "Japan"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 1,
+      "leader_pop": 5,
+      "freedom": 5,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "Japan",
+        "Taiwan"
+      ]
+    },
+    {
+      "name": "Tonga",
+      "leader": "ʻAisake Eke",
+      "orientation": "Conservative",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Post-Eruption Recovery",
+        "Debt Sustainability",
+        "Traditional Values"
+      ],
+      "allies": [
+        "Australia",
+        "New Zealand",
+        "China"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 4,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "China",
+        "Australia",
+        "New Zealand"
+      ]
+    },
+    {
+      "name": "Nauru",
+      "leader": "David Adeang",
+      "orientation": "Right-Wing",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "One China Policy Shift",
+        "Deep Sea Mining",
+        "Regional Processing Center"
+      ],
+      "allies": [
+        "China",
+        "Australia"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 3,
+      "leader_pop": 3,
+      "freedom": 3,
+      "military": 1,
+      "aggression": 2,
+      "trade": [
+        "Australia",
+        "China",
+        "Nigeria"
+      ]
+    },
+    {
+      "name": "Tuvalu",
+      "leader": "Feleti Teo",
+      "orientation": "Centrist",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Falepili Union with Australia",
+        "Digital Nation Project",
+        "Climate Survival"
+      ],
+      "allies": [
+        "Australia",
+        "Taiwan"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 1,
+      "leader_pop": 4,
+      "freedom": 5,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "Australia",
+        "New Zealand",
+        "Fiji"
+      ]
+    }
+  ]
+}

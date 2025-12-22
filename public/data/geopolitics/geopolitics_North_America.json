@@ -1,0 +1,529 @@
+{
+  "continent": "North America",
+  "last_updated": "2025-12-18",
+  "countries": [
+    {
+      "name": "United States",
+      "leader": "Donald Trump",
+      "orientation": "Right-Wing Populist",
+      "gov_type": "Federal Republic",
+      "policies": [
+        "Universal 20% Tariffs",
+        "Mass Deportation",
+        "Energy Deregulation"
+      ],
+      "allies": [
+        "Israel",
+        "Argentina",
+        "Hungary",
+        "UK"
+      ],
+      "enemies": [
+        "Iran",
+        "China",
+        "Russia"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "unrest": 4,
+      "leader_pop": 3,
+      "freedom": 5,
+      "military": 5,
+      "aggression": 4,
+      "trade": [
+        "Mexico",
+        "Canada",
+        "China",
+        "Vietnam"
+      ]
+    },
+    {
+      "name": "Canada",
+      "leader": "Mark Carney",
+      "orientation": "Center-Left (Liberal)",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Trade Retaliation",
+        "Sovereignty Defense",
+        "Green Industrial Policy"
+      ],
+      "allies": [
+        "UK",
+        "EU",
+        "Ukraine",
+        "Japan"
+      ],
+      "enemies": [
+        "Russia",
+        "India (Tense)"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "unrest": 3,
+      "leader_pop": 4,
+      "freedom": 5,
+      "military": 3,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "China",
+        "Mexico",
+        "UK"
+      ]
+    },
+    {
+      "name": "Mexico",
+      "leader": "Claudia Sheinbaum",
+      "orientation": "Left-Wing (Morena)",
+      "gov_type": "Federal Republic",
+      "policies": [
+        "Fourth Transformation Continuation",
+        "Renewable Energy Transition",
+        "Judicial Reform Implementation"
+      ],
+      "allies": [
+        "Brazil",
+        "Colombia",
+        "USA (Strategic Partnership)"
+      ],
+      "enemies": [
+        "Ecuador (Diplomatic Break)"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 4,
+      "leader_pop": 4,
+      "freedom": 4,
+      "military": 3,
+      "aggression": 2,
+      "trade": [
+        "USA",
+        "China",
+        "Canada",
+        "Germany"
+      ]
+    },
+    {
+      "name": "Cuba",
+      "leader": "Miguel Díaz-Canel",
+      "orientation": "Communist",
+      "gov_type": "One-Party State",
+      "policies": [
+        "Energy Grid Reconstruction",
+        "Rationing Stabilization",
+        "Military-run Tourism"
+      ],
+      "allies": [
+        "Russia",
+        "China",
+        "Venezuela",
+        "Mexico"
+      ],
+      "enemies": [
+        "USA"
+      ],
+      "religions": [
+        "Secular",
+        "Christianity"
+      ],
+      "unrest": 4,
+      "leader_pop": 2,
+      "freedom": 1,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "China",
+        "Spain",
+        "Russia"
+      ]
+    },
+    {
+      "name": "Haiti",
+      "leader": "Alix Didier Fils-Aimé",
+      "orientation": "Centrist (Transitional)",
+      "gov_type": "Interim Council",
+      "policies": [
+        "Gang Suppression Force (GSF) Ops",
+        "Port Security",
+        "Election Roadmapping"
+      ],
+      "allies": [
+        "USA",
+        "Kenya",
+        "CARICOM"
+      ],
+      "enemies": [
+        "G9 Gang Alliance (Non-state)"
+      ],
+      "religions": [
+        "Christianity",
+        "Vodou"
+      ],
+      "unrest": 5,
+      "leader_pop": 2,
+      "freedom": 2,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "Dominican Republic"
+      ]
+    },
+    {
+      "name": "Dominican Republic",
+      "leader": "Luis Abinader",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Haitian Border Wall",
+        "Mass Repatriation",
+        "Tourism Expansion"
+      ],
+      "allies": [
+        "USA",
+        "Guyana",
+        "Spain"
+      ],
+      "enemies": [
+        "Haiti (Tense Border)"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 4,
+      "military": 2,
+      "aggression": 2,
+      "trade": [
+        "USA",
+        "Haiti",
+        "China"
+      ]
+    },
+    {
+      "name": "El Salvador",
+      "leader": "Nayib Bukele",
+      "orientation": "Right-Wing Populist",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Bitcoin Legal Tender",
+        "State of Exception Expansion",
+        "Tech Investment"
+      ],
+      "allies": [
+        "Argentina",
+        "USA"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 1,
+      "leader_pop": 5,
+      "freedom": 2,
+      "military": 2,
+      "aggression": 3,
+      "trade": [
+        "USA",
+        "Guatemala",
+        "Honduras"
+      ]
+    },
+    {
+      "name": "Guatemala",
+      "leader": "Bernardo Arévalo",
+      "orientation": "Center-Left",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Anti-Corruption Drive",
+        "Institutional Cleanup",
+        "Migrant Protection"
+      ],
+      "allies": [
+        "USA",
+        "Taiwan",
+        "Mexico"
+      ],
+      "enemies": [
+        "Belize (Territorial Claim)"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 3,
+      "leader_pop": 3,
+      "freedom": 4,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "El Salvador",
+        "Mexico"
+      ]
+    },
+    {
+      "name": "Honduras",
+      "leader": "Xiomara Castro",
+      "orientation": "Left-Wing",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "China Free Trade Pact",
+        "Democratic Socialism Reforms",
+        "Anti-Narcotics"
+      ],
+      "allies": [
+        "China",
+        "Venezuela",
+        "Cuba"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 4,
+      "leader_pop": 2,
+      "freedom": 3,
+      "military": 2,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "China",
+        "Mexico"
+      ]
+    },
+    {
+      "name": "Panama",
+      "leader": "José Raúl Mulino",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Darien Gap Closure",
+        "Canal Water Management",
+        "Financial Hub Reform"
+      ],
+      "allies": [
+        "USA",
+        "Colombia",
+        "Costa Rica"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 3,
+      "leader_pop": 3,
+      "freedom": 4,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "China",
+        "Japan"
+      ]
+    },
+    {
+      "name": "Costa Rica",
+      "leader": "Rodrigo Chaves Robles",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "policies": [
+        "Green Economy Export",
+        "Cybersecurity Modernization"
+      ],
+      "allies": [
+        "USA",
+        "Panama",
+        "Netherlands"
+      ],
+      "enemies": [
+        "Nicaragua"
+      ],
+      "religions": [
+        "Christianity",
+        "Secular"
+      ],
+      "unrest": 2,
+      "leader_pop": 3,
+      "freedom": 5,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "China",
+        "Netherlands"
+      ]
+    },
+    {
+      "name": "Nicaragua",
+      "leader": "Daniel Ortega",
+      "orientation": "Far-Left Authoritarian",
+      "gov_type": "One-Party State",
+      "policies": [
+        "Opposition Suppression",
+        "Russian Security Cooperation"
+      ],
+      "allies": [
+        "Russia",
+        "China",
+        "Venezuela",
+        "Cuba"
+      ],
+      "enemies": [
+        "USA",
+        "Costa Rica"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 1,
+      "military": 2,
+      "aggression": 4,
+      "trade": [
+        "USA",
+        "China",
+        "Mexico"
+      ]
+    },
+    {
+      "name": "Jamaica",
+      "leader": "Andrew Holness",
+      "orientation": "Center-Right",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Transition to Republic",
+        "Anti-Gang Surge",
+        "Economic Stabilization"
+      ],
+      "allies": [
+        "USA",
+        "UK",
+        "Canada"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 4,
+      "leader_pop": 3,
+      "freedom": 4,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "Canada",
+        "China"
+      ]
+    },
+    {
+      "name": "Trinidad and Tobago",
+      "leader": "Keith Rowley",
+      "orientation": "Center-Right",
+      "gov_type": "Parliamentary Republic",
+      "policies": [
+        "Natural Gas Monetization",
+        "Regional Energy Hub"
+      ],
+      "allies": [
+        "USA",
+        "Guyana",
+        "Venezuela (Energy cooperation)"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity",
+        "Hinduism",
+        "Islam"
+      ],
+      "unrest": 3,
+      "leader_pop": 3,
+      "freedom": 4,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "China",
+        "Guyana"
+      ]
+    },
+    {
+      "name": "The Bahamas",
+      "leader": "Philip Davis",
+      "orientation": "Center-Left",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Climate Reparations Lobbying",
+        "Digital Nomad Growth"
+      ],
+      "allies": [
+        "USA",
+        "UK",
+        "CARICOM"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 2,
+      "leader_pop": 4,
+      "freedom": 5,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "China",
+        "France"
+      ]
+    },
+    {
+      "name": "Belize",
+      "leader": "Johnny Briceño",
+      "orientation": "Center-Left",
+      "gov_type": "Constitutional Monarchy",
+      "policies": [
+        "Sovereignty Defense",
+        "Blue Bond Finance"
+      ],
+      "allies": [
+        "UK",
+        "Taiwan",
+        "Mexico"
+      ],
+      "enemies": [
+        "Guatemala (Territorial Claim)"
+      ],
+      "religions": [
+        "Christianity"
+      ],
+      "unrest": 1,
+      "leader_pop": 4,
+      "freedom": 5,
+      "military": 1,
+      "aggression": 1,
+      "trade": [
+        "USA",
+        "UK",
+        "Mexico"
+      ]
+    }
+  ]
+}

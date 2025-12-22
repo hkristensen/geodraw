@@ -11,10 +11,14 @@ import {
     NationStats,
     AICountry,
     Disposition,
-
+    GameSettings,
     TariffStatus,
+    AIWar,
     AgreementType,
-    Constitution
+    Constitution,
+    Coalition,
+    CoalitionType,
+    CoalitionInvite
 } from './game'
 import { InfrastructureStats } from '../utils/infrastructure'
 
@@ -97,9 +101,39 @@ export interface GameState {
 
     // Game Over State
     gameOver: boolean
+    isDrawing: boolean
+
+    // New Systems
+    researchPoints: number
+    unlockedTechs: string[]
+    activePolicies: string[]
+    unrest: number // 0-100
+    factions: import('./game').Faction[]
+    infrastructureLoaded: boolean
+
+    // Economic Cycle (global economy state)
+    economicCycle: import('../utils/economy').EconomicCycleState | null
+
+    // Victory System
+    victoriesAchieved: import('../utils/victorySystem').VictoryType[]
+    consecutiveMonthsAsTopPower: number
+    consecutiveMonthsAsTopGDP: number
+    achievementsUnlocked: string[]
+
+    // War Exhaustion Tracking
+    totalWarCasualties: number
+    monthsAtWar: number
+
+    // Game settings (from setup screen)
+    gameSettings: GameSettings | null
+    selectedCountryName: string | null // For pre-filling nation name
+
 
     // Actions
     setPhase: (phase: GamePhase) => void
+    setGameSettings: (settings: GameSettings) => void
+    setSelectedCountryName: (name: string | null) => void
+    setIsDrawing: (isDrawing: boolean) => void
     setUserPolygon: (polygon: GeoJSON.Feature | null) => void
     addTerritory: (territory: GeoJSON.Feature) => void
     setConsequences: (consequences: Consequence[]) => void
@@ -141,11 +175,33 @@ export interface GameState {
         isPlayerDefender: boolean,
         claimId?: string,
         location?: [number, number],
-        defenseBonus?: number
+        defenseBonus?: number,
+        plan?: import('./game').BattlePlan
     ) => void
     dismissBattle: (id: string) => void
     triggerEvent: (event: RandomEvent) => void
     resolveEvent: () => void
+
+    // New System Actions
+    addResearchPoints: (amount: number) => void
+    unlockTech: (techId: string) => void
+    enactPolicy: (policyId: string) => void
+    revokePolicy: (policyId: string) => void
+    updateUnrest: (delta: number) => void
+    addFaction: (faction: import('./game').Faction) => void
+    updateFaction: (id: string, updates: Partial<import('./game').Faction>) => void
+    removeFaction: (id: string) => void
+    setInfrastructureLoaded: (loaded: boolean) => void
+
+    // Military Actions
+    createUnit: (type: import('./game').UnitType, soldierCount?: number, source?: 'DRAFT' | 'HIRE') => void
+    updateUnit: (unitId: string, updates: Partial<import('./game').MilitaryUnit>) => void
+    deleteUnit: (unitId: string) => void
+    transferSoldiers: (sourceUnitId: string, targetUnitId: string, amount: number) => void
+    recallUnit: (unitId: string) => void
+    saveWarPlan: (plan: import('./game').BattlePlan) => void
+    deleteWarPlan: (planId: string) => void
+    executeWarPlan: (planId: string) => void
 }
 
 // --- World Store Types ---
@@ -154,14 +210,20 @@ export interface WorldState {
     // AI-controlled countries
     aiCountries: Map<string, AICountry>
 
-    // Active wars
+    // Dynamic country territories (polygons that can change)
+    aiTerritories: Map<string, GeoJSON.Feature>
+
+    // AI vs AI wars
+    aiWars: AIWar[]
+
+    // Active wars (with player)
     activeWars: string[] // Country codes at war with player
 
     // Alliances
     allies: string[] // Country codes allied with player
 
     // Initialize AI countries from consequences
-    initializeAICountries: (consequences: Consequence[], playerConstitution?: Constitution) => void
+    initializeAICountries: (consequences: Consequence[], playerConstitution?: Constitution, allCountries?: any) => void
 
     // Update country relations
     updateRelations: (countryCode: string, delta: number) => void
@@ -178,8 +240,11 @@ export interface WorldState {
     // Form alliance
     formAlliance: (countryCode: string) => void
 
-    // Process AI turn (reactions)
+    // Process AI turn (reactions to player)
     processAITurn: () => { events: string[], wars: string[], offensives: { countryCode: string, strength: number }[] }
+
+    // Process AI vs AI wars
+    processAIvsAI: () => { events: Array<{ type: string, attackerCode: string, defenderCode: string }>, wars: AIWar[] }
 
     // Diplomacy
     proposeAgreement: (countryCode: string, type: AgreementType) => boolean
@@ -207,6 +272,9 @@ export interface WorldState {
     // Ensure country is initialized (for interaction)
     ensureCountryInitialized: (countryCode: string, playerConstitution?: Constitution) => void
 
+    // Process elections, coups, and revolutions monthly
+    processElections: () => void
+
     // Liberate country
     liberateCountry: (countryCode: string) => void
 
@@ -219,8 +287,29 @@ export interface WorldState {
     // Request Support (Alliance Action)
     requestSupport: (countryCode: string) => number // returns soldiers sent
 
+    // Coalitions
+    coalitions: Coalition[]
+    coalitionInvites: CoalitionInvite[]
+    coalitionsInitialized: boolean
+    createCoalition: (name: string, type: CoalitionType, requirements?: Coalition['requirements']) => void
+    joinCoalition: (coalitionId: string) => void
+    requestJoinCoalition: (coalitionId: string) => void
+    leaveCoalition: (coalitionId: string) => void
+    inviteToCoalition: (coalitionId: string, countryCode: string) => void
+    kickFromCoalition: (coalitionId: string, countryCode: string) => void
+    processCoalitions: () => void // Monthly processing
+
     // Update soldiers for a country
     updateCountrySoldiers: (countryCode: string, delta: number) => void
+
+    // Article 5: Collective Defense
+    triggerAllianceResponse: (defenderCode: string, attackerCode: string) => void
+
+    // Surrender to valid coalition
+    surrenderToCoalition: (coalitionId: string, surrenderingCountryCode: string) => void
+
+    // Reset state
+    reset: () => void
 }
 
 // --- Event Types ---

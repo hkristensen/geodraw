@@ -1,0 +1,437 @@
+{
+  "continent": "South America",
+  "last_updated": "2025-12-18",
+  "countries": [
+    {
+      "name": "Brazil",
+      "leader": "Lula da Silva",
+      "orientation": "Left-Wing",
+      "gov_type": "Federal Republic",
+      "top_policies": [
+        "Green Industrialization",
+        "G20 Leadership",
+        "Amazon Sovereignty"
+      ],
+      "allies": [
+        "China",
+        "Argentina",
+        "France",
+        "Nigeria"
+      ],
+      "enemies": [
+        "USA (Trade Tensions)"
+      ],
+      "religions": [
+        "Catholicism",
+        "Evangelicalism",
+        "Spiritism"
+      ],
+      "trade_partners": [
+        "China",
+        "USA",
+        "Argentina",
+        "EU"
+      ],
+      "stats": {
+        "social_unrest": 3,
+        "leader_pop": 3,
+        "political_freedom": 4,
+        "military_strength": 5,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Argentina",
+      "leader": "Javier Milei",
+      "orientation": "Libertarian",
+      "gov_type": "Federal Republic",
+      "top_policies": [
+        "Austerity & Deregulation",
+        "Anti-China Pivot",
+        "Strategic US Alliance"
+      ],
+      "allies": [
+        "USA",
+        "Israel",
+        "Italy",
+        "El Salvador"
+      ],
+      "enemies": [
+        "Venezuela",
+        "Russia"
+      ],
+      "religions": [
+        "Catholicism"
+      ],
+      "trade_partners": [
+        "Brazil",
+        "USA",
+        "China",
+        "Chile"
+      ],
+      "stats": {
+        "social_unrest": 4,
+        "leader_pop": 4,
+        "political_freedom": 5,
+        "military_strength": 4,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Chile",
+      "leader": "José Antonio Kast",
+      "orientation": "Right-Wing",
+      "gov_type": "Presidential Republic",
+      "top_policies": [
+        "Border Security",
+        "Mining Investment Incentives",
+        "Anti-Terrorism (Araucanía)"
+      ],
+      "allies": [
+        "USA",
+        "Argentina",
+        "UK"
+      ],
+      "enemies": [
+        "Venezuela",
+        "Bolivia (Maritime Claim)"
+      ],
+      "religions": [
+        "Catholicism",
+        "Protestantism"
+      ],
+      "trade_partners": [
+        "China",
+        "USA",
+        "Japan",
+        "South Korea"
+      ],
+      "stats": {
+        "social_unrest": 3,
+        "leader_pop": 4,
+        "political_freedom": 5,
+        "military_strength": 4,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Venezuela",
+      "leader": "Nicolás Maduro (Contested)",
+      "orientation": "Far-Left",
+      "gov_type": "Authoritarian",
+      "top_policies": [
+        "Regime Survival",
+        "Sanction Evasion",
+        "Essequibo Annexation Pressure"
+      ],
+      "allies": [
+        "Russia",
+        "China",
+        "Iran",
+        "Cuba"
+      ],
+      "enemies": [
+        "USA",
+        "Guyana",
+        "Argentina",
+        "Colombia"
+      ],
+      "religions": [
+        "Catholicism"
+      ],
+      "trade_partners": [
+        "China",
+        "Russia",
+        "India"
+      ],
+      "stats": {
+        "social_unrest": 5,
+        "leader_pop": 1,
+        "political_freedom": 1,
+        "military_strength": 3,
+        "aggressiveness": 5
+      }
+    },
+    {
+      "name": "Colombia",
+      "leader": "Gustavo Petro",
+      "orientation": "Left-Wing",
+      "gov_type": "Presidential Republic",
+      "top_policies": [
+        "Total Peace Initiative",
+        "Decarbonization",
+        "Land Reform"
+      ],
+      "allies": [
+        "Brazil",
+        "Mexico",
+        "Spain"
+      ],
+      "enemies": [
+        "Israel (Diplomatic Break)",
+        "USA (High Tension)"
+      ],
+      "religions": [
+        "Catholicism",
+        "Protestantism"
+      ],
+      "trade_partners": [
+        "USA",
+        "China",
+        "Panama"
+      ],
+      "stats": {
+        "social_unrest": 4,
+        "leader_pop": 2,
+        "political_freedom": 4,
+        "military_strength": 3,
+        "aggressiveness": 2
+      }
+    },
+    {
+      "name": "Peru",
+      "leader": "Dina Boluarte",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "top_policies": [
+        "Chancay Port Development",
+        "Mining Stability",
+        "Anti-Crime Decree"
+      ],
+      "allies": [
+        "USA",
+        "China",
+        "Japan"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Catholicism"
+      ],
+      "trade_partners": [
+        "China",
+        "USA",
+        "Brazil"
+      ],
+      "stats": {
+        "social_unrest": 5,
+        "leader_pop": 1,
+        "political_freedom": 3,
+        "military_strength": 3,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Ecuador",
+      "leader": "Daniel Noboa",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "top_policies": [
+        "War on Organized Crime",
+        "Prison Reform",
+        "IMF Structural Adjustment"
+      ],
+      "allies": [
+        "USA",
+        "Argentina",
+        "Israel"
+      ],
+      "enemies": [
+        "Mexico (Diplomatic Conflict)"
+      ],
+      "religions": [
+        "Catholicism"
+      ],
+      "trade_partners": [
+        "USA",
+        "China",
+        "Panama"
+      ],
+      "stats": {
+        "social_unrest": 4,
+        "leader_pop": 4,
+        "political_freedom": 4,
+        "military_strength": 2,
+        "aggressiveness": 3
+      }
+    },
+    {
+      "name": "Bolivia",
+      "leader": "Rodrigo Paz",
+      "orientation": "Center-Right",
+      "gov_type": "Presidential Republic",
+      "top_policies": [
+        "Economic Recovery",
+        "Lithium Industrialization",
+        "Gas Export Revival"
+      ],
+      "allies": [
+        "Argentina",
+        "Brazil",
+        "USA"
+      ],
+      "enemies": [
+        "Chile (Sea Access Dispute)"
+      ],
+      "religions": [
+        "Catholicism",
+        "Indigenous Beliefs"
+      ],
+      "trade_partners": [
+        "China",
+        "Brazil",
+        "Argentina"
+      ],
+      "stats": {
+        "social_unrest": 4,
+        "leader_pop": 3,
+        "political_freedom": 4,
+        "military_strength": 2,
+        "aggressiveness": 3
+      }
+    },
+    {
+      "name": "Uruguay",
+      "leader": "Yamandú Orsi",
+      "orientation": "Center-Left",
+      "gov_type": "Presidential Republic",
+      "top_policies": [
+        "Social Safety Net Expansion",
+        "Mercosur Flexibilization",
+        "Green Energy Export"
+      ],
+      "allies": [
+        "Brazil",
+        "Argentina",
+        "EU"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Secular (Agnostic)",
+        "Catholicism"
+      ],
+      "trade_partners": [
+        "China",
+        "Brazil",
+        "USA"
+      ],
+      "stats": {
+        "social_unrest": 1,
+        "leader_pop": 4,
+        "political_freedom": 5,
+        "military_strength": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Paraguay",
+      "leader": "Santiago Peña",
+      "orientation": "Right-Wing",
+      "gov_type": "Presidential Republic",
+      "top_policies": [
+        "Low-Tax Tech Hub",
+        "Agricultural Export Growth",
+        "Taiwan Relations"
+      ],
+      "allies": [
+        "Taiwan",
+        "USA",
+        "Brazil"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Catholicism"
+      ],
+      "trade_partners": [
+        "Brazil",
+        "Argentina",
+        "USA"
+      ],
+      "stats": {
+        "social_unrest": 2,
+        "leader_pop": 3,
+        "political_freedom": 4,
+        "military_strength": 2,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Guyana",
+      "leader": "Irfaan Ali",
+      "orientation": "Centrist",
+      "gov_type": "Parliamentary Republic",
+      "top_policies": [
+        "Oil Wealth Management",
+        "Territorial Defense",
+        "Infrastructure Boom"
+      ],
+      "allies": [
+        "USA",
+        "UK",
+        "Brazil",
+        "Dominican Republic"
+      ],
+      "enemies": [
+        "Venezuela"
+      ],
+      "religions": [
+        "Christianity",
+        "Hinduism",
+        "Islam"
+      ],
+      "trade_partners": [
+        "USA",
+        "Singapore",
+        "UK"
+      ],
+      "stats": {
+        "social_unrest": 2,
+        "leader_pop": 4,
+        "political_freedom": 4,
+        "military_strength": 1,
+        "aggressiveness": 1
+      }
+    },
+    {
+      "name": "Suriname",
+      "leader": "Chan Santokhi",
+      "orientation": "Centrist",
+      "gov_type": "Parliamentary Republic",
+      "top_policies": [
+        "Offshore Oil Development",
+        "IMF Austerity",
+        "Climate Adaptation"
+      ],
+      "allies": [
+        "Netherlands",
+        "USA",
+        "Guyana"
+      ],
+      "enemies": [
+        "None"
+      ],
+      "religions": [
+        "Christianity",
+        "Hinduism",
+        "Islam"
+      ],
+      "trade_partners": [
+        "Switzerland",
+        "USA",
+        "UAE"
+      ],
+      "stats": {
+        "social_unrest": 3,
+        "leader_pop": 2,
+        "political_freedom": 4,
+        "military_strength": 1,
+        "aggressiveness": 1
+      }
+    }
+  ]
+}

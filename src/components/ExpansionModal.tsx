@@ -175,9 +175,9 @@ export function ExpansionModal() {
 
                     <button
                         onClick={handleCancel}
-                        className="w-full py-2 text-gray-400 hover:text-white text-sm transition-colors"
+                        className="w-full py-3 bg-gray-800 hover:bg-gray-700 text-red-400 hover:text-red-300 font-semibold rounded-lg transition-colors border border-red-900/30"
                     >
-                        Cancel
+                        ✕ Cancel Claim
                     </button>
                 </div>
             </div>
