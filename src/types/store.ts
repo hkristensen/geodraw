@@ -213,6 +213,9 @@ export interface WorldState {
     // Dynamic country territories (polygons that can change)
     aiTerritories: Map<string, GeoJSON.Feature>
 
+    // Contested zones during active wars (red-ish territory, merged on peace)
+    contestedZones: Map<string, GeoJSON.Feature> // keyed by warId
+
     // AI vs AI wars
     aiWars: AIWar[]
 
@@ -221,6 +224,22 @@ export interface WorldState {
 
     // Alliances
     allies: string[] // Country codes allied with player
+
+    // === ADVANCED DIPLOMACY STATE ===
+    // United Nations
+    unitedNations: import('../types/diplomaticTypes').UNState | null
+
+    // Active diplomatic crises
+    activeCrises: import('../types/diplomaticTypes').DiplomaticCrisis[]
+
+    // Player soft power state
+    softPowerState: import('../types/diplomaticTypes').SoftPowerState | null
+
+    // Pending/active summit
+    activeSummit: import('../types/diplomaticTypes').Summit | null
+
+    // Diplomacy message log (for UI)
+    diplomacyMessages: string[]
 
     // Initialize AI countries from consequences
     initializeAICountries: (consequences: Consequence[], playerConstitution?: Constitution, allCountries?: any) => void
@@ -267,7 +286,7 @@ export interface WorldState {
     getCountry: (code: string) => AICountry | undefined
 
     // Annex country (remove from active AI)
-    annexCountry: (countryCode: string) => void
+    annexCountry: (countryCode: string, annexerCode?: string) => void
 
     // Ensure country is initialized (for interaction)
     ensureCountryInitialized: (countryCode: string, playerConstitution?: Constitution) => void
@@ -307,6 +326,29 @@ export interface WorldState {
 
     // Surrender to valid coalition
     surrenderToCoalition: (coalitionId: string, surrenderingCountryCode: string) => void
+
+    // === ADVANCED DIPLOMACY ACTIONS ===
+
+    // UN Actions
+    initializeDiplomacy: () => void
+    voteOnResolution: (resolutionId: string, vote: 'YES' | 'NO' | 'ABSTAIN') => void
+    proposeResolution: (type: import('../types/diplomaticTypes').ResolutionType, targetCountry?: string) => void
+
+    // Crisis Actions
+    respondToCrisis: (crisisId: string, action: import('../types/diplomaticTypes').CrisisAction) => void
+
+    // Soft Power Actions
+    executeInfluenceAction: (actionType: import('../types/diplomaticTypes').InfluenceActionType, targetCountry: string) => boolean
+
+    // Summit Actions
+    proposeSummit: (targetCountry: string, topics: import('../types/diplomaticTypes').SummitTopic[]) => boolean
+    respondToSummitProposal: (accept: boolean, topicResponses?: Map<import('../types/diplomaticTypes').SummitTopic, boolean>) => void
+
+    // Process all diplomacy systems monthly
+    processDiplomacy: () => string[]
+
+    // Clear diplomacy messages
+    clearDiplomacyMessages: () => void
 
     // Reset state
     reset: () => void

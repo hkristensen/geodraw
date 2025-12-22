@@ -44,28 +44,33 @@ function calculatePersonalityWeights(country: AICountry): PersonalityWeight[] {
 
     const weights: PersonalityWeight[] = [
         {
+            // EXPANSIONIST: Reduced weight - was causing too many aggressive nations
             type: 'EXPANSIONIST',
-            weight: (aggression >= 4 ? 30 : 0) + (military >= 4 ? 20 : 0) + (aggression * 5)
+            weight: (aggression >= 5 ? 15 : 0) + (military >= 5 ? 10 : 0) + (aggression >= 4 ? 10 : 0)
         },
         {
+            // DEFENSIVE: Increased base weight for more peaceful nations
             type: 'DEFENSIVE',
-            weight: (freedom >= 4 ? 25 : 0) + (aggression <= 2 ? 20 : 0) + (military >= 3 ? 10 : 0)
+            weight: 20 + (freedom >= 4 ? 25 : 0) + (aggression <= 2 ? 20 : 0) + (military >= 3 ? 10 : 0)
         },
         {
+            // TRADING_POWER: Increased base weight
             type: 'TRADING_POWER',
-            weight: (tradePartners >= 5 ? 30 : tradePartners * 5) + (freedom >= 3 ? 15 : 0) + (aggression <= 2 ? 10 : 0)
+            weight: 15 + (tradePartners >= 5 ? 30 : tradePartners * 5) + (freedom >= 3 ? 15 : 0) + (aggression <= 2 ? 10 : 0)
         },
         {
             type: 'IDEOLOGICAL',
             weight: (Math.abs(orientation) > 60 ? 30 : 0) + (aggression >= 3 ? 10 : 0)
         },
         {
+            // OPPORTUNIST: Reduced slightly - these still attack
             type: 'OPPORTUNIST',
-            weight: (aggression === 3 ? 20 : 0) + (military >= 3 ? 15 : 0) + 10 // Base chance
+            weight: (aggression === 3 ? 15 : 0) + (military >= 3 ? 10 : 0) + 5
         },
         {
+            // ISOLATIONIST: Increased base weight for more passive nations
             type: 'ISOLATIONIST',
-            weight: (tradePartners <= 2 ? 20 : 0) + (military <= 2 ? 20 : 0) + (aggression <= 1 ? 15 : 0)
+            weight: 15 + (tradePartners <= 2 ? 20 : 0) + (military <= 2 ? 20 : 0) + (aggression <= 1 ? 15 : 0)
         }
     ]
 

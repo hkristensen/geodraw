@@ -1,0 +1,652 @@
+/**
+ * Advanced Diplomacy Panel Styles
+ * 
+ * Styling for UN voting, crises, influence actions, and summits
+ */
+
+.advanced-diplomacy-panel {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+    border-radius: 12px;
+    padding: 16px;
+    color: #eee;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+.diplomacy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+
+.diplomacy-header h2 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: #fff;
+}
+
+.influence-display {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.influence-points {
+    font-size: 1.1rem;
+    color: #ffd700;
+    font-weight: 600;
+}
+
+.influence-income {
+    font-size: 0.8rem;
+    color: #8ae6a0;
+}
+
+/* Tab Navigation */
+.diplomacy-tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 4px;
+}
+
+.tab-button {
+    flex: 1;
+    padding: 8px 12px;
+    background: transparent;
+    border: none;
+    color: #aaa;
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.tab-button:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+}
+
+.tab-button.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: #fff;
+}
+
+.tab-button .badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    background: #e53935;
+    color: white;
+    font-size: 0.65rem;
+    padding: 2px 5px;
+    border-radius: 10px;
+    min-width: 16px;
+}
+
+/* Tab Content */
+.tab-content {
+    min-height: 200px;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: #888;
+}
+
+.empty-state small {
+    display: block;
+    margin-top: 8px;
+    font-size: 0.8rem;
+}
+
+/* UN Tab */
+.un-tab h4 {
+    margin: 16px 0 8px;
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+.security-council {
+    background: rgba(102, 126, 234, 0.15);
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 12px;
+}
+
+.security-council h4 {
+    margin: 0 0 4px;
+    color: #667eea;
+}
+
+.council-members .p5 {
+    font-size: 0.9rem;
+    color: #ddd;
+}
+
+.resolutions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.resolution-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.resolution-header {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+}
+
+.type-badge {
+    background: #2196f3;
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.sc-badge {
+    background: #ff9800;
+    color: white;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+.resolution-card h5 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+}
+
+.resolution-card p {
+    margin: 0 0 12px;
+    font-size: 0.85rem;
+    color: #bbb;
+}
+
+.vote-status {
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 12px;
+}
+
+.vote-buttons {
+    display: flex;
+    gap: 8px;
+}
+
+.vote-buttons button {
+    flex: 1;
+    padding: 8px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.vote-yes {
+    background: #4caf50;
+    color: white;
+}
+
+.vote-yes:hover {
+    background: #66bb6a;
+}
+
+.vote-no {
+    background: #e53935;
+    color: white;
+}
+
+.vote-no:hover {
+    background: #ef5350;
+}
+
+.vote-abstain {
+    background: #9e9e9e;
+    color: white;
+}
+
+.vote-abstain:hover {
+    background: #bdbdbd;
+}
+
+.passed-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.passed-item {
+    font-size: 0.85rem;
+    color: #8ae6a0;
+    padding: 4px 0;
+}
+
+/* Crisis Tab */
+.crisis-tab {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.crisis-card {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 12px;
+    border-left: 4px solid #ffa726;
+}
+
+.crisis-card.phase-1 {
+    border-color: #4caf50;
+}
+
+.crisis-card.phase-2 {
+    border-color: #ffeb3b;
+}
+
+.crisis-card.phase-3 {
+    border-color: #ff9800;
+}
+
+.crisis-card.phase-4 {
+    border-color: #f44336;
+}
+
+.crisis-card.phase-5 {
+    border-color: #b71c1c;
+}
+
+.crisis-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 8px;
+}
+
+.crisis-header h5 {
+    margin: 0;
+    font-size: 1rem;
+}
+
+.phase-badge {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #333;
+}
+
+.phase-badge.phase-1 {
+    background: #4caf50;
+}
+
+.phase-badge.phase-2 {
+    background: #ffeb3b;
+    color: #333;
+}
+
+.phase-badge.phase-3 {
+    background: #ff9800;
+}
+
+.phase-badge.phase-4 {
+    background: #f44336;
+}
+
+.crisis-card p {
+    margin: 0 0 12px;
+    font-size: 0.85rem;
+    color: #bbb;
+}
+
+.crisis-metrics {
+    margin-bottom: 12px;
+}
+
+.war-risk {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.8rem;
+}
+
+.risk-bar {
+    flex: 1;
+    height: 8px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.risk-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #4caf50, #ff9800, #f44336);
+    transition: width 0.3s;
+}
+
+.crisis-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.action-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    background: #444;
+    color: white;
+    transition: all 0.2s;
+}
+
+.action-btn:hover {
+    background: #555;
+}
+
+.action-back_down {
+    background: #4caf50;
+}
+
+.action-escalate {
+    background: #e53935;
+}
+
+.action-seek_mediation {
+    background: #2196f3;
+}
+
+.action-propose_summit {
+    background: #9c27b0;
+}
+
+/* Influence Tab */
+.influence-tab {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.influence-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.influence-stats .stat {
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 8px;
+    padding: 12px;
+    text-align: center;
+}
+
+.influence-stats .label {
+    display: block;
+    font-size: 0.75rem;
+    color: #888;
+    margin-bottom: 4px;
+}
+
+.influence-stats .value {
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: #ffd700;
+}
+
+.influence-stats .value.positive {
+    color: #8ae6a0;
+}
+
+.influence-stats .value.negative {
+    color: #ff6b6b;
+}
+
+.country-selector h4 {
+    margin: 0 0 8px;
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+.country-selector select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    font-size: 0.9rem;
+}
+
+.influence-actions h4 {
+    margin: 0 0 12px;
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.influence-action {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 12px 8px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+}
+
+.influence-action:hover {
+    background: rgba(255, 255, 255, 0.15);
+    transform: translateY(-2px);
+}
+
+.influence-action.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.influence-action.disabled:hover {
+    transform: none;
+}
+
+.influence-action.covert {
+    border-color: rgba(229, 57, 53, 0.4);
+}
+
+.influence-action .icon {
+    font-size: 1.5rem;
+    margin-bottom: 4px;
+}
+
+.influence-action .name {
+    font-size: 0.8rem;
+    color: #ddd;
+}
+
+.influence-action .cost {
+    font-size: 0.75rem;
+    color: #ffd700;
+    margin-top: 4px;
+}
+
+.covert-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    font-size: 0.6rem;
+    background: rgba(229, 57, 53, 0.8);
+    color: white;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+/* Summit Tab */
+.summit-tab {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.summit-tab h4 {
+    margin: 0 0 12px;
+    font-size: 0.95rem;
+}
+
+.summit-form .field {
+    margin-bottom: 16px;
+}
+
+.summit-form label {
+    display: block;
+    font-size: 0.85rem;
+    color: #aaa;
+    margin-bottom: 8px;
+}
+
+.summit-form select {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(0, 0, 0, 0.3);
+    color: white;
+    font-size: 0.9rem;
+}
+
+.topics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.topic-btn {
+    padding: 12px 8px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.2s;
+}
+
+.topic-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.topic-btn.selected {
+    background: rgba(102, 126, 234, 0.3);
+    border-color: #667eea;
+}
+
+.topic-name {
+    display: block;
+    font-size: 0.9rem;
+    color: #fff;
+    font-weight: 500;
+}
+
+.topic-desc {
+    display: block;
+    font-size: 0.75rem;
+    color: #888;
+    margin-top: 4px;
+}
+
+.propose-btn {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.propose-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.propose-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.summit-active {
+    background: rgba(102, 126, 234, 0.15);
+    border-radius: 8px;
+    padding: 16px;
+    text-align: center;
+}
+
+.summit-active h4 {
+    margin: 0 0 8px;
+    color: #667eea;
+}
+
+/* Messages */
+.diplomacy-messages {
+    margin-top: 16px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.messages-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.2);
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.messages-header button {
+    background: transparent;
+    border: none;
+    color: #667eea;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.messages-list {
+    padding: 8px 12px;
+    max-height: 100px;
+    overflow-y: auto;
+}
+
+.message {
+    font-size: 0.8rem;
+    color: #aaa;
+    padding: 4px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.message:last-child {
+    border-bottom: none;
+}

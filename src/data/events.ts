@@ -855,6 +855,454 @@ export const RANDOM_EVENTS: RandomEvent[] = [
                 }
             }
         ]
+    },
+    // === DIPLOMATIC CRISIS EVENTS ===
+    {
+        id: 'embassy_siege',
+        title: 'Embassy Under Siege',
+        description: 'Protesters have surrounded our embassy in a foreign capital. Our diplomats are trapped inside.',
+        icon: '🏛️',
+        condition: (_game, world) => world.aiCountries.size > 0,
+        options: [
+            {
+                label: 'Demand Protection',
+                description: 'Insist the host nation restore order. (Relations -, Potential Crisis)',
+                effect: (game, world) => {
+                    const countries = Array.from(world.aiCountries.values())
+                    const target = countries[Math.floor(Math.random() * countries.length)]
+                    if (target) {
+                        world.updateRelations(target.code, -25)
+                        game.addDiplomaticEvents([{
+                            id: `embassy-crisis-${Date.now()}`,
+                            type: 'BORDER_TENSION',
+                            severity: 2,
+                            title: 'Embassy Crisis',
+                            description: `Tensions rise as ${target.name} fails to protect our embassy.`,
+                            affectedNations: [target.code],
+                            timestamp: Date.now()
+                        }])
+                    }
+                }
+            },
+            {
+                label: 'Evacuate Quietly',
+                description: 'Pull out our diplomats to avoid escalation. (Prestige -)',
+                effect: (_game) => { }
+            }
+        ]
+    },
+    {
+        id: 'border_patrol_clash',
+        title: 'Border Patrol Clash',
+        description: 'Our border guards exchanged gunfire with a neighboring country\'s patrol. Several casualties reported.',
+        icon: '🔫',
+        condition: (_game, world) => world.aiCountries.size > 0,
+        options: [
+            {
+                label: 'Demand Apology',
+                description: 'Issue ultimatum for formal apology. (Relations -, Crisis Risk)',
+                effect: (game, world) => {
+                    const countries = Array.from(world.aiCountries.values())
+                    const target = countries[Math.floor(Math.random() * countries.length)]
+                    if (target) {
+                        world.updateRelations(target.code, -30)
+                        game.addDiplomaticEvents([{
+                            id: `border-clash-${Date.now()}`,
+                            type: 'WAR_DECLARED',
+                            severity: 2,
+                            title: 'Border Incident',
+                            description: `Military clash at the ${target.name} border could escalate.`,
+                            affectedNations: [target.code],
+                            timestamp: Date.now()
+                        }])
+                    }
+                }
+            },
+            {
+                label: 'Issue Joint Statement',
+                description: 'De-escalate with mutual investigation. (Stability +)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `deescalation-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'STABILITY',
+                        intensity: 1,
+                        duration: 6,
+                        description: 'Successful De-escalation'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'cyber_attack',
+        title: 'Major Cyber Attack',
+        description: 'Our critical infrastructure has been hit by a sophisticated cyber attack. Evidence points to a foreign government.',
+        icon: '💻',
+        condition: (_game, world) => world.aiCountries.size > 0,
+        options: [
+            {
+                label: 'Public Accusation',
+                description: 'Name and shame the perpetrator. (Relations --, World Opinion +)',
+                effect: (game, world) => {
+                    const countries = Array.from(world.aiCountries.values())
+                        .filter(c => c.politicalState?.freedom && c.politicalState.freedom <= 2)
+                    const target = countries[Math.floor(Math.random() * countries.length)]
+                    if (target) {
+                        world.updateRelations(target.code, -40)
+                        game.addDiplomaticEvents([{
+                            id: `cyber-accusation-${Date.now()}`,
+                            type: 'BORDER_TENSION',
+                            severity: 2,
+                            title: 'Cyber Warfare Accusation',
+                            description: `We have publicly accused ${target.name} of cyber attacks.`,
+                            affectedNations: [target.code],
+                            timestamp: Date.now()
+                        }])
+                    }
+                }
+            },
+            {
+                label: 'Covert Retaliation',
+                description: 'Strike back through our own cyber capabilities.',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `cyber-ops-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'MILITARY_QUALITY',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Cyber Warfare Experience'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'summit_invitation',
+        title: 'Summit Invitation',
+        description: 'A major power has invited us to a bilateral summit to discuss regional issues.',
+        icon: '🤝',
+        condition: (_game, world) => world.aiCountries.size > 0,
+        options: [
+            {
+                label: 'Accept',
+                description: 'Attend the summit. (Relations +, Prestige +)',
+                effect: (game, world) => {
+                    const countries = Array.from(world.aiCountries.values())
+                        .filter(c => c.relations > -20)
+                    const target = countries[Math.floor(Math.random() * countries.length)]
+                    if (target) {
+                        world.updateRelations(target.code, 20)
+                        game.addModifiers([{
+                            id: `summit-${Date.now()}`,
+                            countryCode: 'PLAYER',
+                            countryName: game.nation?.name || 'Your Nation',
+                            type: 'CULTURAL_BOOM',
+                            intensity: 1,
+                            duration: 6,
+                            description: 'Diplomatic Prestige'
+                        }])
+                    }
+                }
+            },
+            {
+                label: 'Decline',
+                description: 'We have our own agenda.',
+                effect: (_game) => { }
+            }
+        ]
+    },
+    {
+        id: 'refugee_crisis',
+        title: 'Massive Refugee Wave',
+        description: 'War and famine in a neighboring region have sent hundreds of thousands of refugees to our borders.',
+        icon: '⛺',
+        options: [
+            {
+                label: 'Open Borders',
+                description: 'Accept all refugees. (Budget --, Population +, World Opinion +)',
+                effect: (game) => {
+                    game.updateBudget(-200_000_000)
+                    game.addModifiers([{
+                        id: `refugee-help-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'POPULATION_BOOM',
+                        intensity: 2,
+                        duration: 24,
+                        description: 'Refugee Integration'
+                    }])
+                }
+            },
+            {
+                label: 'Limited Intake',
+                description: 'Accept only verified refugees. (Budget -, Stability maintained)',
+                effect: (game) => {
+                    game.updateBudget(-50_000_000)
+                }
+            },
+            {
+                label: 'Close Borders',
+                description: 'Turn them away at the border. (World Opinion --)',
+                effect: (_game) => { }
+            }
+        ]
+    },
+    {
+        id: 'un_resolution_vote',
+        title: 'Critical UN Vote',
+        description: 'The UN Security Council is voting on a resolution that could affect our interests.',
+        icon: '🏛️',
+        condition: (_game, world) => world.aiCountries.size > 5,
+        options: [
+            {
+                label: 'Vote Yes',
+                description: 'Support the resolution. (Improves standing with Western nations)',
+                effect: (_game, world) => {
+                    const western = ['USA', 'GBR', 'FRA', 'DEU']
+                    western.forEach(code => {
+                        if (world.aiCountries.has(code)) {
+                            world.updateRelations(code, 10)
+                        }
+                    })
+                }
+            },
+            {
+                label: 'Vote No',
+                description: 'Oppose the resolution. (Improves standing with non-Western powers)',
+                effect: (_game, world) => {
+                    const eastern = ['RUS', 'CHN', 'IRN', 'IND']
+                    eastern.forEach(code => {
+                        if (world.aiCountries.has(code)) {
+                            world.updateRelations(code, 10)
+                        }
+                    })
+                }
+            },
+            {
+                label: 'Abstain',
+                description: 'Stay neutral on this issue.',
+                effect: (_game) => { }
+            }
+        ]
+    },
+    {
+        id: 'diplomatic_expulsion',
+        title: 'Diplomats Expelled',
+        description: 'A foreign nation has expelled our diplomats, accusing them of espionage.',
+        icon: '🚪',
+        condition: (_game, world) => world.aiCountries.size > 0,
+        options: [
+            {
+                label: 'Retaliate in Kind',
+                description: 'Expel their diplomats immediately. (Relations --)',
+                effect: (game, world) => {
+                    const countries = Array.from(world.aiCountries.values())
+                    const target = countries[Math.floor(Math.random() * countries.length)]
+                    if (target) {
+                        world.updateRelations(target.code, -35)
+                        game.addDiplomaticEvents([{
+                            id: `expulsion-${Date.now()}`,
+                            type: 'DIPLOMACY',
+                            severity: 2,
+                            title: 'Diplomatic Expulsions',
+                            description: `Mutual diplomat expulsions between us and ${target.name}.`,
+                            affectedNations: [target.code],
+                            timestamp: Date.now()
+                        }])
+                    }
+                }
+            },
+            {
+                label: 'Demand Explanation',
+                description: 'Request formal clarification through channels.',
+                effect: (_game) => { }
+            }
+        ]
+    },
+    {
+        id: 'trade_dispute',
+        title: 'Trade Dispute',
+        description: 'A trading partner accuses us of unfair trade practices and threatens tariffs.',
+        icon: '📊',
+        condition: (_game, world) => world.aiCountries.size > 0,
+        options: [
+            {
+                label: 'Counter-Tariffs',
+                description: 'Respond with our own trade barriers. (Trade War)',
+                effect: (_game, world) => {
+                    const countries = Array.from(world.aiCountries.values())
+                        .filter(c => c.tradePartners.length > 0)
+                    const target = countries[Math.floor(Math.random() * countries.length)]
+                    if (target) {
+                        world.setTariff(target.code, 'HIGH')
+                        world.updateRelations(target.code, -20)
+                    }
+                }
+            },
+            {
+                label: 'Negotiate',
+                description: 'Seek a mutual solution. (Relations maintained)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `trade-deal-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'TRADE_BOOST',
+                        intensity: 1,
+                        duration: 12,
+                        description: 'Trade Negotiation'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'foreign_investment',
+        title: 'Foreign Investment Offer',
+        description: 'A major foreign corporation wants to invest heavily in our economy.',
+        icon: '💵',
+        options: [
+            {
+                label: 'Welcome Investment',
+                description: 'Accept foreign capital. (+$500M, Influence risk)',
+                effect: (game) => {
+                    game.updateBudget(500_000_000)
+                    game.addModifiers([{
+                        id: `foreign-invest-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'ECONOMIC_BOOM',
+                        intensity: 1,
+                        duration: 24,
+                        description: 'Foreign Investment'
+                    }])
+                }
+            },
+            {
+                label: 'Restrict Sectors',
+                description: 'Allow investment only in non-strategic sectors. (+$200M)',
+                effect: (game) => {
+                    game.updateBudget(200_000_000)
+                }
+            },
+            {
+                label: 'Reject',
+                description: 'Protect national sovereignty.',
+                effect: (_game) => { }
+            }
+        ]
+    },
+    {
+        id: 'cultural_victory',
+        title: 'Cultural Achievement',
+        description: 'Our nation has won a prestigious international award, bringing global attention.',
+        icon: '🏆',
+        options: [
+            {
+                label: 'Celebrate Publicly',
+                description: 'Boost national pride. (Stability +, World Opinion +)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `cultural-win-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'CULTURAL_BOOM',
+                        intensity: 2,
+                        duration: 12,
+                        description: 'International Recognition'
+                    }])
+                }
+            }
+        ]
+    },
+    {
+        id: 'assassination_attempt',
+        title: 'Assassination Attempt',
+        description: 'An attempt was made on a high-ranking official\'s life. Foreign involvement suspected.',
+        icon: '🎯',
+        condition: (_game, world) => world.aiCountries.size > 0,
+        options: [
+            {
+                label: 'Public Investigation',
+                description: 'Launch transparent investigation. (World Opinion +)',
+                effect: (game) => {
+                    game.addModifiers([{
+                        id: `investigation-${Date.now()}`,
+                        countryCode: 'PLAYER',
+                        countryName: game.nation?.name || 'Your Nation',
+                        type: 'STABILITY',
+                        intensity: 1,
+                        duration: 6,
+                        description: 'Transparent Governance'
+                    }])
+                }
+            },
+            {
+                label: 'Accuse Rival Nation',
+                description: 'Blame a foreign power. (Relations --, Crisis Risk)',
+                effect: (game, world) => {
+                    const countries = Array.from(world.aiCountries.values())
+                        .filter(c => c.relations < 0)
+                    const target = countries[Math.floor(Math.random() * countries.length)]
+                    if (target) {
+                        world.updateRelations(target.code, -50)
+                        game.addDiplomaticEvents([{
+                            id: `assassination-crisis-${Date.now()}`,
+                            type: 'WAR_DECLARED',
+                            severity: 3,
+                            title: 'Assassination Crisis',
+                            description: `We have accused ${target.name} of orchestrating an assassination attempt.`,
+                            affectedNations: [target.code],
+                            timestamp: Date.now()
+                        }])
+                    }
+                }
+            }
+        ]
+    },
+    {
+        id: 'proxy_conflict',
+        title: 'Proxy War Opportunity',
+        description: 'A rebel group in a rival nation requests our support. They oppose our enemy\'s government.',
+        icon: '⚔️',
+        condition: (_game, world) => {
+            const hostile = Array.from(world.aiCountries.values()).filter(c => c.relations < -30)
+            return hostile.length > 0
+        },
+        options: [
+            {
+                label: 'Covert Support',
+                description: 'Fund and arm the rebels secretly. (Budget -, Relations -- if caught)',
+                effect: (game, world) => {
+                    game.updateBudget(-100_000_000)
+                    const hostile = Array.from(world.aiCountries.values())
+                        .filter(c => c.relations < -30)
+                    const target = hostile[Math.floor(Math.random() * hostile.length)]
+                    if (target && Math.random() < 0.3) {
+                        // Caught!
+                        world.updateRelations(target.code, -40)
+                        game.addDiplomaticEvents([{
+                            id: `proxy-caught-${Date.now()}`,
+                            type: 'WAR_DECLARED',
+                            severity: 3,
+                            title: 'Covert Support Exposed',
+                            description: `${target.name} has evidence of our support for rebel groups.`,
+                            affectedNations: [target.code],
+                            timestamp: Date.now()
+                        }])
+                    }
+                }
+            },
+            {
+                label: 'Refuse',
+                description: 'Stay out of their internal affairs.',
+                effect: (_game) => { }
+            }
+        ]
     }
 ]
 

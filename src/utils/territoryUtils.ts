@@ -38,7 +38,10 @@ function normalizeGeometry(feature: Feature<Polygon | MultiPolygon>): Feature<Po
                 })
 
                 if (allCoords.length > 0) {
-                    return turf.multiPolygon(allCoords)
+                    const multi = turf.multiPolygon(allCoords)
+                    // CRITICAL: Preserve properties during unkinking!
+                    multi.properties = { ...feature.properties }
+                    return multi
                 }
             }
         } catch (e) {
@@ -122,13 +125,7 @@ export function calculateBufferConquest(
         // Normalize and SIMPLIFY to ensure buffer doesn't crash on complex edges
         let cleanAttacker = normalizeGeometry(attackerPoly)
 
-        // Simplify slightly to reduce vertex count (tolerance in degrees, approx 1km at equator is ~0.01)
-        // 0.005 is roughly 500m
-        try {
-            cleanAttacker = turf.simplify(cleanAttacker, { tolerance: 0.005, highQuality: true })
-        } catch (e) {
-            // ignore simplification error
-        }
+
 
         // Use a smaller number of steps for performance and stability
         // Buffer with fallback strategy
@@ -194,12 +191,35 @@ export function calculateBufferConquest(
         }
 
         // Intersect with target to find the "conquered" zone
-        const conquest = turf.intersect(turf.featureCollection([bufferedAttacker, normalizeGeometry(targetPoly)]))
+        let conquest = turf.intersect(turf.featureCollection([bufferedAttacker, normalizeGeometry(targetPoly)]))
 
         if (!conquest) {
-            // This is the most common fail case: Buffer didn't reach target (too far) or invalid intersection
-            // console.log('calculateBufferConquest: No intersection. Distance was:', distance)
-            return null
+            // Buffer didn't reach target (e.g. Island Invasion or distant neighbors)
+            // Try to create a "Beachhead" using battleLocation
+            if (battleLocation &&
+                typeof battleLocation[0] === 'number' && !isNaN(battleLocation[0]) &&
+                typeof battleLocation[1] === 'number' && !isNaN(battleLocation[1])
+            ) {
+                // console.log('🏖️ Buffer intersection failed - Attempting Beachhead at', battleLocation)
+                try {
+                    const point = turf.point(battleLocation)
+                    const beachheadPoly = turf.circle(point, distance, {
+                        steps: 10,
+                        units: 'kilometers'
+                    })
+                    conquest = turf.intersect(turf.featureCollection([beachheadPoly, normalizeGeometry(targetPoly)]))
+                    if (conquest) {
+                        // console.log('✅ Beachhead established!')
+                    }
+                } catch (beachheadError) {
+                    console.warn('❌ Beachhead attempt failed', beachheadError)
+                }
+            }
+
+            if (!conquest) {
+                // console.log('calculateBufferConquest: No intersection even with beachhead.')
+                return null
+            }
         }
 
         // Ensure result is big enough to matter (approx 1 sq km)

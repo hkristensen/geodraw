@@ -128,7 +128,7 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
         if (newOccupation >= 100 || (result.decisiveness > 0.8 && !claimId)) {
             // Full Annexation
             annexCountry(defenderCode)
-            annexAICountry(defenderCode)
+            annexAICountry(defenderCode, 'PLAYER')
 
             const countryFeature = (countriesData as FeatureCollection).features.find(
                 f => f.properties?.iso_a3 === defenderCode
@@ -136,7 +136,7 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
             if (countryFeature) addTerritory(countryFeature)
 
             addDiplomaticEvents([{
-                id: `annex-${Date.now()}`,
+                id: `annex-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
                 type: 'ANNEXATION',
                 severity: 3,
                 title: 'Full Annexation',
@@ -205,7 +205,7 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
             }
 
             addDiplomaticEvents([{
-                id: `victory-${Date.now()}`,
+                id: `victory-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
                 type: 'PEACE_TREATY',
                 severity: 2,
                 title: 'Victory',
@@ -251,7 +251,7 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
         }
 
         addDiplomaticEvents([{
-            id: `defeat-${Date.now()}`,
+            id: `defeat-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
             type: 'WAR_DECLARED', // Keep as WAR_DECLARED or BATTLE_LOST?
             severity: 3,
             title: 'Defeat',
@@ -265,7 +265,7 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
     const handlePlayerDefenseVictory = (battle: ActiveBattle) => {
         const { attackerCode, attackerName } = battle
         addDiplomaticEvents([{
-            id: `defended-${Date.now()}`,
+            id: `defended-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
             type: 'PEACE_TREATY', // Change to DEFENSE_SUCCESS?
             severity: 1,
             title: 'Invasion Repelled',

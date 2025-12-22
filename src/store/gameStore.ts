@@ -746,6 +746,9 @@ export const useGameStore = create<GameState>((set) => ({
             0, // defenseBonus
             plan
         )
+
+        // Delete the plan after execution to free up units and prevent reuse
+        state.deleteWarPlan(planId)
     },
 
     transferSoldiers: (fromUnitId, toUnitId, amount) => set((state) => {

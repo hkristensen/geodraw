@@ -38,10 +38,13 @@ import countriesData from './data/countries.json'
 import citiesData from './data/cities.json'
 
 import { ActiveWarsPanel } from './components/ActiveWarsPanel'
+import { AdvancedDiplomacyPanel } from './components/AdvancedDiplomacyPanel'
+import '../src/styles/AdvancedDiplomacyPanel.css'
 
 function App() {
     const [showCoalitionPanel, setShowCoalitionPanel] = useState(false)
     const [showDiplomacyPanel, setShowDiplomacyPanel] = useState(false)
+    const [showAdvancedDiplomacy, setShowAdvancedDiplomacy] = useState(false)
     const [showWarsPanel, setShowWarsPanel] = useState(false)
 
     // Victory and Achievement state
@@ -446,6 +449,9 @@ function App() {
             // Process Elections/Coups/Revolutions in AI countries
             useWorldStore.getState().processElections()
 
+            // Process Advanced Diplomacy (UN, Crises, Soft Power)
+            useWorldStore.getState().processDiplomacy()
+
         }, 5000) // 5 seconds = 1 month
 
         return () => clearInterval(interval)
@@ -752,6 +758,21 @@ function App() {
                 <CoalitionPanel onClose={() => setShowCoalitionPanel(false)} />
             )}
 
+            {/* Advanced Diplomacy Panel */}
+            {showAdvancedDiplomacy && (phase === 'RESULTS' || phase === 'EXPANSION') && (
+                <div className="absolute top-20 left-4 w-96 max-h-[calc(100vh-6rem)] z-20 overflow-y-auto">
+                    <div className="relative">
+                        <button
+                            onClick={() => setShowAdvancedDiplomacy(false)}
+                            className="absolute top-2 right-2 z-30 bg-red-600 hover:bg-red-500 rounded-full w-6 h-6 flex items-center justify-center text-white text-sm"
+                        >
+                            ×
+                        </button>
+                        <AdvancedDiplomacyPanel />
+                    </div>
+                </div>
+            )}
+
             {/* Floating Action Buttons */}
             {(phase === 'RESULTS' || phase === 'EXPANSION') && (
                 <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
@@ -778,6 +799,16 @@ function App() {
                         title="Active Conflicts"
                     >
                         ⚔️
+                    </button>
+                    <button
+                        onClick={() => setShowAdvancedDiplomacy(!showAdvancedDiplomacy)}
+                        className={`p-3 rounded-full shadow-lg border transition-all ${showAdvancedDiplomacy
+                            ? 'bg-purple-600 text-white border-purple-400'
+                            : 'bg-slate-800/90 hover:bg-slate-700 text-white border-slate-600'
+                            }`}
+                        title="Advanced Diplomacy (UN, Crises, Influence)"
+                    >
+                        🏛️
                     </button>
                 </div>
             )}

@@ -17,6 +17,7 @@ export type DiplomaticEventType =
     | 'LIBERATION'
     | 'ALLIANCE'
     | 'DIPLOMACY'
+    | 'DIPLOMATIC_MISSION'
 
 export interface DiplomaticEvent {
     id: string
@@ -67,6 +68,12 @@ export type ModifierType =
     | 'CORRUPTION'    // Budget loss/inefficiency
     | 'RESEARCH_BOOST' // Tech/Development boost
     | 'POPULATION_BOOM' // Growth boost
+    // === Advanced Diplomacy Modifiers ===
+    | 'UN_SANCTIONED'     // Under UN sanctions (trade penalty)
+    | 'WORLD_PARIAH'      // International reputation damaged
+    | 'CRISIS_PARTICIPANT' // Currently in diplomatic crisis
+    | 'SUMMIT_BONUS'      // Recent successful summit
+    | 'CULTURAL_LEADER'   // High soft power influence
 
 export interface CountryModifier {
     id: string

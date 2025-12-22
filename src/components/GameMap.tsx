@@ -145,6 +145,7 @@ export function GameMap({
 
     const {
         aiTerritories,
+        contestedZones,
         aiWars
     } = useWorldStore()
 
@@ -172,6 +173,24 @@ export function GameMap({
             console.warn('⚠️ Error updating dynamic territories:', e)
         }
     }, [aiTerritories])
+
+    // Update map with contested zones (red wartime territories)
+    useEffect(() => {
+        const mapInstance = map.current
+        if (!mapInstance || !mapInstance.getStyle()) return
+
+        try {
+            const source = mapInstance.getSource?.('contested-zones') as maplibregl.GeoJSONSource | undefined
+            if (source) {
+                source.setData({
+                    type: 'FeatureCollection',
+                    features: Array.from(contestedZones.values()) as Feature[]
+                })
+            }
+        } catch (e) {
+            console.warn('⚠️ Error updating contested zones:', e)
+        }
+    }, [contestedZones])
 
     // RENDER AI WAR PLANS (Visual Arrows)
     useEffect(() => {
@@ -733,6 +752,35 @@ export function GameMap({
                 paint: {
                     'line-color': '#f97316',
                     'line-width': 3,
+                },
+            })
+
+            // Add contested zones source (wartime territories shown in red)
+            map.current.addSource('contested-zones', {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: [] },
+            })
+
+            // Contested zones fill (red-ish with slight transparency)
+            map.current.addLayer({
+                id: 'contested-zones-fill',
+                type: 'fill',
+                source: 'contested-zones',
+                paint: {
+                    'fill-color': '#dc2626', // Red-600
+                    'fill-opacity': 0.5,
+                },
+            })
+
+            // Contested zones border (dashed red line)
+            map.current.addLayer({
+                id: 'contested-zones-line',
+                type: 'line',
+                source: 'contested-zones',
+                paint: {
+                    'line-color': '#b91c1c', // Red-700
+                    'line-width': 2,
+                    'line-dasharray': [2, 2],
                 },
             })
 

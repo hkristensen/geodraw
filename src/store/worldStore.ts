@@ -54,12 +54,20 @@ function calculateCulturalCompatibility(
 export const useWorldStore = create<WorldState>((set, get) => ({
     aiCountries: new Map(),
     aiTerritories: new Map(), // Dynamic country polygons
+    contestedZones: new Map(), // Wartime territories (shown in red until peace)
     aiWars: [], // AI vs AI wars
     activeWars: [],
     allies: [],
     coalitions: [],
     coalitionInvites: [],
     coalitionsInitialized: false,
+
+    // === Advanced Diplomacy State ===
+    unitedNations: null,
+    activeCrises: [],
+    softPowerState: null,
+    activeSummit: null,
+    diplomacyMessages: [],
 
     initializeAICountries: (consequences: Consequence[], playerConstitution?: Constitution, allCountries?: any) => {
         const countries = new Map<string, AICountry>()
@@ -554,28 +562,34 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
             // === PHASE 2: HANDLE ACTIVE WARS ===
             if (country.isAtWar) {
-                // Chance to launch offensive based on personality
-                let offensiveChance = 0.1
+                // Check if this AI is at war with the PLAYER specifically
+                const atWarWithPlayer = activeWars.includes(code)
 
-                // Expansionist/Opportunist more aggressive in war
-                if (strategyState.personality === 'EXPANSIONIST') offensiveChance += 0.1
-                if (strategyState.personality === 'OPPORTUNIST') offensiveChance += 0.05
+                if (atWarWithPlayer) {
+                    // Chance to launch offensive against player based on personality
+                    let offensiveChance = 0.1
 
-                // Defensive personality less likely to offensive
-                if (strategyState.personality === 'DEFENSIVE') offensiveChance -= 0.05
-                if (strategyState.personality === 'ISOLATIONIST') offensiveChance -= 0.08
+                    // Expansionist/Opportunist more aggressive in war
+                    if (strategyState.personality === 'EXPANSIONIST') offensiveChance += 0.1
+                    if (strategyState.personality === 'OPPORTUNIST') offensiveChance += 0.05
 
-                // If they are losing badly (revanchism), they are desperate
-                if (country.modifiers.includes('REVANCHISM')) offensiveChance += 0.1
+                    // Defensive personality less likely to offensive
+                    if (strategyState.personality === 'DEFENSIVE') offensiveChance -= 0.05
+                    if (strategyState.personality === 'ISOLATIONIST') offensiveChance -= 0.08
 
-                if (Math.random() < offensiveChance) {
-                    offensives.push({
-                        countryCode: code,
-                        strength: country.soldiers
-                    })
-                    events.push(`OFFENSIVE_LAUNCHED:${code}`)
-                    console.log(`🚀 OFFENSIVE by ${country.name} (${strategyState.personality})`)
+                    // If they are losing badly (revanchism), they are desperate
+                    if (country.modifiers.includes('REVANCHISM')) offensiveChance += 0.1
+
+                    if (Math.random() < offensiveChance) {
+                        offensives.push({
+                            countryCode: code,
+                            strength: country.soldiers
+                        })
+                        events.push(`OFFENSIVE_LAUNCHED:${code}`)
+                        console.log(`🚀 OFFENSIVE by ${country.name} (${strategyState.personality}) against PLAYER`)
+                    }
                 }
+                // If at war with other AI (but not player), skip to AI vs AI processing
                 return // Skip other diplomacy if at war
             }
 
@@ -608,6 +622,10 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                                 theirTariff: 'EMBARGO'
                             })
                             console.log(`⚔️ ${country.name} declares war! (${warGoal.type})`)
+
+                            // CRITICAL: Trigger Article 5 - bring player's allies into the war
+                            // Player is the DEFENDER, AI country (code) is the ATTACKER
+                            get().triggerAllianceResponse('PLAYER', code)
                         }
                         break
 
@@ -625,9 +643,69 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         // Passively boost soldiers (simulated by not doing anything hostile)
                         break
 
+                    case 'IMPROVE_RELATIONS':
+                        if (action.targetCode === 'PLAYER') {
+                            const { addDiplomaticEvents } = useGameStore.getState()
+                            get().updateRelations(code, 5)
+                            events.push(`DIPLOMACY: ${country.name} improved relations`)
+                            addDiplomaticEvents([{
+                                id: `rel-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                                type: 'DIPLOMATIC_MISSION', // Fallback type logic in GameLog handles this
+                                title: 'Diplomatic Outreach',
+                                description: `${country.name} has sent a diplomatic mission to improve ties.`,
+                                affectedNations: [code],
+                                timestamp: Date.now(),
+                                severity: 1
+                            }])
+                        }
+                        break
+
+                    case 'SANCTION':
+                        if (action.targetCode === 'PLAYER') {
+                            const { addDiplomaticEvents } = useGameStore.getState()
+                            get().updateRelations(code, -15)
+                            events.push(`SANCTION: ${country.name} sanctioned PLAYER`)
+                            addDiplomaticEvents([{
+                                id: `sanc-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                                type: 'BORDER_TENSION',
+                                title: 'Sanctions Imposed',
+                                description: `${country.name} has imposed economic sanctions on us!`,
+                                severity: 2,
+                                affectedNations: [code],
+                                timestamp: Date.now()
+                            }])
+                        }
+                        break
+
                     case 'PROPOSE_ALLIANCE':
+                        if (action.targetCode === 'PLAYER' && country.relations > 50) {
+                            const { addDiplomaticEvents } = useGameStore.getState()
+                            addDiplomaticEvents([{
+                                id: `ally-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                                type: 'ALLIANCE_PROPOSED',
+                                title: 'Alliance Proposal',
+                                description: `${country.name} proposes a military alliance! Visit the Summit tab to formalize it.`,
+                                affectedNations: [code],
+                                timestamp: Date.now(),
+                                severity: 1
+                            }])
+                        }
+                        break
+
                     case 'TRADE_AGREEMENT':
-                        // AI to AI diplomacy (future enhancement)
+                        if (action.targetCode === 'PLAYER') {
+                            const { addDiplomaticEvents } = useGameStore.getState()
+                            get().updateRelations(code, 3)
+                            addDiplomaticEvents([{
+                                id: `trade-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                                type: 'DIPLOMATIC_MISSION',
+                                title: 'Trade Delegation',
+                                description: `${country.name} sent a delegation to discuss trade.`,
+                                affectedNations: [code],
+                                timestamp: Date.now(),
+                                severity: 1
+                            }])
+                        }
                         break
                 }
             }
@@ -670,19 +748,19 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             }
 
             // === PHASE 5: WAR DECLARATION CHECK (Legacy + Strategy) ===
-            // Only aggressive personalities or those with claims will actually declare war
-            if ((strategyState.personality === 'EXPANSIONIST' || strategyState.personality === 'OPPORTUNIST')
-                && (country.relations < -50 || country.modifiers.includes('REVANCHISM'))) {
+            // Only very aggressive personalities will actually declare war, and only with very bad relations
+            if ((strategyState.personality === 'EXPANSIONIST')
+                && (country.relations < -70 || country.modifiers.includes('REVANCHISM'))) {
 
-                let warChance = 0.005 // Base 0.5%
+                let warChance = 0.002 // Base 0.2% (reduced from 0.5%)
 
                 // Personality modifiers
-                if (strategyState.personality === 'EXPANSIONIST') warChance *= 2
-                if (strategyState.currentFocus === 'EXPAND') warChance *= 1.5
+                if (strategyState.personality === 'EXPANSIONIST') warChance *= 1.5 // Reduced from 2x
+                if (strategyState.currentFocus === 'EXPAND') warChance *= 1.25 // Reduced from 1.5x
 
-                // Revanchism increases chance significantly
+                // Revanchism increases chance (but reduced)
                 if (country.modifiers.includes('REVANCHISM')) {
-                    warChance += 0.02 + Math.min(0.1, country.territoryLost / 200)
+                    warChance += 0.01 + Math.min(0.05, country.territoryLost / 400) // Halved
                 }
 
                 if (Math.random() < warChance && !newWars.includes(code)) {
@@ -897,8 +975,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
     getCountry: (code) => get().aiCountries.get(code),
 
-    annexCountry: (countryCode) => {
-        const { aiCountries, activeWars } = get()
+    annexCountry: (countryCode, annexerCode) => {
+        const { aiCountries, activeWars, aiTerritories, coalitions } = get()
         const country = aiCountries.get(countryCode)
         if (!country) return
 
@@ -908,12 +986,49 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             isAtWar: false,
             disposition: 'neutral',
             agreements: [],
-            modifiers: []
+            modifiers: [],
+            soldiers: 0 // No soldiers left
         })
+
+        // Transfer Territory if annexer is provided
+        if (annexerCode) {
+            import('../utils/territoryUtils').then(({ mergeTerritory }) => {
+                const loserPoly = aiTerritories.get(countryCode)
+
+                if (loserPoly) {
+                    if (annexerCode === 'PLAYER') {
+                        // Territory handled by gameStore addTerritory, just remove AI entry
+                        const newMap = new Map(aiTerritories)
+                        newMap.delete(countryCode)
+                        set({ aiTerritories: newMap })
+                    } else {
+                        // AI vs AI: Helper merge
+                        const winnerPoly = aiTerritories.get(annexerCode)
+                        if (winnerPoly) {
+                            const newWinner = mergeTerritory(winnerPoly as any, loserPoly as any)
+                            if (newWinner) {
+                                const newMap = new Map(aiTerritories)
+                                newMap.set(annexerCode, newWinner as any)
+                                newMap.delete(countryCode) // Remove ghost
+                                set({ aiTerritories: newMap })
+                                console.log(`🗺️ Territory merged: ${countryCode} -> ${annexerCode}`)
+                            }
+                        }
+                    }
+                }
+            })
+        }
+
+        // Remove from coalitions
+        const newCoalitions = coalitions.map(c => ({
+            ...c,
+            members: c.members.filter(m => m !== countryCode)
+        }))
 
         set({
             aiCountries: new Map(aiCountries),
-            activeWars: activeWars.filter(c => c !== countryCode)
+            activeWars: activeWars.filter(c => c !== countryCode),
+            coalitions: newCoalitions
         })
     },
 
@@ -1692,7 +1807,21 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         casualties: { attacker: 0, defender: 0 }
                     }
                     newWars.push(war)
-                    events.push({ type: 'WAR_DECLARED', attackerCode, defenderCode: enemyCode })
+
+                    // Dispatch War Event
+                    const warEvent = {
+                        id: `war-${Date.now()}-${Math.random()}`,
+                        type: 'WAR_DECLARED',
+                        title: 'War Declared',
+                        description: `${attacker.name} has declared war on ${defender.name}!`,
+                        affectedNations: [attackerCode, enemyCode],
+                        timestamp: Date.now(),
+                        severity: 3
+                    }
+
+                    import('../store/gameStore').then(({ useGameStore }) => {
+                        useGameStore.getState().addDiplomaticEvents([warEvent as any])
+                    })
 
                     console.log(`⚔️ AI War: ${attacker.name} declared war on ${defender.name}!`)
 
@@ -1727,12 +1856,27 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     const winner = attSoldiers > defSoldiers ? attacker : defender
                     const loser = attSoldiers > defSoldiers ? defender : attacker
 
-                    events.push({
+                    // Reset isAtWar if no other active wars
+                    const hasActiveWar = (code: string) => newWars.some(w => w.status === 'active' && (w.attackerCode === code || w.defenderCode === code))
+
+                    if (!hasActiveWar(winner.code)) winner.isAtWar = false
+                    if (!hasActiveWar(loser.code)) loser.isAtWar = false
+
+                    const event = {
+                        id: `peace-${Date.now()}-${Math.random()}`,
                         type: 'PEACE_TREATY',
-                        attackerCode: winner.code, // reusing fields: attacker=winner
-                        defenderCode: loser.code   // defender=loser
-                    })
+                        title: 'Peace Treaty Signed',
+                        description: `${winner.name} and ${loser.name} signed a peace treaty.`,
+                        affectedNations: [winner.code, loser.code],
+                        timestamp: Date.now(),
+                        severity: 1
+                    }
                     console.log(`🕊️ War ended: ${winner.name} defeats ${loser.name}`)
+
+                    // Dispatch immediately
+                    import('../store/gameStore').then(({ useGameStore }) => {
+                        useGameStore.getState().addDiplomaticEvents([event as any])
+                    })
                     continue
                 }
 
@@ -1803,19 +1947,69 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     // Determine winner/loser for this turn
                     const winnerPoly = attLossPct < defLossPct ? attackerPoly : defenderPoly
                     const loserPoly = attLossPct < defLossPct ? defenderPoly : attackerPoly
-                    const intensity = Math.min(0.05, gain / 100)
+                    const intensity = Math.min(0.5, gain / 20)
 
                     import('../utils/territoryUtils').then(({ calculateConquest, subtractTerritory, mergeTerritory }) => {
-                        const conquest = calculateConquest(winnerPoly as any, loserPoly as any, intensity)
+                        // Calculate Beachhead location (use Centroid, fallback to Vertex if in water)
+                        let battleLoc: [number, number] | undefined
+                        try {
+                            const cent = turf.centroid(loserPoly as any)
+                            battleLoc = cent.geometry.coordinates as [number, number]
+
+                            // Check if centroid is actually inside the polygon (helper since islands can have centroid in water)
+                            const isInside = turf.booleanPointInPolygon(cent, loserPoly as any)
+
+                            if (!isInside) {
+                                // Fallback to first vertex of the first polygon ring
+                                const geom = (loserPoly.geometry as any)
+                                const coords = geom.type === 'MultiPolygon' ? geom.coordinates[0][0] : geom.coordinates[0]
+                                if (coords && coords.length > 0) {
+                                    battleLoc = coords[0] as [number, number]
+                                }
+                            }
+                        } catch (e) { }
+
+                        const conquest = calculateConquest(winnerPoly as any, loserPoly as any, intensity, undefined, undefined, battleLoc)
+                        console.log('🗺️ Territory conquest result:', conquest ? 'SUCCESS' : 'FAILED', 'Intensity:', intensity, 'BattleLoc:', battleLoc)
                         if (conquest) {
                             const newLoser = subtractTerritory(loserPoly as any, conquest as any)
-                            const newWinner = mergeTerritory(winnerPoly as any, conquest as any)
+                            // console.log('🗺️ Territory merge result - Loser:', newLoser ? 'OK' : 'NULL')
 
-                            if (newLoser && newWinner) {
-                                const newMap = new Map(aiTerritories)
-                                newMap.set(attLossPct < defLossPct ? war.defenderCode : war.attackerCode, newLoser as any)
-                                newMap.set(attLossPct < defLossPct ? war.attackerCode : war.defenderCode, newWinner as any)
-                                set({ aiTerritories: newMap })
+                            if (newLoser) {
+                                // CRITICAL: Get fresh state to avoid stale closure
+                                const { aiTerritories: freshTerritories, contestedZones: freshContested } = get()
+                                const loserCode = attLossPct < defLossPct ? war.defenderCode : war.attackerCode
+                                const winnerCode = attLossPct < defLossPct ? war.attackerCode : war.defenderCode
+
+                                // Update loser's territory (subtract conquest)
+                                const newTerritoryMap = new Map(freshTerritories)
+                                newTerritoryMap.set(loserCode, newLoser as any)
+
+                                // Add conquest to contested zones (shown in red)
+                                // Merge with existing contested zone for this war if any
+                                const contestKey = `${war.id}-${winnerCode}` // Track per-war per-winner
+                                const existingContested = freshContested.get(contestKey)
+                                let newContested: GeoJSON.Feature
+                                if (existingContested) {
+                                    // Merge new conquest with existing contested area
+                                    const merged = mergeTerritory(existingContested as any, conquest as any)
+                                    newContested = merged || conquest
+                                } else {
+                                    newContested = conquest
+                                }
+                                // Add winner info to properties for styling
+                                newContested.properties = {
+                                    ...newContested.properties,
+                                    winnerCode,
+                                    loserCode,
+                                    warId: war.id
+                                }
+
+                                const newContestedMap = new Map(freshContested)
+                                newContestedMap.set(contestKey, newContested as any)
+
+                                set({ aiTerritories: newTerritoryMap, contestedZones: newContestedMap })
+                                console.log('🔥 Contested zone UPDATED for', war.attackerCode, 'vs', war.defenderCode)
                             }
                         }
                     })
@@ -1824,21 +2018,40 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                 war.lastBattleTime = Date.now()
 
                 // Check End Conditions
-                if (war.attackerGain >= 90) { // Total Annexation
-                    import('../store/worldStore').then(store => store.useWorldStore.getState().annexCountry(war.defenderCode))
+                // If attacker has taken significant territory (> 85%), trigger full annexation
+                // effectively ending the loser's existence.
+                if (war.attackerGain >= 85) {
+                    import('../store/worldStore').then(store => store.useWorldStore.getState().annexCountry(war.defenderCode, war.attackerCode))
                     war.status = 'peace'
-                    events.push({
+                    const peaceEvent = {
+                        id: `peace-${Date.now()}-${Math.random()}`,
                         type: 'PEACE_TREATY',
-                        attackerCode: attacker.code,
-                        defenderCode: defender.code
+                        title: 'Annexation',
+                        description: `${defender.name} has been ANNEXED by ${attacker.name}`,
+                        affectedNations: [attacker.code, defender.code],
+                        timestamp: Date.now(),
+                        severity: 3
+                    }
+                    import('../store/gameStore').then(({ useGameStore }) => {
+                        useGameStore.getState().addDiplomaticEvents([peaceEvent as any])
                     })
+                    console.log(`🏳️ ${defender.name} has been ANNEXED by ${attacker.name}`)
                 }
-                else if (war.attackerGain >= 50) { // Forced peace
+
+
+                else if (war.attackerGain >= 60 || defender.soldiers < 500) { // Forced peace (Survival)
                     war.status = 'peace'
-                    events.push({
+                    const forcedPeaceEvent = {
+                        id: `peace-${Date.now()}-${Math.random()}`,
                         type: 'PEACE_TREATY',
-                        attackerCode: attacker.code,
-                        defenderCode: defender.code
+                        title: 'Forced Peace',
+                        description: `${defender.name} was forced to surrender.`,
+                        affectedNations: [attacker.code, defender.code],
+                        timestamp: Date.now(),
+                        severity: 2
+                    }
+                    import('../store/gameStore').then(({ useGameStore }) => {
+                        useGameStore.getState().addDiplomaticEvents([forcedPeaceEvent as any])
                     })
                 }
             }
@@ -1846,9 +2059,47 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
         // Remove ended wars
         const activeWarsOnly = newWars.filter(w => w.status === 'active')
+        const endedWars = newWars.filter(w => w.status !== 'active')
+
+        // Finalize contested zones for ended wars -> merge into winner's territory
+        if (endedWars.length > 0) {
+            import('../utils/territoryUtils').then(({ mergeTerritory }) => {
+                const { aiTerritories: currentTerritories, contestedZones: currentContested } = get()
+                const newTerritoryMap = new Map(currentTerritories)
+                const newContestedMap = new Map(currentContested)
+
+                endedWars.forEach(war => {
+                    // Find all contested zones for this war
+                    const keysToRemove: string[] = []
+                    currentContested.forEach((feature, key) => {
+                        if (key.startsWith(`${war.id}-`)) {
+                            const winnerCode = feature.properties?.winnerCode
+                            if (winnerCode) {
+                                // Merge into winner's final territory
+                                const winnerPoly = newTerritoryMap.get(winnerCode)
+                                if (winnerPoly) {
+                                    const merged = mergeTerritory(winnerPoly as any, feature as any)
+                                    if (merged) {
+                                        newTerritoryMap.set(winnerCode, merged as any)
+                                    }
+                                }
+                            }
+                            keysToRemove.push(key)
+                        }
+                    })
+                    keysToRemove.forEach(k => newContestedMap.delete(k))
+                })
+
+                if (newContestedMap.size !== currentContested.size) {
+                    set({ aiTerritories: newTerritoryMap, contestedZones: newContestedMap })
+                    console.log('🏳️ Contested zones finalized for', endedWars.length, 'ended wars')
+                }
+            })
+        }
 
         set({
-            aiWars: activeWarsOnly
+            aiWars: activeWarsOnly,
+            aiCountries: new Map(aiCountries) // Trigger update for soldiers/isAtWar changes
         })
 
         return { events, wars: activeWarsOnly }
@@ -1857,6 +2108,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     reset: () => set({
         aiCountries: new Map(),
         aiTerritories: new Map(),
+        contestedZones: new Map(),
         aiWars: [],
         activeWars: [],
         allies: [],
@@ -1865,46 +2117,53 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     // Article 5: Collective Defense
     triggerAllianceResponse: (defenderCode: string, attackerCode: string) => {
         const { coalitions, aiCountries } = get()
-        const defender = aiCountries.get(defenderCode)
-        if (!defender) return
+
+        // Handle PLAYER as defender
+        const isPlayerDefender = defenderCode === 'PLAYER'
+        const defender = isPlayerDefender ? null : aiCountries.get(defenderCode)
+        const defenderName = isPlayerDefender
+            ? (useGameStore.getState().nation?.name || 'Player Nation')
+            : defender?.name || defenderCode
 
         // 1. Find if defender is in a MILITARY coalition
         const alliance = coalitions.find(c =>
             c.type === 'MILITARY' && c.members.includes(defenderCode)
         )
 
-        if (!alliance) return
+        if (!alliance) {
+            console.log(`⚠️ No alliance found for ${defenderCode} - no Article 5 triggered`)
+            return
+        }
 
-        console.log(`🛡️ ARTICLE 5 TRIGGERED: ${alliance.name} defending ${defender.name} against ${attackerCode}`)
+        console.log(`🛡️ ARTICLE 5 TRIGGERED: ${alliance.name} defending ${defenderName} against ${attackerCode}`)
 
         // 2. Notify Player via Event
+        const attacker = aiCountries.get(attackerCode)
+        const attackerName = attacker?.name || attackerCode
+
         useGameStore.getState().addDiplomaticEvents([{
             id: `article5-${Date.now()}`,
             type: 'ALLIANCE',
             severity: 3, // CRITICAL
             title: `ARTICLE 5 INVOKED: ${alliance.name}`,
-            description: `${defender.name} has invoked Article 5! The entire ${alliance.name} coalition is mobilizing against ${attackerCode}.`,
+            description: `${defenderName} has invoked Article 5! The entire ${alliance.name} coalition is mobilizing against ${attackerName}.`,
             affectedNations: alliance.members,
             timestamp: Date.now()
         }])
 
         // 3. Mobilize Allies
-        const allies = alliance.members.filter(m => m !== defenderCode)
+        const allies = alliance.members.filter(m => m !== defenderCode && m !== 'PLAYER')
         const reinforcementPerAlly = 5000 // 5k troops per ally sent to defender
         let totalReinforcements = 0
+        let alliesJoined = 0
 
         allies.forEach(allyCode => {
-            // A. Declare War on Attacker
-            if (attackerCode === 'PLAYER') {
-                // If player is attacker, ally declares war on player
-                const ally = aiCountries.get(allyCode)
-                if (ally && !ally.isAtWar) {
-                    get().declareWar(allyCode) // This sets them to AT_WAR state
-                    // Make sure they target player? declareWar handles state, but we might need explicit "war on player" flag in future
-                }
-            } else {
+            const ally = aiCountries.get(allyCode)
+            if (!ally || ally.isAnnexed) return
+
+            // A. Declare War on Attacker (AI ally -> AI attacker)
+            if (attackerCode !== 'PLAYER') {
                 // AI vs AI: Ally declares war on AI Attacker
-                // Check if already at war
                 const { aiWars } = get()
                 const alreadyAtWar = aiWars.some(w =>
                     (w.attackerCode === allyCode && w.defenderCode === attackerCode) ||
@@ -1912,7 +2171,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                 )
 
                 if (!alreadyAtWar) {
-                    // Create new war
+                    // Create new war - ally attacks the aggressor
                     const war: import('../types/game').AIWar = {
                         id: `aiwar-${allyCode}-${attackerCode}-${Date.now()}`,
                         attackerCode: allyCode,
@@ -1925,28 +2184,50 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         casualties: { attacker: 0, defender: 0 }
                     }
                     set(state => ({ aiWars: [...state.aiWars, war] }))
+
+                    // Update ally state to AT_WAR
+                    aiCountries.set(allyCode, {
+                        ...ally,
+                        isAtWar: true,
+                        modifiers: [...ally.modifiers.filter(m => m !== 'AT_WAR'), 'AT_WAR']
+                    })
+
+                    alliesJoined++
+                    console.log(`⚔️ ${ally.name} joins the war against ${attackerName} (Article 5)`)
                 }
             }
 
-            // B. Send Reinforcements (Abstracted)
+            // B. Send Reinforcements to defender
             totalReinforcements += reinforcementPerAlly
         })
 
-        // 4. Boost Defender
-        // They get a massive influx of "high quality" troops (just raw numbers for now, maybe morale boost later)
-        const newSoldiers = defender.soldiers + totalReinforcements
-        const newModifiers = [...defender.modifiers]
-        if (!newModifiers.includes('MILITARY_QUALITY')) newModifiers.push('MILITARY_QUALITY') // Boost quality/stats implied
+        // 4. Boost Defender soldiers (if not player)
+        if (!isPlayerDefender && defender) {
+            const newSoldiers = defender.soldiers + totalReinforcements
+            const newModifiers = [...defender.modifiers]
+            if (!newModifiers.includes('MILITARY_QUALITY')) newModifiers.push('MILITARY_QUALITY')
 
-        aiCountries.set(defenderCode, {
-            ...defender,
-            soldiers: newSoldiers,
-            modifiers: newModifiers
-        })
+            aiCountries.set(defenderCode, {
+                ...defender,
+                soldiers: newSoldiers,
+                modifiers: newModifiers
+            })
+        } else if (isPlayerDefender) {
+            // Give player reinforcement troops
+            const nation = useGameStore.getState().nation
+            if (nation) {
+                useGameStore.getState().updateNationSoldiers(totalReinforcements)
+                console.log(`🎖️ Player received ${totalReinforcements} allied reinforcement troops!`)
+            }
+        }
 
         set({ aiCountries: new Map(aiCountries) })
 
-        console.log(`⚔️ ${defender.name} reinforced with ${totalReinforcements} troops from ${alliance.name}`)
+        console.log(`🛡️ Article 5 Result: ${alliesJoined} allies joined the war, ${totalReinforcements} reinforcements sent`)
+
+        if (defender) {
+            console.log(`⚔️ ${defender.name} reinforced with ${totalReinforcements} troops from ${alliance.name}`)
+        }
     },
 
     surrenderToCoalition: (coalitionId: string, surrenderingCountryCode: string) => {
@@ -2016,6 +2297,305 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             }])
             console.log(`🏳️ ${surrenderingCountry.name} surrendered to ${coalition.name}`)
         }
+    },
+
+    // === ADVANCED DIPLOMACY ACTIONS ===
+
+    initializeDiplomacy: () => {
+        const { aiCountries, softPowerState } = get()
+
+        // Import and initialize UN state
+        import('../utils/unitedNations').then(({ initUNState }) => {
+            const unState = initUNState(aiCountries)
+            set({ unitedNations: unState })
+            console.log('🏛️ United Nations initialized with Security Council')
+        })
+
+        // Initialize soft power if not already
+        if (!softPowerState) {
+            import('../utils/softPower').then(({ initSoftPowerState }) => {
+                const spState = initSoftPowerState()
+                set({ softPowerState: spState })
+                console.log('🌟 Soft Power system initialized')
+            })
+        }
+    },
+
+    voteOnResolution: (resolutionId: string, vote: 'YES' | 'NO' | 'ABSTAIN') => {
+        const { unitedNations, diplomacyMessages } = get()
+        if (!unitedNations) return
+
+        import('../utils/unitedNations').then(({ playerVote }) => {
+            const newState = playerVote(unitedNations, resolutionId, vote as any)
+            const resolution = newState.activeResolutions.find(r => r.id === resolutionId)
+            const message = `You voted ${vote} on: ${resolution?.title || resolutionId}`
+
+            set({
+                unitedNations: newState,
+                diplomacyMessages: [...diplomacyMessages, message]
+            })
+            console.log(`🗳️ Player voted ${vote} on resolution ${resolutionId}`)
+        })
+    },
+
+    proposeResolution: (type: any, targetCountry?: string) => {
+        const { unitedNations, diplomacyMessages } = get()
+        if (!unitedNations) return
+
+        const gameDate = useGameStore.getState().gameDate || Date.now()
+
+        import('../utils/unitedNations').then(({ createResolution }) => {
+            const resolution = createResolution(type, targetCountry, gameDate, 'PLAYER')
+            const newActive = [...unitedNations.activeResolutions, resolution]
+            const message = `You proposed: ${resolution.title}`
+
+            set({
+                unitedNations: {
+                    ...unitedNations,
+                    activeResolutions: newActive
+                },
+                diplomacyMessages: [...diplomacyMessages, message]
+            })
+            console.log(`📜 Player proposed resolution: ${resolution.title}`)
+        })
+    },
+
+    respondToCrisis: (crisisId: string, action: any) => {
+        const { activeCrises, diplomacyMessages } = get()
+        const crisis = activeCrises.find(c => c.id === crisisId)
+        if (!crisis) return
+
+        const gameDate = useGameStore.getState().gameDate || Date.now()
+
+        import('../utils/crisisSystem').then(({ processCrisisAction }) => {
+            const result = processCrisisAction(crisis, 'PLAYER', action, gameDate)
+
+            const updatedCrises = activeCrises.map(c =>
+                c.id === crisisId ? result.updatedCrisis : c
+            ).filter(c => c.phase < 5) // Remove resolved crises (war)
+
+            // If war outcome, need to declare war
+            if (result.outcome?.type === 'WAR') {
+                const opponent = crisis.participants.find(p => p !== 'PLAYER')
+                if (opponent) {
+                    get().declareWar(opponent)
+                }
+            }
+
+            set({
+                activeCrises: updatedCrises,
+                diplomacyMessages: [...diplomacyMessages, result.message]
+            })
+            console.log(`⚠️ Crisis action: ${action} in ${crisis.title}`)
+        })
+    },
+
+    executeInfluenceAction: (actionType: any, targetCountry: string) => {
+        const { softPowerState, aiCountries, diplomacyMessages } = get()
+        if (!softPowerState) return false
+
+        const gameDate = useGameStore.getState().gameDate || Date.now()
+        const target = aiCountries.get(targetCountry)
+        if (!target) return false
+
+        // Check if we can afford it first (synchronous check)
+        const INFLUENCE_ACTION_DEFS = {
+            CULTURAL_EXCHANGE: { influenceCost: 10, budgetCost: 5_000_000 },
+            ECONOMIC_AID: { influenceCost: 20, budgetCost: 100_000_000 },
+            FUND_OPPOSITION: { influenceCost: 30, budgetCost: 50_000_000 },
+            PROPAGANDA_CAMPAIGN: { influenceCost: 25, budgetCost: 20_000_000 },
+            ESPIONAGE: { influenceCost: 40, budgetCost: 30_000_000 },
+            HOST_EVENT: { influenceCost: 50, budgetCost: 500_000_000 }
+        }
+
+        const def = INFLUENCE_ACTION_DEFS[actionType as keyof typeof INFLUENCE_ACTION_DEFS]
+        if (!def) return false
+
+        if (softPowerState.influencePoints < def.influenceCost) {
+            set({ diplomacyMessages: [...diplomacyMessages, `Not enough influence for ${actionType}`] })
+            return false
+        }
+
+        import('../utils/softPower').then(({ createInfluenceAction, applyInfluenceActionEffect }) => {
+            const action = createInfluenceAction(actionType, targetCountry, gameDate)
+            const result = applyInfluenceActionEffect(action, target, gameDate)
+
+            // Deduct influence
+            const newInfluencePoints = softPowerState.influencePoints - def.influenceCost
+            const newActiveActions = [...softPowerState.activeActions, action]
+
+            // Update relations if needed
+            if (result.relationChange !== 0) {
+                get().updateRelations(targetCountry, result.relationChange)
+            }
+
+            set({
+                softPowerState: {
+                    ...softPowerState,
+                    influencePoints: newInfluencePoints,
+                    activeActions: newActiveActions
+                },
+                diplomacyMessages: [...diplomacyMessages, result.message]
+            })
+            console.log(`🌟 Influence action: ${actionType} on ${targetCountry}`)
+        })
+
+        return true
+    },
+
+    proposeSummit: (targetCountry: string, topics: any[]) => {
+        const { aiCountries, diplomacyMessages, activeSummit } = get()
+        if (activeSummit) {
+            set({ diplomacyMessages: [...diplomacyMessages, 'A summit is already in progress'] })
+            return false
+        }
+
+        const target = aiCountries.get(targetCountry)
+        if (!target) return false
+
+        // Check if relations are good enough
+        if (target.relations < -50) {
+            set({ diplomacyMessages: [...diplomacyMessages, `${target.name} refuses to attend a summit with us`] })
+            return false
+        }
+
+        const gameDate = useGameStore.getState().gameDate || Date.now()
+
+        import('../utils/summitSystem').then(({ createSummit }) => {
+            const summit = createSummit('BILATERAL', ['PLAYER', targetCountry], 'PLAYER', topics, gameDate)
+            const message = `Summit proposed with ${target.name}: ${summit.title}`
+
+            set({
+                activeSummit: summit,
+                diplomacyMessages: [...diplomacyMessages, message]
+            })
+            console.log(`🤝 Summit proposed: ${summit.title}`)
+        })
+
+        return true
+    },
+
+    respondToSummitProposal: (accept: boolean, topicResponses?: Map<any, boolean>) => {
+        const { activeSummit, aiCountries, diplomacyMessages } = get()
+        if (!activeSummit) return
+
+        if (!accept) {
+            const message = `You walked out of the ${activeSummit.title}`
+            set({
+                activeSummit: null,
+                diplomacyMessages: [...diplomacyMessages, message]
+            })
+            // Damage relations
+            activeSummit.participants.forEach(p => {
+                if (p !== 'PLAYER') get().updateRelations(p, -15)
+            })
+            return
+        }
+
+        import('../utils/summitSystem').then(({ conductSummit, applySummitEffects, getSummitOutcomeMessage }) => {
+            const aiParticipant = activeSummit.participants.find(p => p !== 'PLAYER')
+            const aiCountry = aiParticipant ? aiCountries.get(aiParticipant) : undefined
+            const playerRelations = aiCountry?.relations || 0
+
+            // Convert topic responses to the format expected
+            const responses = topicResponses || new Map()
+
+            const outcome = conductSummit(activeSummit, responses, aiCountry, playerRelations)
+            const effects = applySummitEffects(outcome, aiCountries)
+            const summitMessage = getSummitOutcomeMessage(activeSummit, outcome)
+
+            // Apply alliance effects
+            effects.alliances.forEach(code => get().formAlliance(code))
+
+            // Apply relation changes
+            outcome.relationChanges.forEach(({ country, delta }) => {
+                if (country !== 'PLAYER') get().updateRelations(country, delta)
+            })
+
+            set({
+                activeSummit: { ...activeSummit, status: 'CONCLUDED', outcome },
+                diplomacyMessages: [...diplomacyMessages, summitMessage, ...effects.messages]
+            })
+
+            // Clear summit after a delay
+            setTimeout(() => set({ activeSummit: null }), 5000)
+        })
+    },
+
+    processDiplomacy: () => {
+        const {
+            unitedNations, activeCrises, softPowerState, aiCountries, diplomacyMessages
+        } = get()
+        const messages: string[] = []
+        const gameDate = useGameStore.getState().gameDate || Date.now()
+        const gameState = useGameStore.getState()
+        const { gameSettings } = gameState
+        const playerCountryCode = gameSettings?.startingCountry || null
+
+        // Process UN
+        if (unitedNations) {
+            import('../utils/unitedNations').then(({ processMonthlyUN, applyResolutionEffects }) => {
+                const playerRelations = new Map<string, number>()
+                aiCountries.forEach((country, code) => {
+                    playerRelations.set(code, country.relations)
+                })
+
+                const result = processMonthlyUN(
+                    unitedNations, aiCountries, playerCountryCode, playerRelations, gameDate
+                )
+
+                // Apply effects for passed resolutions
+                result.resolvedResolutions.filter(r => r.passed).forEach(({ resolution }) => {
+                    const effects = applyResolutionEffects(resolution, aiCountries)
+                    effects.relationChanges.forEach(({ country, delta }) => {
+                        get().updateRelations(country, delta)
+                    })
+                    messages.push(effects.message)
+                })
+
+                set({
+                    unitedNations: result.newState,
+                    diplomacyMessages: [...diplomacyMessages, ...result.messages, ...messages]
+                })
+            })
+        }
+
+        // Process Crises
+        if (activeCrises.length > 0) {
+            import('../utils/crisisSystem').then(({ processMonthCrises }) => {
+                const result = processMonthCrises(
+                    activeCrises, aiCountries, playerCountryCode, gameDate
+                )
+
+                // Handle wars from crisis resolution
+                result.resolvedCrises.filter(r => r.outcome.type === 'WAR').forEach(({ crisis }) => {
+                    const opponent = crisis.participants.find(p => p !== 'PLAYER' && p !== playerCountryCode)
+                    if (opponent) {
+                        get().declareWar(opponent)
+                    }
+                })
+
+                set({
+                    activeCrises: result.updatedCrises,
+                    diplomacyMessages: [...get().diplomacyMessages, ...result.messages]
+                })
+            })
+        }
+
+        // Process Soft Power
+        if (softPowerState && gameState.nation?.stats) {
+            import('../utils/softPower').then(({ processMonthlyInfluence }) => {
+                const modifiers = gameState.modifiers || []
+                const newState = processMonthlyInfluence(softPowerState, gameState.nation!.stats!, modifiers)
+                set({ softPowerState: newState })
+            })
+        }
+
+        return messages
+    },
+
+    clearDiplomacyMessages: () => {
+        set({ diplomacyMessages: [] })
     }
 
 }))
