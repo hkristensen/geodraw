@@ -1,0 +1,243 @@
+/* Coalition War Panel - Article 5 Wars Sidebar */
+
+.coalition-war-panel {
+    position: fixed;
+    left: 16px;
+    top: 280px;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    max-width: 280px;
+}
+
+.coalition-war-card {
+    background: linear-gradient(135deg, rgba(127, 29, 29, 0.95) 0%, rgba(69, 10, 10, 0.95) 100%);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    border-radius: 12px;
+    padding: 16px;
+    backdrop-filter: blur(8px);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 40px rgba(239, 68, 68, 0.2);
+    animation: pulse-glow 2s ease-in-out infinite;
+}
+
+@keyframes pulse-glow {
+
+    0%,
+    100% {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 30px rgba(239, 68, 68, 0.2);
+    }
+
+    50% {
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 50px rgba(239, 68, 68, 0.4);
+    }
+}
+
+.coalition-war-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+    transition: margin-bottom 0.2s ease;
+}
+
+.coalition-war-card.collapsed .coalition-war-header {
+    margin-bottom: 0;
+}
+
+.collapse-indicator {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    transition: transform 0.2s ease;
+}
+
+.coalition-war-card.collapsed {
+    padding: 12px;
+}
+
+/* Collapsed Summary */
+.collapsed-summary {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.collapsed-status {
+    color: #fca5a5;
+}
+
+.coalition-icon {
+    font-size: 2rem;
+}
+
+.coalition-war-title {
+    flex: 1;
+}
+
+.article-5-badge {
+    display: inline-block;
+    background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 8px;
+    border-radius: 4px;
+    letter-spacing: 1px;
+    animation: badge-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.7;
+    }
+}
+
+.coalition-war-title h3 {
+    margin: 4px 0 0 0;
+    font-size: 1rem;
+    color: #fecaca;
+    font-weight: 600;
+}
+
+/* War Parties */
+.coalition-war-parties {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 8px;
+}
+
+.war-party {
+    flex: 1;
+    text-align: center;
+}
+
+.party-label {
+    display: block;
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.7;
+    margin-bottom: 4px;
+}
+
+.party-name {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+}
+
+.war-party.defender .party-name {
+    color: #86efac;
+    /* Green for defender */
+}
+
+.war-party.aggressor .party-name {
+    color: #fca5a5;
+    /* Red for aggressor */
+}
+
+.vs-badge {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: #f87171;
+}
+
+/* Stats */
+.coalition-war-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.8rem;
+}
+
+.stat-label {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.stat-value {
+    font-weight: 600;
+    color: white;
+}
+
+/* Active Attackers */
+.coalition-attackers {
+    margin-bottom: 12px;
+}
+
+.attackers-label {
+    display: block;
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 8px;
+}
+
+.attacker-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.attacker-badge {
+    background: rgba(34, 197, 94, 0.3);
+    border: 1px solid rgba(34, 197, 94, 0.5);
+    color: #86efac;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+/* War Status */
+.coalition-war-status {
+    text-align: center;
+    padding: 8px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.coalition-war-status.status-active {
+    background: rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+}
+
+.coalition-war-status.status-victory {
+    background: rgba(34, 197, 94, 0.3);
+    color: #86efac;
+}
+
+.coalition-war-status.status-defeat {
+    background: rgba(107, 114, 128, 0.3);
+    color: #d1d5db;
+}
+
+.coalition-war-status.status-peace {
+    background: rgba(59, 130, 246, 0.3);
+    color: #93c5fd;
+}

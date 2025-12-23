@@ -25,7 +25,8 @@ export function DiplomacyActionModal({ countryCode, onClose, onLaunchOffensive }
         requestSupport,
         coalitions,
         inviteToCoalition,
-        activeWars
+        activeWars,
+        activeCoalitionWars
     } = useWorldStore()
 
     // Ensure country exists in store
@@ -45,6 +46,14 @@ export function DiplomacyActionModal({ countryCode, onClose, onLaunchOffensive }
     const playerCoalitions = coalitions.filter(c => c.members.includes(selectedCountry || ''))
     // Get all coalitions the target country is in
     const targetCoalitions = coalitions.filter(c => c.members.includes(countryCode))
+
+    // Check if target country is the AGGRESSOR in a coalition war where player is a member
+    // This allows the player to attack them without formally declaring war (collective defense)
+    const coalitionWarAsAggressor = activeCoalitionWars.find(cw =>
+        cw.status === 'active' &&
+        cw.aggressorCode === countryCode &&
+        playerCoalitions.some(pc => pc.id === cw.coalitionId)
+    )
 
     if (!country || !nation) return null
 
@@ -577,6 +586,65 @@ export function DiplomacyActionModal({ countryCode, onClose, onLaunchOffensive }
 
                     {activeTab === 'hostile' && (
                         <div className="space-y-4">
+                            {/* COALITION DEFENSE - Attack aggressor without declaring war */}
+                            {coalitionWarAsAggressor && !country.isAtWar && (
+                                <div className="p-4 bg-emerald-900/20 border border-emerald-500/30 rounded mb-4">
+                                    <h3 className="text-emerald-400 font-bold mb-2">🛡️ Coalition Defense</h3>
+                                    <p className="text-sm text-gray-400 mb-3">
+                                        {country.name} is the aggressor in an active Article 5 war against your coalition ({coalitionWarAsAggressor.coalitionName}).
+                                        You can join the defense without formally declaring war.
+                                    </p>
+                                    <p className="text-xs text-emerald-300 mb-4">
+                                        <strong>Liberation Mode:</strong> Territory gains will restore land to the defending ally, not to you.
+                                        You will gain improved relations and coalition standing instead.
+                                    </p>
+                                    <button
+                                        onClick={() => {
+                                            // Add player participation to the coalition war
+                                            const { activeCoalitionWars: wars, aiCountries } = useWorldStore.getState()
+                                            const defenderName = aiCountries.get(coalitionWarAsAggressor.defenderCode)?.name || 'your ally'
+
+                                            // Start liberation war - player attacks aggressor
+                                            declareWar(countryCode)
+
+                                            // Mark player as participating in coalition war (for liberation logic)
+                                            const updatedWars = wars.map(w =>
+                                                w.id === coalitionWarAsAggressor.id
+                                                    ? { ...w, alliesAtWar: [...w.alliesAtWar, selectedCountry || 'PLAYER'] }
+                                                    : w
+                                            )
+                                            useWorldStore.setState({ activeCoalitionWars: updatedWars })
+
+                                            addDiplomaticEvents([{
+                                                id: `coalition-defense-${Date.now()}`,
+                                                type: 'ALLIANCE',
+                                                severity: 2,
+                                                title: `🛡️ Joining Coalition Defense`,
+                                                description: `${nation.name} has joined the ${coalitionWarAsAggressor.coalitionName} defense against ${country.name} to liberate ${defenderName}.`,
+                                                affectedNations: [countryCode, coalitionWarAsAggressor.defenderCode],
+                                                timestamp: Date.now(),
+                                            }])
+
+                                            // Immediate relation boost with coalition
+                                            const coalition = coalitions.find(c => c.id === coalitionWarAsAggressor.coalitionId)
+                                            if (coalition) {
+                                                coalition.members.forEach(memberCode => {
+                                                    if (memberCode !== selectedCountry && memberCode !== 'PLAYER') {
+                                                        updateRelations(memberCode, 25)
+                                                    }
+                                                })
+                                            }
+
+                                            setMessage(`✅ Joined coalition defense! Relations improved with ${coalitionWarAsAggressor.coalitionName} members.`)
+                                            setTimeout(() => onClose(), 1500)
+                                        }}
+                                        className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded shadow-lg transition-colors flex items-center justify-center gap-2"
+                                    >
+                                        <span>🛡️</span> JOIN COALITION DEFENSE
+                                    </button>
+                                </div>
+                            )}
+
                             {country.isAtWar ? (
                                 <div className="space-y-3">
                                     <div className="p-4 bg-red-900/20 border border-red-500/30 rounded">
@@ -668,6 +736,156 @@ export function DiplomacyActionModal({ countryCode, onClose, onLaunchOffensive }
                                                 <span>🏳️</span> SURRENDER TO {targetCoalitions.find(c => c.members.some(m => activeWars.includes(m)))?.name}
                                             </button>
                                         )}
+
+                                    {/* GENERAL OFFENSIVE - AUTO BATTLE MODE */}
+                                    <div className="p-4 bg-orange-900/20 border border-orange-500/30 rounded">
+                                        <h3 className="text-orange-400 font-bold mb-2">⚔️ General Offensive</h3>
+                                        <p className="text-sm text-gray-400 mb-3">
+                                            Launch an automatic offensive against {country.name}. Battles will occur every 30 seconds until the war ends.
+                                        </p>
+                                        <button
+                                            onClick={() => {
+                                                // Trigger immediate battle
+                                                const result = useWorldStore.getState().processPlayerWar()
+                                                if (result.events.length > 0) {
+                                                    const lastEvent = result.events[result.events.length - 1]
+                                                    setMessage(lastEvent.message)
+                                                } else {
+                                                    setMessage('⚔️ Offensive launched! Battles will occur automatically.')
+                                                }
+                                                setTimeout(() => setMessage(null), 5000)
+                                            }}
+                                            className="w-full py-3 bg-orange-600/20 hover:bg-orange-600/40 border border-orange-500/50 text-orange-400 font-bold rounded transition-colors flex items-center justify-center gap-2"
+                                        >
+                                            <span>⚔️</span> LAUNCH GENERAL OFFENSIVE
+                                        </button>
+                                        <p className="text-xs text-gray-500 mt-2 text-center">
+                                            Territory seized: {Math.round(country.territoryLost || 0)}% | Enemy Soldiers: {country.soldiers?.toLocaleString() || 'Unknown'}
+                                        </p>
+                                    </div>
+
+                                    {/* NUCLEAR STRIKE OPTION */}
+                                    {nation?.stats?.nuclearProgram?.warheads && nation.stats.nuclearProgram.warheads > 0 && (
+                                        <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded mt-4">
+                                            <h3 className="text-yellow-400 font-bold mb-2">☢️ Nuclear Strike</h3>
+                                            <p className="text-sm text-gray-400 mb-2">
+                                                Launch a nuclear weapon at {country.name}. This will cause <strong className="text-red-400">massive devastation</strong> in a 500km radius.
+                                            </p>
+                                            <p className="text-xs text-red-400 mb-4">
+                                                ⚠️ <strong>WARNING:</strong> Using nuclear weapons will:
+                                                <br />• Kill 90% of population in target area
+                                                <br />• Destroy all infrastructure
+                                                <br />• Cause -50 relations with ALL nations
+                                                <br />• 70% chance of nuclear retaliation from allies
+                                            </p>
+                                            <button
+                                                onClick={() => {
+                                                    // Launch nuclear strike
+                                                    const storeState = useWorldStore.getState()
+                                                    const gameState = useGameStore.getState()
+
+                                                    // Consume a warhead
+                                                    if (gameState.nation?.stats?.nuclearProgram) {
+                                                        const newWarheads = gameState.nation.stats.nuclearProgram.warheads - 1
+                                                        useGameStore.setState(state => ({
+                                                            nation: state.nation ? {
+                                                                ...state.nation,
+                                                                stats: {
+                                                                    ...state.nation.stats,
+                                                                    nuclearProgram: {
+                                                                        ...state.nation.stats.nuclearProgram!,
+                                                                        warheads: newWarheads
+                                                                    }
+                                                                }
+                                                            } : null
+                                                        }))
+                                                    }
+
+                                                    // Devastating effects on target
+                                                    const target = storeState.aiCountries.get(countryCode)
+                                                    if (target) {
+                                                        // Kill 90% soldiers and population
+                                                        const newSoldiers = Math.floor(target.soldiers * 0.1)
+                                                        const newPower = Math.floor(target.power * 0.2)
+                                                        const newPopulation = Math.floor(target.population * 0.3)
+                                                        const devastation = 50 // 50% territory as "irradiated"
+
+                                                        console.log(`☢️ NUCLEAR STRIKE on ${target.name}:`)
+                                                        console.log(`   Soldiers: ${target.soldiers} → ${newSoldiers} (90% killed)`)
+                                                        console.log(`   Power: ${target.power} → ${newPower} (80% destroyed)`)
+                                                        console.log(`   Population: ${target.population} → ${newPopulation} (70% killed)`)
+                                                        console.log(`   Territory devastated: +${devastation}%`)
+
+                                                        const updatedCountries = new Map(storeState.aiCountries)
+                                                        updatedCountries.set(countryCode, {
+                                                            ...target,
+                                                            soldiers: newSoldiers,
+                                                            power: newPower,
+                                                            population: newPopulation,
+                                                            territoryLost: Math.min(100, target.territoryLost + devastation),
+                                                            modifiers: [...target.modifiers, 'IRRADIATED']
+                                                        })
+
+                                                        useWorldStore.setState({
+                                                            aiCountries: updatedCountries
+                                                        })
+                                                    }
+
+                                                    // Massive diplomatic consequences - relations penalty with EVERYONE
+                                                    const freshState = useWorldStore.getState()
+                                                    freshState.aiCountries.forEach((_ai, code) => {
+                                                        if (code !== countryCode) {
+                                                            freshState.updateRelations(code, -50)
+                                                        }
+                                                    })
+
+                                                    // Event
+                                                    addDiplomaticEvents([{
+                                                        id: `nuke-${Date.now()}`,
+                                                        type: 'NUCLEAR_ATTACK',
+                                                        severity: 3,
+                                                        title: '☢️ NUCLEAR STRIKE',
+                                                        description: `${nation?.name} has launched a nuclear weapon at ${country.name}! Massive devastation reported.`,
+                                                        affectedNations: [countryCode],
+                                                        timestamp: Date.now()
+                                                    }])
+
+                                                    // Check for retaliation from allies
+                                                    const defenderCoalitions = coalitions.filter(c => c.members.includes(countryCode) && c.type === 'MILITARY')
+                                                    for (const coalition of defenderCoalitions) {
+                                                        for (const memberCode of coalition.members) {
+                                                            if (memberCode === countryCode || memberCode === 'PLAYER') continue
+                                                            const member = freshState.aiCountries.get(memberCode)
+                                                            if (member?.nuclearProgram?.warheads && member.nuclearProgram.warheads > 0) {
+                                                                // 70% chance of nuclear retaliation
+                                                                if (Math.random() < 0.7) {
+                                                                    console.log(`☢️ NUCLEAR RETALIATION from ${member.name}!`)
+                                                                    addDiplomaticEvents([{
+                                                                        id: `retaliation-${Date.now()}-${memberCode}`,
+                                                                        type: 'NUCLEAR_ATTACK',
+                                                                        severity: 3,
+                                                                        title: '☢️ NUCLEAR RETALIATION',
+                                                                        description: `${member.name} has launched a retaliatory nuclear strike! Your nation is devastated.`,
+                                                                        affectedNations: ['PLAYER'],
+                                                                        timestamp: Date.now()
+                                                                    }])
+                                                                    // Devastate player
+                                                                    gameState.updateBudget(-(gameState.nation?.stats?.budget ?? 0) * 0.5)
+                                                                    break
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+
+                                                    setMessage('☢️ Nuclear strike launched! The world will remember this...')
+                                                    setTimeout(() => onClose(), 3000)
+                                                }}
+                                                className="w-full py-3 bg-gradient-to-r from-yellow-600 to-red-600 hover:from-yellow-500 hover:to-red-500 text-white font-bold rounded shadow-lg transition-all flex items-center justify-center gap-2"
+                                            >
+                                                <span>☢️</span> LAUNCH NUCLEAR STRIKE ({nation?.stats?.nuclearProgram?.warheads} remaining)
+                                            </button>
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="space-y-3">

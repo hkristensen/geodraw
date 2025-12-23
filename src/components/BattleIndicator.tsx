@@ -116,6 +116,71 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
     const handlePlayerVictory = (battle: ActiveBattle) => {
         const { defenderCode, defenderName, result, claimId } = battle
 
+        // CHECK FOR LIBERATION MODE - Player is attacking aggressor in coalition defense
+        const { activeCoalitionWars, coalitions, aiCountries } = useWorldStore.getState()
+        const { selectedCountry } = useGameStore.getState()
+        const playerCode = selectedCountry || 'PLAYER'
+
+        // Find if we're liberating (defender in this battle is the aggressor in a coalition war)
+        const liberationWar = activeCoalitionWars.find(cw =>
+            cw.status === 'active' &&
+            cw.aggressorCode === defenderCode &&
+            cw.alliesAtWar.includes(playerCode)
+        )
+
+        if (liberationWar) {
+            // LIBERATION MODE - Territory goes to coalition defender, not player
+            const gain = 5 + Math.round(result.decisiveness * 20)
+
+            console.log(`🛡️ LIBERATION: Player victory liberates ${gain}% from ${defenderName} for ${liberationWar.defenderCode}`)
+
+            // Reduce aggressor's occupation of the defender
+            const defender = aiCountries.get(liberationWar.defenderCode)
+            if (defender && defender.territoryLost > 0) {
+                // Reduce the territory the aggressor has taken from the defender
+                const newLost = Math.max(0, defender.territoryLost - gain)
+                defender.territoryLost = newLost
+                useWorldStore.setState({ aiCountries: new Map(aiCountries) })
+            }
+
+            // Update coalition war stats
+            const updatedWars = activeCoalitionWars.map(w =>
+                w.id === liberationWar.id
+                    ? {
+                        ...w,
+                        aggressorTerritoryLost: w.aggressorTerritoryLost + gain,
+                        alliesAttacking: w.alliesAttacking.includes(playerCode)
+                            ? w.alliesAttacking
+                            : [...w.alliesAttacking, playerCode]
+                    }
+                    : w
+            )
+            useWorldStore.setState({ activeCoalitionWars: updatedWars })
+
+            // RELATION BONUSES for player
+            const coalition = coalitions.find(c => c.id === liberationWar.coalitionId)
+            if (coalition) {
+                coalition.members.forEach(memberCode => {
+                    if (memberCode !== playerCode) {
+                        updateRelations(memberCode, 15) // +15 each victory
+                    }
+                })
+            }
+
+            addDiplomaticEvents([{
+                id: `liberation-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+                type: 'ALLIANCE',
+                severity: 2,
+                title: '🛡️ Liberation Victory',
+                description: `You liberated territory from ${defenderName}, weakening the aggressor and strengthening ${coalition?.name || 'the coalition'}.`,
+                affectedNations: [defenderCode, liberationWar.defenderCode],
+                timestamp: Date.now()
+            }])
+
+            return // Don't proceed with normal territory gain
+        }
+
+        // NORMAL MODE - Territory goes to player
         // Calculate territory gained
         // Base gain 5% + up to 20% based on decisiveness
         const gain = 5 + Math.round(result.decisiveness * 20)

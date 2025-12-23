@@ -36,6 +36,7 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onStartGame, onCancel }) =
     const [startingCountry, setStartingCountry] = useState('USA')
     const [enableRealCoalitions, setEnableRealCoalitions] = useState(true)
     const [enableElections, setEnableElections] = useState(true)
+    const [enableNuclearNations, setEnableNuclearNations] = useState(true)
     const [difficulty, setDifficulty] = useState<'EASY' | 'NORMAL' | 'HARD'>('NORMAL')
 
     const handleStart = () => {
@@ -45,6 +46,7 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onStartGame, onCancel }) =
             startingCountry: startMode === 'EXISTING_COUNTRY' ? startingCountry : undefined,
             enableRealCoalitions,
             enableElections,
+            enableNuclearNations,
             difficulty
         })
     }
@@ -150,6 +152,17 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onStartGame, onCancel }) =
                                 <span className="toggle-label">
                                     <strong>Political Elections</strong>
                                     <small>Countries hold elections & change governments</small>
+                                </span>
+                            </label>
+                            <label className="toggle-option">
+                                <input
+                                    type="checkbox"
+                                    checked={enableNuclearNations}
+                                    onChange={(e) => setEnableNuclearNations(e.target.checked)}
+                                />
+                                <span className="toggle-label">
+                                    <strong>☢️ Nuclear Nations</strong>
+                                    <small>USA, Russia, China, etc. start with nuclear weapons</small>
                                 </span>
                             </label>
                         </div>

@@ -38,6 +38,7 @@ import countriesData from './data/countries.json'
 import citiesData from './data/cities.json'
 
 import { ActiveWarsPanel } from './components/ActiveWarsPanel'
+import { CoalitionWarPanel } from './components/CoalitionWarPanel'
 import { AdvancedDiplomacyPanel } from './components/AdvancedDiplomacyPanel'
 import '../src/styles/AdvancedDiplomacyPanel.css'
 
@@ -654,6 +655,7 @@ function App() {
             <DiplomacyPanel />
             <MilitaryPanel onOpenDefensivePlanning={() => handleLaunchOffensive('PLAYER', nation?.name || 'Player Nation')} />
             <ConsequencesPanel />
+            <CoalitionWarPanel />
 
 
 

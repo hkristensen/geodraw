@@ -29,8 +29,8 @@ export function ResearchPanel({ onClose }: { onClose: () => void }) {
                 </div>
 
                 {/* Tech Tree */}
-                <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {['MILITARY', 'ECONOMY', 'CIVIC'].map(category => (
+                <div className="flex-1 overflow-y-auto p-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {['MILITARY', 'ECONOMY', 'CIVIC', 'NUCLEAR'].map(category => (
                         <div key={category} className="space-y-4">
                             <h3 className="text-lg font-bold text-gray-300 border-b border-gray-700 pb-2 mb-4">{category}</h3>
                             {RESEARCH_TREE.filter(t => t.category === category).map(tech => {
@@ -43,10 +43,10 @@ export function ResearchPanel({ onClose }: { onClose: () => void }) {
                                     <div
                                         key={tech.id}
                                         className={`p-4 rounded-xl border transition-all ${isUnlocked
-                                                ? 'bg-blue-900/20 border-blue-500/50'
-                                                : isLocked
-                                                    ? 'bg-gray-900/50 border-gray-800 opacity-50 grayscale'
-                                                    : 'bg-slate-800 border-gray-700 hover:border-blue-500/50'
+                                            ? 'bg-blue-900/20 border-blue-500/50'
+                                            : isLocked
+                                                ? 'bg-gray-900/50 border-gray-800 opacity-50 grayscale'
+                                                : 'bg-slate-800 border-gray-700 hover:border-blue-500/50'
                                             }`}
                                     >
                                         <div className="flex justify-between items-start mb-2">
@@ -60,10 +60,10 @@ export function ResearchPanel({ onClose }: { onClose: () => void }) {
                                                 disabled={!isAffordable || isLocked}
                                                 onClick={() => handleUnlock(tech.id, tech.cost)}
                                                 className={`w-full py-2 rounded text-sm font-bold transition-colors ${isLocked
-                                                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                                                        : isAffordable
-                                                            ? 'bg-blue-600 hover:bg-blue-500 text-white'
-                                                            : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                                    : isAffordable
+                                                        ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                                                        : 'bg-gray-700 text-gray-400 cursor-not-allowed'
                                                     }`}
                                             >
                                                 {isLocked ? 'Locked' : `Research (${tech.cost} RP)`}

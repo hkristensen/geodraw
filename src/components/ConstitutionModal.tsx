@@ -145,6 +145,24 @@ export function ConstitutionModal() {
         // Calculate nation stats from conquered lands
         const stats = calculateNationStats(consequences, capturedCities)
 
+        // Check if player is starting as a nuclear nation
+        const NUCLEAR_NATIONS: Record<string, number> = {
+            'USA': 100, 'RUS': 100, 'CHN': 50, 'FRA': 30, 'GBR': 20,
+            'IND': 20, 'PAK': 20, 'ISR': 10, 'PRK': 10
+        }
+        const playerCountryCode = gameSettings?.startingCountry
+        const isNuclearNation = playerCountryCode && NUCLEAR_NATIONS[playerCountryCode]
+        const nuclearProgram = (isNuclearNation && gameSettings?.enableNuclearNations !== false) ? {
+            enrichmentProgress: 100,
+            warheads: NUCLEAR_NATIONS[playerCountryCode!],
+            reactors: 5,
+            enrichmentFacilities: 2
+        } : undefined
+
+        if (nuclearProgram) {
+            console.log(`☢️ Player starting as nuclear nation with ${nuclearProgram.warheads} warheads`)
+        }
+
         const nation: Nation = {
             name: nationName.trim(),
             flag,
@@ -160,12 +178,13 @@ export function ConstitutionModal() {
             foundedAt: Date.now(),
             stats: {
                 ...stats,
-                budget: 1_000_000_000, // Start with $1B
+                budget: 1_000_000_000_000_000, // Start with $1000T for testing
                 taxRate: 20, // 20% default tax
                 gdpPerCapita: 10000, // Placeholder, updated by economy loop
                 tradeIncome: 0,
                 taxIncome: 0,
-                expenses: 0
+                expenses: 0,
+                nuclearProgram // Add nuclear program if applicable
             },
             buildings: [],
             units: [],

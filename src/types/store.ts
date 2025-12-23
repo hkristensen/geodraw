@@ -219,6 +219,9 @@ export interface WorldState {
     // AI vs AI wars
     aiWars: AIWar[]
 
+    // Active coalition wars (Article 5)
+    activeCoalitionWars: import('../types/game').CoalitionWar[]
+
     // Active wars (with player)
     activeWars: string[] // Country codes at war with player
 
@@ -264,6 +267,9 @@ export interface WorldState {
 
     // Process AI vs AI wars
     processAIvsAI: () => { events: Array<{ type: string, attackerCode: string, defenderCode: string }>, wars: AIWar[] }
+
+    // Process Player vs AI wars (auto-battle mode)
+    processPlayerWar: () => { events: Array<{ type: string, attackerCode: string, defenderCode: string, message: string }> }
 
     // Diplomacy
     proposeAgreement: (countryCode: string, type: AgreementType) => boolean

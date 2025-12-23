@@ -192,6 +192,37 @@ export function GameMap({
         }
     }, [contestedZones])
 
+    // Update map with irradiated zones (nuclear strike affected areas - green)
+    const aiCountriesForIrradiated = useWorldStore(state => state.aiCountries)
+    useEffect(() => {
+        const mapInstance = map.current
+        if (!mapInstance || !mapInstance.getStyle()) return
+
+        try {
+            const source = mapInstance.getSource?.('irradiated-zones') as maplibregl.GeoJSONSource | undefined
+            if (source) {
+                // Find all countries with IRRADIATED modifier
+                const irradiatedCountries: Feature[] = []
+                aiCountriesForIrradiated.forEach((country, code) => {
+                    if (country.modifiers.includes('IRRADIATED')) {
+                        const territory = aiTerritories.get(code)
+                        if (territory) {
+                            irradiatedCountries.push(territory as Feature)
+                            console.log(`☢️ Rendering irradiated zone for ${country.name}`)
+                        }
+                    }
+                })
+
+                source.setData({
+                    type: 'FeatureCollection',
+                    features: irradiatedCountries
+                })
+            }
+        } catch (e) {
+            console.warn('⚠️ Error updating irradiated zones:', e)
+        }
+    }, [aiCountriesForIrradiated, aiTerritories])
+
     // RENDER AI WAR PLANS (Visual Arrows)
     useEffect(() => {
         const mapInstance = map.current
@@ -772,15 +803,44 @@ export function GameMap({
                 },
             })
 
-            // Contested zones border (dashed red line)
+            // Contested zones border (subtle outline, not dashed to avoid double-border effect)
             map.current.addLayer({
                 id: 'contested-zones-line',
                 type: 'line',
                 source: 'contested-zones',
                 paint: {
-                    'line-color': '#b91c1c', // Red-700
+                    'line-color': '#991b1b', // Red-800 (darker)
+                    'line-width': 1,
+                    'line-opacity': 0.6, // Subtle to not clash with country borders
+                },
+            })
+
+            // Add irradiated zones source (nuclear strike affected areas)
+            map.current.addSource('irradiated-zones', {
+                type: 'geojson',
+                data: { type: 'FeatureCollection', features: [] },
+            })
+
+            // Irradiated zones fill (greenish radioactive color)
+            map.current.addLayer({
+                id: 'irradiated-zones-fill',
+                type: 'fill',
+                source: 'irradiated-zones',
+                paint: {
+                    'fill-color': '#22c55e', // Green-500 (toxic green)
+                    'fill-opacity': 0.4,
+                },
+            })
+
+            // Irradiated zones border (darker green)
+            map.current.addLayer({
+                id: 'irradiated-zones-line',
+                type: 'line',
+                source: 'irradiated-zones',
+                paint: {
+                    'line-color': '#15803d', // Green-700
                     'line-width': 2,
-                    'line-dasharray': [2, 2],
+                    'line-opacity': 0.8,
                 },
             })
 

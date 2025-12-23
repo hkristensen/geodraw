@@ -7,6 +7,7 @@ import { BudgetPanel } from './BudgetPanel'
 import { BuildingPanel } from './BuildingPanel'
 import { ResearchPanel } from './ResearchPanel'
 import { PolicyPanel } from './PolicyPanel'
+import { NuclearPanel } from './NuclearPanel'
 
 function formatNumber(num: number): string {
     if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M'
@@ -21,8 +22,9 @@ export function NationInfoPanel() {
     const [economyData, setEconomyData] = useState<ReturnType<typeof calculateEconomy> | null>(null)
     const [showResearch, setShowResearch] = useState(false)
     const [showPolicies, setShowPolicies] = useState(false)
+    const [showNuclear, setShowNuclear] = useState(false)
 
-    const { researchPoints, unrest } = useGameStore()
+    const { researchPoints, unrest, unlockedTechs } = useGameStore()
 
     // Update economy data periodically or when stats change
     useEffect(() => {
@@ -155,9 +157,9 @@ export function NationInfoPanel() {
                                     <div className="text-left">
                                         <div className="text-xs font-bold text-purple-300">Policies</div>
                                         <div className={`text-[10px] ${unrest <= 20 ? 'text-green-400' :
-                                                unrest <= 40 ? 'text-yellow-400' :
-                                                    unrest <= 60 ? 'text-orange-400' :
-                                                        'text-red-400'
+                                            unrest <= 40 ? 'text-yellow-400' :
+                                                unrest <= 60 ? 'text-orange-400' :
+                                                    'text-red-400'
                                             }`}>
                                             {unrest <= 20 ? 'Stable' :
                                                 unrest <= 40 ? 'Low Unrest' :
@@ -168,6 +170,24 @@ export function NationInfoPanel() {
                                     </div>
                                 </button>
                             </div>
+
+                            {/* Nuclear Program Button - only show if any nuclear tech unlocked */}
+                            {unlockedTechs.includes('nuke_1') && (
+                                <div className="px-3 pb-3 border-b border-white/5">
+                                    <button
+                                        onClick={() => setShowNuclear(true)}
+                                        className="w-full bg-yellow-900/40 hover:bg-yellow-800/60 border border-yellow-500/30 p-2 rounded flex items-center justify-center gap-2 transition-colors"
+                                    >
+                                        <span className="text-lg">☢️</span>
+                                        <div className="text-left">
+                                            <div className="text-xs font-bold text-yellow-300">Nuclear Program</div>
+                                            <div className="text-[10px] text-yellow-400">
+                                                💣 {nation?.stats?.nuclearProgram?.warheads || 0} Warheads
+                                            </div>
+                                        </div>
+                                    </button>
+                                </div>
+                            )}
 
                             {/* Territory Stats */}
                             <div className="p-3 border-b border-white/5">
@@ -373,6 +393,7 @@ export function NationInfoPanel() {
             {/* Modals */}
             {showResearch && <ResearchPanel onClose={() => setShowResearch(false)} />}
             {showPolicies && <PolicyPanel onClose={() => setShowPolicies(false)} />}
+            {showNuclear && <NuclearPanel onClose={() => setShowNuclear(false)} />}
         </>
     )
 }

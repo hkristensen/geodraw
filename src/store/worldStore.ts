@@ -56,6 +56,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     aiTerritories: new Map(), // Dynamic country polygons
     contestedZones: new Map(), // Wartime territories (shown in red until peace)
     aiWars: [], // AI vs AI wars
+    activeCoalitionWars: [], // Article 5 coalition wars
     activeWars: [],
     allies: [],
     coalitions: [],
@@ -285,6 +286,37 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         const playerCountry = useGameStore.getState().selectedCountry || undefined
         const realCoalitions = seedRealWorldCoalitions(countries, playerCountry)
         console.log(`🌍 Seeded ${realCoalitions.length} real-world coalitions`)
+
+        // Seed real nuclear nations with warheads (if enabled in settings)
+        const currentGameSettings = useGameStore.getState().gameSettings
+        if (currentGameSettings?.enableNuclearNations !== false) {
+            const NUCLEAR_NATIONS: Record<string, number> = {
+                'USA': 100,  // United States
+                'RUS': 100,  // Russia
+                'CHN': 50,   // China
+                'FRA': 30,   // France
+                'GBR': 20,   // UK
+                'IND': 20,   // India
+                'PAK': 20,   // Pakistan
+                'ISR': 10,   // Israel
+                'PRK': 10    // North Korea
+            }
+
+            Object.entries(NUCLEAR_NATIONS).forEach(([code, warheads]) => {
+                const country = countries.get(code)
+                if (country) {
+                    country.nuclearProgram = {
+                        enrichmentProgress: 100, // Already have weapons-grade material
+                        warheads,
+                        reactors: 5,
+                        enrichmentFacilities: 2
+                    }
+                    console.log(`☢️ Nuclear nation seeded: ${country.name} with ${warheads} warheads`)
+                }
+            })
+        } else {
+            console.log('☢️ Nuclear nations DISABLED by game settings')
+        }
 
         set({
             aiCountries: countries,
@@ -543,6 +575,53 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         aiCountries.forEach((country, code) => {
             // Skip if annexed
             if (country.isAnnexed) return
+
+            // FORCE ANNEXATION CHECK: If country has lost 100%+ territory, force annexation
+            if (country.territoryLost >= 100) {
+                console.log(`☠️ Force annexation: ${country.name} has lost ${country.territoryLost}% territory`)
+
+                // Mark as annexed
+                aiCountries.set(code, {
+                    ...country,
+                    isAnnexed: true,
+                    soldiers: 0,
+                    power: 0,
+                    isAtWar: false
+                })
+
+                // End any wars with this country
+                const { aiWars, activeWars } = get()
+                const updatedAIWars = aiWars.map(war => {
+                    if ((war.attackerCode === code || war.defenderCode === code) && war.status === 'active') {
+                        return { ...war, status: 'peace' as const }
+                    }
+                    return war
+                })
+                const updatedActiveWars = activeWars.filter(c => c !== code)
+
+                set({
+                    aiWars: updatedAIWars,
+                    activeWars: updatedActiveWars
+                })
+
+                // Add diplomatic event
+                import('../store/gameStore').then(({ useGameStore }) => {
+                    useGameStore.getState().addDiplomaticEvents([{
+                        id: `forced-annex-${Date.now()}`,
+                        type: 'ANNEXATION',
+                        severity: 3,
+                        title: '🏳️ Nation Collapse',
+                        description: `${country.name} has completely collapsed after losing all territory.`,
+                        affectedNations: [code],
+                        timestamp: Date.now()
+                    }])
+                })
+
+                // Make peace with player if at war
+                get().makePeace(code)
+
+                return // Skip processing for this country
+            }
 
             // === PHASE 1: STRATEGIC ASSESSMENT ===
             // Run strategy assessment (assigns personality if needed, evaluates situation)
@@ -1680,6 +1759,12 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     const potentialTargets = Array.from(aiCountries.values()).filter(c => {
                         if (c.code === attackerCode || c.isAnnexed) return false
 
+                        // COALITION CHECK: Never rival coalition members
+                        const coalitionsForRivalry = get().coalitions
+                        const attackerInCoalition = coalitionsForRivalry.filter(coal => coal.members.includes(attackerCode))
+                        const targetInSameCoalition = attackerInCoalition.some(coal => coal.members.includes(c.code))
+                        if (targetInSameCoalition) return false // Same coalition - cannot become rivals
+
                         // Power check: Don't rival someone > 3x your size unless you are very aggressive (5)
                         const powerRatio = c.power / (attacker.power || 1)
                         if (powerRatio > 3 && attacker.aggression < 5) return false
@@ -1739,6 +1824,24 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                 const defender = aiCountries.get(enemyCode)
                 if (!defender || defender.isAnnexed) continue
 
+                // COALITION MEMBERSHIP CHECK - NEVER attack coalition allies
+                const allCoalitions = get().coalitions
+                const attackerCoalitions = allCoalitions.filter(c => c.members.includes(attackerCode))
+                const defenderCoalitions = allCoalitions.filter(c => c.members.includes(enemyCode!))
+
+                // Check if they share any coalition (especially MILITARY ones)
+                const sharedCoalition = attackerCoalitions.find(ac =>
+                    defenderCoalitions.some(dc => dc.id === ac.id)
+                )
+
+                if (sharedCoalition) {
+                    // Same coalition - cannot attack! Remove from enemies list if needed
+                    console.log(`🤝 ${attacker.name} cannot attack ${defender.name} - both in ${sharedCoalition.name}`)
+                    // Remove this enemy from list since they're allies
+                    attacker.enemies = attacker.enemies?.filter(e => e !== enemyName && e !== enemyCode) || []
+                    continue
+                }
+
                 // Check if already at war with this country
                 const alreadyAtWar = newWars.some(
                     w => w.status === 'active' &&
@@ -1762,14 +1865,109 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     const p2 = turf.centroid(defenderPoly as any)
                     const dist = turf.distance(p1, p2, { units: 'kilometers' })
 
-                    if (dist > 4000 && attacker.territoryLost < 10) warChance = 0
-                    else if (dist > 2000 && attacker.aggression < 5) warChance *= 0.2
+                    // STRONGER DISTANCE REQUIREMENTS for realistic wars
+                    // Countries can only attack distant enemies if they have a pressing reason
+                    if (dist > 3000) {
+                        // Very far away - only attack if lost significant territory or extremely aggressive
+                        if (attacker.territoryLost < 20 && attacker.aggression < 5) {
+                            warChance = 0 // No war with distant countries without major reason
+                            continue // Skip this enemy entirely
+                        } else {
+                            warChance *= 0.05 // Still very unlikely even with reason
+                        }
+                    } else if (dist > 2000) {
+                        // Far away - significant reduction
+                        if (attacker.aggression < 4) warChance *= 0.1
+                        else warChance *= 0.3
+                    } else if (dist > 1000) {
+                        // Medium distance - some reduction
+                        warChance *= 0.5
+                    }
+                    // dist <= 1000km - neighbors can fight more freely
                 }
 
                 // Power Balance Check
                 const powerRatio = defender.power / (attacker.power || 1)
                 if (powerRatio > 1.5 && attacker.territoryLost < 20) warChance *= 0.5
                 if (powerRatio > 2.0 && attacker.territoryLost < 10) warChance = 0
+
+                // COALITION STRENGTH CHECK - Fear of attacking MILITARY coalition members
+                const { coalitions } = get()
+                // Only MILITARY coalitions provide defense (not TRADE coalitions like EU, BRICS)
+                const defenderMilitaryCoalitions = coalitions.filter(c =>
+                    c.members.includes(defender.code) && c.type === 'MILITARY'
+                )
+
+                for (const coalition of defenderMilitaryCoalitions) {
+                    // Calculate total coalition military strength
+                    let coalitionMilitaryPower = 0
+                    let coalitionSoldiers = 0
+
+                    for (const memberCode of coalition.members) {
+                        if (memberCode === 'PLAYER') {
+                            // Include player power
+                            const playerNation = useGameStore.getState().nation
+                            if (playerNation) {
+                                coalitionMilitaryPower += playerNation.stats.power || 0
+                                coalitionSoldiers += playerNation.stats.soldiers || 0
+                            }
+                        } else {
+                            const member = aiCountries.get(memberCode)
+                            if (member && !member.isAnnexed) {
+                                coalitionMilitaryPower += member.power || 0
+                                coalitionSoldiers += member.soldiers || 0
+                            }
+                        }
+                    }
+
+                    // Compare attacker strength vs coalition strength
+                    const coalitionRatio = coalitionMilitaryPower / (attacker.power || 1)
+                    const soldierRatio = coalitionSoldiers / (attacker.soldiers || 1)
+
+                    // Coalition deterrence based on strength ratio
+                    if (coalitionRatio > 5 || soldierRatio > 5) {
+                        // Coalition is overwhelmingly stronger - almost never attack
+                        warChance *= 0.02
+                        console.log(`🛡️ ${attacker.name} deterred from attacking ${defender.name} - ${coalition.name} is overwhelming (${coalitionRatio.toFixed(1)}x power)`)
+                    } else if (coalitionRatio > 3 || soldierRatio > 3) {
+                        // Coalition is much stronger - very unlikely
+                        warChance *= 0.1
+                    } else if (coalitionRatio > 2 || soldierRatio > 2) {
+                        // Coalition is stronger - reduced chance
+                        warChance *= 0.3
+                    } else if (coalitionRatio > 1.5) {
+                        // Coalition is somewhat stronger
+                        warChance *= 0.6
+                    }
+
+                    // Larger coalitions are scarier (network effect)
+                    if (coalition.members.length >= 10) {
+                        warChance *= 0.3 // Large alliance like NATO
+                    } else if (coalition.members.length >= 5) {
+                        warChance *= 0.5
+                    }
+                }
+
+                // ATTACKER COALITION RESTRAINT - NATO/CSTO members shouldn't attack randomly
+                const attackerMilitaryCoalitions = coalitions.filter(c =>
+                    c.members.includes(attackerCode) && c.type === 'MILITARY'
+                )
+
+                for (const attackerCoalition of attackerMilitaryCoalitions) {
+                    // If attacker is in a major military coalition, they should be more restrained
+                    // Only attack if they have a genuine reason (border conflict, territorial loss, high aggression)
+                    const hasGenuineReason = (
+                        attacker.aggression >= 4 || // Very aggressive nation
+                        attacker.territoryLost > 10 || // Lost significant territory
+                        (attacker.relations || 0) < -30 // Very poor relations with defender
+                    )
+
+                    if (!hasGenuineReason) {
+                        // Major military alliance member attacking without reason - very unlikely
+                        warChance *= 0.1
+                        console.log(`🛡️ ${attacker.name} (${attackerCoalition.name} member) unlikely to attack ${defender.name} without genuine reason`)
+                    }
+                }
 
                 if (Math.random() < warChance) {
                     // GENERATE WAR PLAN (Visual Arrow)
@@ -1836,13 +2034,26 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             for (const war of newWars) {
                 if (war.status !== 'active') continue
 
-                // SPEED UP: Battle every 10 seconds to make it dynamic
-                const timeSinceLastBattle = Date.now() - war.lastBattleTime
-                if (timeSinceLastBattle < 10000) continue
-
                 const attacker = aiCountries.get(war.attackerCode)
                 const defender = aiCountries.get(war.defenderCode)
                 if (!attacker || !defender) continue
+
+                // War duration limit: Force stalemate peace after 5 minutes (300 seconds)
+                const warDuration = Date.now() - war.startTime
+                if (warDuration > 300000) {
+                    war.status = 'peace'
+                    console.log(`⏰ War timeout: ${attacker.name} vs ${defender.name} ended in stalemate`)
+
+                    // Reset isAtWar flags
+                    const hasActiveWar = (code: string) => newWars.some(w => w.status === 'active' && (w.attackerCode === code || w.defenderCode === code))
+                    if (!hasActiveWar(attacker.code)) attacker.isAtWar = false
+                    if (!hasActiveWar(defender.code)) defender.isAtWar = false
+                    continue
+                }
+
+                // SPEED UP: Battle every 10 seconds to make it dynamic
+                const timeSinceLastBattle = Date.now() - war.lastBattleTime
+                if (timeSinceLastBattle < 10000) continue
 
                 // --- ADVANCED BATTLE SIMULATION ---
                 // We use 5% of their forces per "battle step"
@@ -1938,6 +2149,46 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                 attacker.power = getPower(attacker)
                 defender.power = getPower(defender)
 
+                // TRACK COALITION WAR PROGRESS
+                // Check if this war is part of an active coalition war (ally vs aggressor)
+                const { activeCoalitionWars } = get()
+                const relatedCoalitionWar = activeCoalitionWars.find(cw =>
+                    cw.status === 'active' &&
+                    cw.aggressorCode === war.defenderCode && // AI war where defender = original aggressor
+                    cw.alliesAtWar.includes(war.attackerCode) // Attacker is a coalition ally
+                )
+
+                if (relatedCoalitionWar) {
+                    // Mark this ally as having attacked
+                    if (!relatedCoalitionWar.alliesAttacking.includes(war.attackerCode)) {
+                        relatedCoalitionWar.alliesAttacking.push(war.attackerCode)
+
+                        // RELATION BONUS: +20 with all coalition members for attacking
+                        const { coalitions } = get()
+                        const coalition = coalitions.find(c => c.id === relatedCoalitionWar.coalitionId)
+                        if (coalition) {
+                            coalition.members.forEach(memberCode => {
+                                if (memberCode !== war.attackerCode && memberCode !== 'PLAYER') {
+                                    const member = aiCountries.get(memberCode)
+                                    if (member) {
+                                        member.relations = Math.min(100, (member.relations || 0) + 20)
+                                    }
+                                }
+                            })
+                            console.log(`🤝 ${attacker.name} gains +20 relations with ${coalition.name} for attacking aggressor`)
+                        }
+                    }
+
+                    // Update aggregate stats
+                    relatedCoalitionWar.aggressorCasualties += defLoss
+                    relatedCoalitionWar.coalitionCasualties += attLoss
+                    if (attLossPct < defLossPct) {
+                        relatedCoalitionWar.aggressorTerritoryLost += gain * 0.5 // Scale down since multiple wars
+                    }
+
+                    set({ activeCoalitionWars: [...activeCoalitionWars] })
+                }
+
                 // Visual Territory Transfer (Same as before but using calculated gain)
                 const { aiTerritories } = get()
                 const attackerPoly = aiTerritories.get(war.attackerCode)
@@ -1947,9 +2198,27 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     // Determine winner/loser for this turn
                     const winnerPoly = attLossPct < defLossPct ? attackerPoly : defenderPoly
                     const loserPoly = attLossPct < defLossPct ? defenderPoly : attackerPoly
-                    const intensity = Math.min(0.5, gain / 20)
+                    // Minimum intensity of 0.15 ensures visible gains even for small victories
+                    const intensity = Math.max(0.15, Math.min(0.5, gain / 20))
 
                     import('../utils/territoryUtils').then(({ calculateConquest, subtractTerritory, mergeTerritory }) => {
+                        // Get winner code for this battle
+                        const winnerCode = attLossPct < defLossPct ? war.attackerCode : war.defenderCode
+
+                        // CRITICAL FIX: Merge winner's contested zones with their territory for buffer calculation
+                        // This allows subsequent battles to expand from the FRONTLINE, not the original border
+                        const { contestedZones: currentContested } = get()
+                        const contestKey = `${war.id}-${winnerCode}`
+                        const existingContested = currentContested.get(contestKey)
+
+                        let effectiveWinnerPoly = winnerPoly
+                        if (existingContested) {
+                            const merged = mergeTerritory(winnerPoly as any, existingContested as any)
+                            if (merged) {
+                                effectiveWinnerPoly = merged
+                            }
+                        }
+
                         // Calculate Beachhead location (use Centroid, fallback to Vertex if in water)
                         let battleLoc: [number, number] | undefined
                         try {
@@ -1969,8 +2238,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                             }
                         } catch (e) { }
 
-                        const conquest = calculateConquest(winnerPoly as any, loserPoly as any, intensity, undefined, undefined, battleLoc)
-                        console.log('🗺️ Territory conquest result:', conquest ? 'SUCCESS' : 'FAILED', 'Intensity:', intensity, 'BattleLoc:', battleLoc)
+                        const conquest = calculateConquest(effectiveWinnerPoly as any, loserPoly as any, intensity, undefined, undefined, battleLoc)
+                        // Silenced - too noisy: console.log('🗺️ Territory conquest result:', conquest ? 'SUCCESS' : 'FAILED', 'Intensity:', intensity)
                         if (conquest) {
                             const newLoser = subtractTerritory(loserPoly as any, conquest as any)
                             // console.log('🗺️ Territory merge result - Loser:', newLoser ? 'OK' : 'NULL')
@@ -1979,7 +2248,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                                 // CRITICAL: Get fresh state to avoid stale closure
                                 const { aiTerritories: freshTerritories, contestedZones: freshContested } = get()
                                 const loserCode = attLossPct < defLossPct ? war.defenderCode : war.attackerCode
-                                const winnerCode = attLossPct < defLossPct ? war.attackerCode : war.defenderCode
+                                // winnerCode already declared earlier
 
                                 // Update loser's territory (subtract conquest)
                                 const newTerritoryMap = new Map(freshTerritories)
@@ -2007,6 +2276,40 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
                                 const newContestedMap = new Map(freshContested)
                                 newContestedMap.set(contestKey, newContested as any)
+
+                                // STATS RECALCULATION: Update country stats based on territory change
+                                try {
+                                    const conquestArea = turf.area(conquest as any) // sq meters
+                                    const originalLoserArea = turf.area(loserPoly as any)
+                                    const lossRatio = Math.min(0.5, conquestArea / originalLoserArea) // Cap at 50% per battle
+
+                                    const { aiCountries: freshCountries } = get()
+                                    const loserCountry = freshCountries.get(loserCode)
+                                    const winnerCountry = freshCountries.get(winnerCode)
+
+                                    if (loserCountry && winnerCountry) {
+                                        // Transfer population proportionally
+                                        const popLost = Math.floor(loserCountry.population * lossRatio)
+                                        loserCountry.population = Math.max(1000, loserCountry.population - popLost)
+                                        winnerCountry.population += popLost
+
+                                        // Reduce loser's soldiers proportionally (casualties + lost recruitment base)
+                                        const soldiersLost = Math.floor(loserCountry.soldiers * lossRatio * 0.5)
+                                        loserCountry.soldiers = Math.max(100, loserCountry.soldiers - soldiersLost)
+
+                                        // Update territoryLost tracking
+                                        loserCountry.territoryLost = Math.min(100, (loserCountry.territoryLost || 0) + lossRatio * 100)
+
+                                        // Recalculate power scores
+                                        import('../utils/powerSystem').then(({ calculatePower }) => {
+                                            loserCountry.power = calculatePower(loserCountry.soldiers, loserCountry.economy, loserCountry.authority, false).totalPower
+                                            winnerCountry.power = calculatePower(winnerCountry.soldiers, winnerCountry.economy, winnerCountry.authority, false).totalPower
+                                            set({ aiCountries: new Map(freshCountries) })
+                                        })
+                                    }
+                                } catch (statsError) {
+                                    console.warn('Stats recalculation failed:', statsError)
+                                }
 
                                 set({ aiTerritories: newTerritoryMap, contestedZones: newContestedMap })
                                 console.log('🔥 Contested zone UPDATED for', war.attackerCode, 'vs', war.defenderCode)
@@ -2097,6 +2400,58 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             })
         }
 
+        // CHECK COALITION WAR END CONDITIONS
+        const { activeCoalitionWars } = get()
+        const updatedCoalitionWars = activeCoalitionWars.map(cw => {
+            if (cw.status !== 'active') return cw
+
+            // End condition 1: Aggressor is annexed
+            const aggressor = aiCountries.get(cw.aggressorCode)
+            if (!aggressor || aggressor.isAnnexed) {
+                console.log(`🏆 Coalition Victory! ${cw.coalitionName} defeated the aggressor (annexed)`)
+                return { ...cw, status: 'victory' as const }
+            }
+
+            // End condition 2: Aggressor lost 50%+ territory - Coalition Victory
+            if (cw.aggressorTerritoryLost >= 50) {
+                console.log(`🏆 Coalition Victory! ${cw.coalitionName} - aggressor lost ${cw.aggressorTerritoryLost.toFixed(1)}% territory`)
+                return { ...cw, status: 'victory' as const }
+            }
+
+            // End condition 3: Original defender is annexed - Coalition Defeat
+            const originalDefender = aiCountries.get(cw.defenderCode)
+            if (originalDefender?.isAnnexed) {
+                console.log(`💀 Coalition Defeat! ${cw.coalitionName} failed to protect ${cw.defenderCode}`)
+                return { ...cw, status: 'defeat' as const }
+            }
+
+            // End condition 4: Time limit (10 minutes) - check if all related AI wars ended
+            const warDuration = Date.now() - cw.startTime
+            if (warDuration > 600000) { // 10 minutes
+                const relatedWarsActive = activeWarsOnly.some(w =>
+                    cw.alliesAtWar.includes(w.attackerCode) && w.defenderCode === cw.aggressorCode
+                )
+                if (!relatedWarsActive) {
+                    // All coalition wars ended - determine outcome by territory
+                    if (cw.aggressorTerritoryLost >= 20) {
+                        console.log(`🏆 Coalition Victory (stalemate)! ${cw.coalitionName}`)
+                        return { ...cw, status: 'victory' as const }
+                    } else {
+                        console.log(`🕊️ Coalition War ended in peace: ${cw.coalitionName}`)
+                        return { ...cw, status: 'peace' as const }
+                    }
+                }
+            }
+
+            return cw
+        })
+
+        // Check if any coalition wars changed status
+        const coalitionWarsChanged = updatedCoalitionWars.some((cw, i) => cw.status !== activeCoalitionWars[i]?.status)
+        if (coalitionWarsChanged) {
+            set({ activeCoalitionWars: updatedCoalitionWars })
+        }
+
         set({
             aiWars: activeWarsOnly,
             aiCountries: new Map(aiCountries) // Trigger update for soldiers/isAtWar changes
@@ -2105,11 +2460,131 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         return { events, wars: activeWarsOnly }
     },
 
+    // Process Player vs AI wars (auto-battle mode)
+    processPlayerWar: () => {
+        const { aiCountries, activeWars } = get()
+        const events: { type: string; attackerCode: string; defenderCode: string; message: string }[] = []
+
+        // Get player nation
+        const gameState = (useGameStore as any).getState ? (useGameStore as any).getState() : null
+        if (!gameState?.nation) return { events }
+
+        const playerSoldiers = gameState.nation.stats.soldiers
+        const playerPower = gameState.nation.stats.power || 50
+
+        // Process each active war
+        for (const enemyCode of activeWars) {
+            const enemy = aiCountries.get(enemyCode)
+            if (!enemy || enemy.isAnnexed) continue
+
+            // Calculate battle strength
+            const playerStrength = playerSoldiers * (1 + playerPower / 100)
+            const enemyStrength = enemy.soldiers * (1 + (enemy.power || 50) / 100)
+
+            // Determine winner (with randomness)
+            const playerRoll = playerStrength * (0.8 + Math.random() * 0.4)
+            const enemyRoll = enemyStrength * (0.8 + Math.random() * 0.4)
+
+            const playerWins = playerRoll > enemyRoll
+
+            // Calculate casualties (5-15% of engaged forces)
+            const engagePercent = 0.05 + Math.random() * 0.1
+            const playerLosses = Math.floor(playerSoldiers * engagePercent * (playerWins ? 0.3 : 0.7))
+            const enemyLosses = Math.floor(enemy.soldiers * engagePercent * (playerWins ? 0.7 : 0.3))
+
+            // Apply casualties
+            const newPlayerSoldiers = Math.max(0, playerSoldiers - playerLosses)
+            const newEnemySoldiers = Math.max(0, enemy.soldiers - enemyLosses)
+
+            // Update player soldiers
+            if (gameState.setNation) {
+                gameState.setNation({
+                    ...gameState.nation,
+                    stats: {
+                        ...gameState.nation.stats,
+                        soldiers: newPlayerSoldiers
+                    }
+                })
+            }
+
+            // Update enemy soldiers
+            aiCountries.set(enemyCode, {
+                ...enemy,
+                soldiers: newEnemySoldiers
+            })
+
+            // Territory change (winner gains ground)
+            const territoryChange = 5 + Math.floor(Math.random() * 10) // 5-15% per battle
+
+            if (playerWins) {
+                // Player wins - enemy loses territory
+                const newTerritoryLost = Math.min(100, enemy.territoryLost + territoryChange)
+                aiCountries.set(enemyCode, {
+                    ...aiCountries.get(enemyCode)!,
+                    territoryLost: newTerritoryLost
+                })
+
+                events.push({
+                    type: 'BATTLE_WON',
+                    attackerCode: 'PLAYER',
+                    defenderCode: enemyCode,
+                    message: `Victory! Your forces defeated ${enemy.name}'s army. +${territoryChange}% territory seized. (Lost ${playerLosses.toLocaleString()} soldiers, killed ${enemyLosses.toLocaleString()})`
+                })
+
+                console.log(`⚔️ PLAYER wins battle vs ${enemy.name}: +${territoryChange}% territory`)
+
+                // Check for full conquest
+                if (newTerritoryLost >= 100) {
+                    // Annex the country
+                    get().annexCountry(enemyCode, 'PLAYER')
+                    events.push({
+                        type: 'CONQUEST',
+                        attackerCode: 'PLAYER',
+                        defenderCode: enemyCode,
+                        message: `${enemy.name} has been completely conquered and annexed!`
+                    })
+                    console.log(`🏆 ${enemy.name} ANNEXED by player!`)
+                }
+            } else {
+                // Enemy wins - player takes morale/budget hit but no territory loss
+                events.push({
+                    type: 'BATTLE_LOST',
+                    attackerCode: 'PLAYER',
+                    defenderCode: enemyCode,
+                    message: `Defeat. ${enemy.name} repelled our offensive. (Lost ${playerLosses.toLocaleString()} soldiers, killed ${enemyLosses.toLocaleString()})`
+                })
+                console.log(`💀 PLAYER loses battle vs ${enemy.name}`)
+            }
+        }
+
+        set({ aiCountries: new Map(aiCountries) })
+
+        // Generate diplomatic events for battles
+        if (events.length > 0) {
+            import('../store/gameStore').then(({ useGameStore }) => {
+                events.forEach(event => {
+                    useGameStore.getState().addDiplomaticEvents([{
+                        id: `player-war-${Date.now()}-${Math.random()}`,
+                        type: event.type === 'CONQUEST' ? 'ANNEXATION' : 'WAR_DECLARED',
+                        severity: event.type === 'CONQUEST' ? 3 : 2,
+                        title: event.type === 'BATTLE_WON' ? '⚔️ Victory!' : event.type === 'CONQUEST' ? '🏆 Conquest!' : '💀 Defeat',
+                        description: event.message,
+                        affectedNations: [event.defenderCode],
+                        timestamp: Date.now()
+                    }])
+                })
+            })
+        }
+
+        return { events }
+    },
+
     reset: () => set({
         aiCountries: new Map(),
         aiTerritories: new Map(),
         contestedZones: new Map(),
         aiWars: [],
+        activeCoalitionWars: [],
         activeWars: [],
         allies: [],
     }),
@@ -2151,15 +2626,42 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             timestamp: Date.now()
         }])
 
-        // 3. Mobilize Allies
+        // 3. Mobilize Allies - Calculate 10% of all coalition armies
         const allies = alliance.members.filter(m => m !== defenderCode && m !== 'PLAYER')
-        const reinforcementPerAlly = 5000 // 5k troops per ally sent to defender
-        let totalReinforcements = 0
+
+        // Calculate total coalition military strength (excluding defender)
+        let totalCoalitionSoldiers = 0
+        allies.forEach(allyCode => {
+            const ally = aiCountries.get(allyCode)
+            if (ally && !ally.isAnnexed) {
+                totalCoalitionSoldiers += ally.soldiers
+            }
+        })
+
+        // 10% of combined coalition armies sent as reinforcements
+        const contributionPercent = 0.10
+        const totalReinforcements = Math.floor(totalCoalitionSoldiers * contributionPercent)
+
+        // Unit type distribution: 50% infantry, 25% defensive, 15% armored, 10% special forces
+        const reinforcementBreakdown = {
+            infantry: Math.floor(totalReinforcements * 0.50),
+            defensive: Math.floor(totalReinforcements * 0.25),
+            armored: Math.floor(totalReinforcements * 0.15),
+            specialForces: Math.floor(totalReinforcements * 0.10)
+        }
+
         let alliesJoined = 0
 
         allies.forEach(allyCode => {
             const ally = aiCountries.get(allyCode)
             if (!ally || ally.isAnnexed) return
+
+            // Subtract 10% of this ally's soldiers (their contribution)
+            const allyContribution = Math.floor(ally.soldiers * contributionPercent)
+            aiCountries.set(allyCode, {
+                ...ally,
+                soldiers: ally.soldiers - allyContribution
+            })
 
             // A. Declare War on Attacker (AI ally -> AI attacker)
             if (attackerCode !== 'PLAYER') {
@@ -2186,19 +2688,17 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     set(state => ({ aiWars: [...state.aiWars, war] }))
 
                     // Update ally state to AT_WAR
+                    const updatedAlly = aiCountries.get(allyCode)!
                     aiCountries.set(allyCode, {
-                        ...ally,
+                        ...updatedAlly,
                         isAtWar: true,
-                        modifiers: [...ally.modifiers.filter(m => m !== 'AT_WAR'), 'AT_WAR']
+                        modifiers: [...updatedAlly.modifiers.filter(m => m !== 'AT_WAR'), 'AT_WAR']
                     })
 
                     alliesJoined++
-                    console.log(`⚔️ ${ally.name} joins the war against ${attackerName} (Article 5)`)
+                    console.log(`⚔️ ${ally.name} joins the war against ${attackerName} (Article 5) - contributed ${allyContribution} soldiers`)
                 }
             }
-
-            // B. Send Reinforcements to defender
-            totalReinforcements += reinforcementPerAlly
         })
 
         // 4. Boost Defender soldiers (if not player)
@@ -2212,6 +2712,12 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                 soldiers: newSoldiers,
                 modifiers: newModifiers
             })
+
+            console.log(`🛡️ ${defender.name} receives ${totalReinforcements} coalition troops:`)
+            console.log(`   - Infantry: ${reinforcementBreakdown.infantry}`)
+            console.log(`   - Defensive: ${reinforcementBreakdown.defensive}`)
+            console.log(`   - Armored: ${reinforcementBreakdown.armored}`)
+            console.log(`   - Special Forces: ${reinforcementBreakdown.specialForces}`)
         } else if (isPlayerDefender) {
             // Give player reinforcement troops
             const nation = useGameStore.getState().nation
@@ -2221,7 +2727,30 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             }
         }
 
-        set({ aiCountries: new Map(aiCountries) })
+        // 5. Create Coalition War tracking object
+        const coalitionWar: import('../types/game').CoalitionWar = {
+            id: `cwar-${alliance.id}-${Date.now()}`,
+            coalitionId: alliance.id,
+            coalitionName: alliance.name,
+            defenderCode,
+            aggressorCode: attackerCode,
+            startTime: Date.now(),
+            status: 'active',
+            totalAlliedSoldiers: totalReinforcements,
+            alliesAtWar: allies.filter(code => {
+                const ally = aiCountries.get(code)
+                return ally && ally.isAtWar
+            }),
+            alliesAttacking: [], // None have attacked yet
+            aggressorTerritoryLost: 0,
+            coalitionCasualties: 0,
+            aggressorCasualties: 0
+        }
+
+        set(state => ({
+            aiCountries: new Map(aiCountries),
+            activeCoalitionWars: [...state.activeCoalitionWars, coalitionWar]
+        }))
 
         console.log(`🛡️ Article 5 Result: ${alliesJoined} allies joined the war, ${totalReinforcements} reinforcements sent`)
 

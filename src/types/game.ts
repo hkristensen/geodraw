@@ -18,6 +18,7 @@ export type DiplomaticEventType =
     | 'ALLIANCE'
     | 'DIPLOMACY'
     | 'DIPLOMATIC_MISSION'
+    | 'NUCLEAR_ATTACK'
 
 export interface DiplomaticEvent {
     id: string
@@ -74,6 +75,10 @@ export type ModifierType =
     | 'CRISIS_PARTICIPANT' // Currently in diplomatic crisis
     | 'SUMMIT_BONUS'      // Recent successful summit
     | 'CULTURAL_LEADER'   // High soft power influence
+    // === Nuclear Program Modifiers ===
+    | 'ENRICHMENT_ENABLED'    // Can enrich uranium
+    | 'NUCLEAR_WEAPONS_ENABLED' // Can build nuclear warheads
+    | 'IRRADIATED'           // Territory hit by nuclear strike
 
 export interface CountryModifier {
     id: string
@@ -171,6 +176,27 @@ export interface CoalitionInvite {
     expires: number
 }
 
+// Coalition War (Article 5 unified tracking)
+export interface CoalitionWar {
+    id: string
+    coalitionId: string        // Which coalition invoked Article 5
+    coalitionName: string      // Cached name for display
+    defenderCode: string       // Who was attacked (triggered Art5)
+    aggressorCode: string      // Who attacked the defender
+    startTime: number
+    status: 'active' | 'victory' | 'defeat' | 'peace'
+
+    // Tracking
+    totalAlliedSoldiers: number    // Total committed by allies
+    alliesAtWar: string[]          // Allies who joined the war
+    alliesAttacking: string[]      // Allies who have launched attacks
+
+    // War progress (aggregated from individual wars)
+    aggressorTerritoryLost: number  // % of aggressor territory lost
+    coalitionCasualties: number
+    aggressorCasualties: number
+}
+
 // Game Settings for new game
 export interface GameSettings {
     expansionPoints: number
@@ -178,6 +204,7 @@ export interface GameSettings {
     startingCountry?: string  // ISO3 code if existing country
     enableRealCoalitions: boolean
     enableElections: boolean
+    enableNuclearNations: boolean  // Seed real nuclear nations (USA, RUS, etc)
     difficulty: 'EASY' | 'NORMAL' | 'HARD'
 }
 
@@ -220,6 +247,17 @@ export interface NationStats {
     tradeIncome: number      // Calculated from ports/airports
     taxIncome: number        // Calculated from population * GDP * taxRate
     expenses: number         // Calculated from soldiers * cost
+
+    // Nuclear Program (optional)
+    nuclearProgram?: NuclearProgram
+}
+
+export interface NuclearProgram {
+    enrichmentProgress: number   // 0-100%, takes ~5 min real time
+    warheads: number             // Current nuclear warhead count
+    reactors: number             // Nuclear reactors built (produce power)
+    enrichmentFacilities: number // Enrichment facilities (produce HEU)
+    productionStartTime?: number // When warhead production started
 }
 
 export interface Budget {
@@ -242,7 +280,7 @@ export interface FlagData {
 export type BuildingType = 'FORT' | 'TRAINING_CAMP' | 'UNIVERSITY' | 'RESEARCH_LAB' | 'TEMPLE' | 'FACTORY' | 'MARKET' | 'HOSPITAL'
 
 // Research Types
-export type ResearchCategory = 'MILITARY' | 'ECONOMY' | 'CIVIC'
+export type ResearchCategory = 'MILITARY' | 'ECONOMY' | 'CIVIC' | 'NUCLEAR'
 
 export interface ResearchTech {
     id: string
@@ -372,6 +410,9 @@ export interface AICountry {
     // AI Strategy (Phase 1 enhancements)
     strategyState?: AIStrategyState
     warGoal?: WarGoal  // Current war goal if at war
+
+    // Nuclear Program (optional - for nuclear nations)
+    nuclearProgram?: NuclearProgram
 }
 
 // =============================================================================

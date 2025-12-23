@@ -15,6 +15,126 @@ function isValidFeature(feature: Feature<Polygon | MultiPolygon> | null | undefi
 }
 
 /**
+ * Heal invalid geometry using multiple strategies to prevent land->ocean bugs
+ * Strategy 1: buffer(0) - standard GIS trick
+ * Strategy 2: Simplify + buffer - for complex self-intersecting geometries
+ * Strategy 3: Return null to prevent corruption from propagating
+ */
+function healGeometry(feature: Feature<Polygon | MultiPolygon>): Feature<Polygon | MultiPolygon> | null {
+    // First, validate the input
+    if (!isValidFeature(feature)) return null
+
+    // Check if the geometry already has a reasonable area (sanity check)
+    try {
+        const inputArea = turf.area(feature)
+        if (inputArea < 100000) { // Less than 0.1 sq km - too small, likely corrupted
+            console.warn('healGeometry: Input too small, likely corrupted')
+            return null
+        }
+    } catch (e) {
+        // Can't calculate area - geometry is broken
+        return null
+    }
+
+    // Strategy 1: buffer(0) - the classic GIS healing trick
+    try {
+        const healed = turf.buffer(feature, 0, { units: 'meters' })
+        if (healed && healed.geometry && healed.geometry.coordinates) {
+            const healedArea = turf.area(healed)
+            if (healedArea > 100000) { // Valid result
+                return cleanAndValidate(healed, feature.properties)
+            }
+        }
+    } catch (e) {
+        // buffer(0) failed, try next strategy
+    }
+
+    // Strategy 2: Simplify first, then buffer - for complex self-intersecting cases
+    try {
+        const simplified = turf.simplify(feature, { tolerance: 0.001, highQuality: true })
+        const healed = turf.buffer(simplified, 0.001, { units: 'kilometers' })
+        if (healed && healed.geometry) {
+            const healedArea = turf.area(healed)
+            if (healedArea > 100000) {
+                return cleanAndValidate(healed, feature.properties)
+            }
+        }
+    } catch (e) {
+        // Strategy 2 failed
+    }
+
+    // Strategy 3: Try unkink + combine
+    try {
+        const unkinked = turf.unkinkPolygon(feature as any)
+        if (unkinked && unkinked.features && unkinked.features.length > 0) {
+            // Filter valid pieces and combine
+            const validPieces = unkinked.features.filter(f => {
+                try {
+                    return turf.area(f) > 100000
+                } catch {
+                    return false
+                }
+            })
+            if (validPieces.length > 0) {
+                if (validPieces.length === 1) {
+                    const result = validPieces[0]
+                    result.properties = { ...feature.properties }
+                    return result as Feature<Polygon | MultiPolygon>
+                }
+                const combined = turf.combine(turf.featureCollection(validPieces))
+                if (combined && combined.features && combined.features.length > 0) {
+                    const result = combined.features[0]
+                        ; (result as any).properties = { ...feature.properties }
+                    return result as Feature<Polygon | MultiPolygon>
+                }
+            }
+        }
+    } catch (e) {
+        // Strategy 3 failed
+    }
+
+    console.warn('healGeometry: All strategies failed, returning null to prevent corruption')
+    return null
+}
+
+/**
+ * Helper to clean a healed geometry and remove tiny fragments
+ */
+function cleanAndValidate(healed: Feature<Polygon | MultiPolygon>, properties: any): Feature<Polygon | MultiPolygon> | null {
+    // Remove tiny polygon fragments (< 1 sq km) that accumulate over time
+    if (healed.geometry.type === 'MultiPolygon') {
+        const validPolys = healed.geometry.coordinates.filter(poly => {
+            try {
+                const tempPoly = turf.polygon(poly)
+                const area = turf.area(tempPoly)
+                return area > 1000000 // > 1 sq km
+            } catch {
+                return false
+            }
+        })
+
+        if (validPolys.length === 0) return null
+        if (validPolys.length === 1) {
+            // Convert to simple Polygon if only one remains
+            const result = turf.polygon(validPolys[0])
+            result.properties = { ...properties }
+            return result
+        }
+
+        const result = turf.multiPolygon(validPolys)
+        result.properties = { ...properties }
+        return result
+    }
+
+    // For simple polygons, just check minimum area
+    const area = turf.area(healed)
+    if (area < 1000000) return null // < 1 sq km is too small
+
+    healed.properties = { ...properties }
+    return healed as Feature<Polygon | MultiPolygon>
+}
+
+/**
  * Helper to clean and truncate geometry to avoid floating point precision errors
  */
 function normalizeGeometry(feature: Feature<Polygon | MultiPolygon>): Feature<Polygon | MultiPolygon> {
@@ -195,29 +315,26 @@ export function calculateBufferConquest(
 
         if (!conquest) {
             // Buffer didn't reach target (e.g. Island Invasion or distant neighbors)
-            // Try to create a "Beachhead" using battleLocation
+            // Try to create a "Beachhead" using battleLocation with a MORE AGGRESSIVE radius
             if (battleLocation &&
                 typeof battleLocation[0] === 'number' && !isNaN(battleLocation[0]) &&
                 typeof battleLocation[1] === 'number' && !isNaN(battleLocation[1])
             ) {
-                // console.log('🏖️ Buffer intersection failed - Attempting Beachhead at', battleLocation)
                 try {
                     const point = turf.point(battleLocation)
-                    const beachheadPoly = turf.circle(point, distance, {
-                        steps: 10,
+                    // Use a larger minimum radius for beachheads (at least 30km to ensure visible conquest)
+                    const beachheadRadius = Math.max(30, distance * 1.5)
+                    const beachheadPoly = turf.circle(point, beachheadRadius, {
+                        steps: 12,
                         units: 'kilometers'
                     })
                     conquest = turf.intersect(turf.featureCollection([beachheadPoly, normalizeGeometry(targetPoly)]))
-                    if (conquest) {
-                        // console.log('✅ Beachhead established!')
-                    }
                 } catch (beachheadError) {
                     console.warn('❌ Beachhead attempt failed', beachheadError)
                 }
             }
 
             if (!conquest) {
-                // console.log('calculateBufferConquest: No intersection even with beachhead.')
                 return null
             }
         }
@@ -346,7 +463,16 @@ export function subtractTerritory(
         // CRITICAL: Preserve properties! Turf operations strip them.
         result.properties = { ...original.properties }
 
-        return normalizeGeometry(result as Feature<Polygon | MultiPolygon>)
+        // Heal any geometry corruption from the difference operation
+        const healed = healGeometry(result as Feature<Polygon | MultiPolygon>)
+        if (!healed) {
+            // IMPORTANT: If healing fails, return ORIGINAL to prevent corruption
+            // This means the territory change didn't happen, but it's better than ocean
+            console.warn('subtractTerritory: Healing failed, returning original to prevent ocean bug')
+            return original
+        }
+
+        return healed
     } catch (e) {
         console.warn('Failed to subtract territory', e)
         return original
@@ -373,7 +499,14 @@ export function mergeTerritory(
         // CRITICAL: Preserve properties!
         result.properties = { ...original.properties }
 
-        return normalizeGeometry(result as Feature<Polygon | MultiPolygon>)
+        // Heal any geometry corruption from the union operation
+        const healed = healGeometry(result as Feature<Polygon | MultiPolygon>)
+        if (!healed) {
+            console.warn('mergeTerritory: Healing failed, returning original to prevent corruption')
+            return original
+        }
+
+        return healed
     } catch (e) {
         console.warn('Failed to merge territory', e)
         return original
