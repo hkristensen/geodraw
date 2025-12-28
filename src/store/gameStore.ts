@@ -14,6 +14,7 @@ import countriesData from '../data/countries.json'
 
 export const useGameStore = create<GameState>((set) => ({
     phase: 'SETUP',
+    setGameDate: (date: number) => set({ gameDate: date }),
     gameDate: new Date('2025-01-01').getTime(),
     userPolygon: null,
     playerTerritories: [],
@@ -36,6 +37,9 @@ export const useGameStore = create<GameState>((set) => ({
     currentEvent: null,
     gameOver: false,
     isDrawing: false,
+
+    // Remote Game State
+    remotePlayers: {},
 
     // New Systems
     researchPoints: 0,
@@ -60,11 +64,14 @@ export const useGameStore = create<GameState>((set) => ({
 
     gameSettings: null,
     selectedCountryName: null,
+    gameSpeed: 1,
 
     setPhase: (phase) => set({ phase }),
     setGameSettings: (settings) => set({ gameSettings: settings }),
     setSelectedCountryName: (name) => set({ selectedCountryName: name }),
+    setGameSpeed: (speed: number) => set({ gameSpeed: speed }),
     setIsDrawing: (isDrawing) => set({ isDrawing }),
+    setRemotePlayers: (remotePlayers: { [id: string]: import('../types/game').RemotePlayer }) => set({ remotePlayers }),
 
     setUserPolygon: (polygon) => set({
         userPolygon: polygon,

@@ -39,9 +39,14 @@ export interface PendingInvasion {
     feature: GeoJSON.Feature
 }
 
+import type { RemotePlayer } from './game'
+
 export interface GameState {
     // Game phase
     phase: GamePhase
+
+    // Remote players (multiplayer)
+    remotePlayers: { [id: string]: RemotePlayer }
 
     // User's initial drawn polygon
     userPolygon: GeoJSON.Feature | null
@@ -127,6 +132,7 @@ export interface GameState {
     // Game settings (from setup screen)
     gameSettings: GameSettings | null
     selectedCountryName: string | null // For pre-filling nation name
+    gameSpeed: number // 0 = Paused, 1 = Normal, 2 = Fast, 5 = Super Fast
 
 
     // Actions
@@ -148,6 +154,7 @@ export interface GameState {
     setSelectedCountry: (code: string | null) => void
     setSelectedClaim: (id: string | null) => void
     setIsCalculating: (isCalculating: boolean) => void
+    setRemotePlayers: (remotePlayers: { [id: string]: import('./game').RemotePlayer }) => void
     updateNationSoldiers: (delta: number) => void
     updateNationStats: (stats: Partial<NationStats>) => void
     updateBudget: (amount: number) => void
@@ -157,7 +164,9 @@ export interface GameState {
     addActiveClaim: (claim: ExpansionClaim) => void
     removeActiveClaim: (id: string) => void
     advanceDate: (days: number) => void
+    setGameDate: (date: number) => void
     reset: () => void
+    setGameSpeed: (speed: number) => void
     setBuildingMode: (mode: BuildingType | null) => void
     addBuilding: (building: Building) => void
     destabilizeTarget: (claimId: string) => void
@@ -244,8 +253,20 @@ export interface WorldState {
     // Diplomacy message log (for UI)
     diplomacyMessages: string[]
 
+    // === NUCLEAR SYSTEM STATE ===
+    // Irradiated zones (50km radius circles from nuclear strikes)
+    irradiatedZones: Map<string, import('../types/game').IrradiatedZone>
+
+    // Nuclear devastation debuffs (10-year country penalties)
+    nuclearDebuffs: Map<string, import('../types/game').NuclearDebuff>
+
+    // Nuclear targeting mode (when player is selecting strike location)
+    nuclearTargetingMode: { countryCode: string; warheads: number } | null
+
     // Initialize AI countries from consequences
     initializeAICountries: (consequences: Consequence[], playerConstitution?: Constitution, allCountries?: any) => void
+    setAIWars: (wars: any[]) => void
+    setAICountries: (countries: Map<string, AICountry>) => void
 
     // Update country relations
     updateRelations: (countryCode: string, delta: number) => void
@@ -355,6 +376,19 @@ export interface WorldState {
 
     // Clear diplomacy messages
     clearDiplomacyMessages: () => void
+
+    // === NUCLEAR SYSTEM ACTIONS ===
+    // Enter nuclear targeting mode (player selects strike location on map)
+    enterNuclearTargetingMode: (countryCode: string, warheads: number) => void
+
+    // Exit nuclear targeting mode without firing
+    exitNuclearTargetingMode: () => void
+
+    // Launch nuclear strike at specific coordinates (called from map click)
+    launchNuclearStrike: (location: [number, number], countryCode: string) => void
+
+    // Check and remove expired nuclear debuffs (called on game tick)
+    processNuclearDebuffs: (currentGameDate: number) => void
 
     // Reset state
     reset: () => void

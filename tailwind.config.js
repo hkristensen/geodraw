@@ -6,6 +6,9 @@ export default {
     ],
     theme: {
         extend: {
+            screens: {
+                'xs': '375px', // Small phones
+            },
             colors: {
                 'territory': {
                     'dark': '#0f172a',
@@ -16,6 +19,21 @@ export default {
             },
             backdropBlur: {
                 'xs': '2px',
+            },
+            spacing: {
+                'safe-top': 'var(--safe-area-top)',
+                'safe-bottom': 'var(--safe-area-bottom)',
+                'nav': 'var(--mobile-nav-height)',
+            },
+            animation: {
+                'slideUp': 'slideUp 0.3s ease-out forwards',
+                'slideDown': 'slideDown 0.3s ease-out forwards',
+            },
+            minHeight: {
+                'touch': '44px',
+            },
+            minWidth: {
+                'touch': '44px',
             }
         },
     },

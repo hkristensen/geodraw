@@ -89,7 +89,7 @@ export function generateResolution(
     const potentialTargets = Array.from(aiCountries.values()).filter(c =>
         !c.isAnnexed && (
             c.isAtWar ||
-            c.modifiers.includes('REVANCHISM') ||
+            c.modifiers.some(m => m.type === 'REVANCHISM') ||
             c.territoryLost > 10 ||
             c.politicalState?.unrest && c.politicalState.unrest >= 4
         )
@@ -121,7 +121,7 @@ export function generateResolution(
         type = Math.random() < 0.5 ? 'CONDEMN_AGGRESSION' : 'PEACEKEEPING'
     } else if (target.politicalState?.unrest && target.politicalState.unrest >= 4) {
         type = Math.random() < 0.5 ? 'HUMANITARIAN' : 'HUMAN_RIGHTS'
-    } else if (target.modifiers.includes('REVANCHISM')) {
+    } else if (target.modifiers.some(m => m.type === 'REVANCHISM')) {
         type = 'CONDEMN_AGGRESSION'
     } else {
         type = 'IMPOSE_SANCTIONS'

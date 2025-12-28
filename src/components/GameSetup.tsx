@@ -1,36 +1,43 @@
-import React, { useState } from 'react'
+import React, { useState, useMemo } from 'react'
 import type { GameSettings } from '../types/game'
+import countriesData from '../data/countries.json'
 import './GameSetup.css'
 
 interface GameSetupProps {
     onStartGame: (settings: GameSettings) => void
     onCancel: () => void
+    onMultiplayer?: () => void
 }
 
-const EXISTING_COUNTRIES = [
-    { code: 'USA', name: 'United States' },
-    { code: 'GBR', name: 'United Kingdom' },
-    { code: 'FRA', name: 'France' },
-    { code: 'DEU', name: 'Germany' },
-    { code: 'RUS', name: 'Russia' },
-    { code: 'CHN', name: 'China' },
-    { code: 'JPN', name: 'Japan' },
-    { code: 'IND', name: 'India' },
-    { code: 'BRA', name: 'Brazil' },
-    { code: 'AUS', name: 'Australia' },
-    { code: 'CAN', name: 'Canada' },
-    { code: 'ITA', name: 'Italy' },
-    { code: 'ESP', name: 'Spain' },
-    { code: 'MEX', name: 'Mexico' },
-    { code: 'KOR', name: 'South Korea' },
-    { code: 'ARG', name: 'Argentina' },
-    { code: 'ZAF', name: 'South Africa' },
-    { code: 'TUR', name: 'Turkey' },
-    { code: 'SAU', name: 'Saudi Arabia' },
-    { code: 'POL', name: 'Poland' },
-]
+// Extract all countries from GeoJSON
+interface CountryOption {
+    code: string
+    name: string
+}
 
-export const GameSetup: React.FC<GameSetupProps> = ({ onStartGame, onCancel }) => {
+function getAllCountries(): CountryOption[] {
+    const countries: CountryOption[] = []
+    const features = (countriesData as any).features || []
+
+    for (const feature of features) {
+        const props = feature.properties
+        if (props?.iso_a3 && props?.admin && props.iso_a3 !== '-99') {
+            countries.push({
+                code: props.iso_a3,
+                name: props.admin
+            })
+        }
+    }
+
+    // Sort alphabetically by name
+    return countries.sort((a, b) => a.name.localeCompare(b.name))
+}
+
+export const GameSetup: React.FC<GameSetupProps> = ({ onStartGame, onCancel, onMultiplayer }) => {
+    // Mode selection: 'select' (initial), 'local', or call onMultiplayer for multiplayer
+    const [gameMode, setGameMode] = useState<'select' | 'local'>('select')
+
+    // Local game settings
     const [startMode, setStartMode] = useState<'FREEFORM' | 'EXISTING_COUNTRY'>('FREEFORM')
     const [expansionPoints, setExpansionPoints] = useState(1000)
     const [startingCountry, setStartingCountry] = useState('USA')
@@ -38,6 +45,20 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onStartGame, onCancel }) =
     const [enableElections, setEnableElections] = useState(true)
     const [enableNuclearNations, setEnableNuclearNations] = useState(true)
     const [difficulty, setDifficulty] = useState<'EASY' | 'NORMAL' | 'HARD'>('NORMAL')
+    const [countrySearch, setCountrySearch] = useState('')
+
+    // Memoize country list
+    const allCountries = useMemo(() => getAllCountries(), [])
+
+    // Filter countries by search
+    const filteredCountries = useMemo(() => {
+        if (!countrySearch.trim()) return allCountries
+        const search = countrySearch.toLowerCase()
+        return allCountries.filter(c =>
+            c.name.toLowerCase().includes(search) ||
+            c.code.toLowerCase().includes(search)
+        )
+    }, [allCountries, countrySearch])
 
     const handleStart = () => {
         onStartGame({
@@ -51,11 +72,113 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onStartGame, onCancel }) =
         })
     }
 
+    const handleMultiplayer = () => {
+        if (onMultiplayer) {
+            onMultiplayer()
+        }
+    }
+
+    // MODE SELECTION SCREEN
+    if (gameMode === 'select') {
+        return (
+            <div className="game-setup-overlay">
+                <div className="game-setup-modal" style={{ maxWidth: '600px' }}>
+                    <div className="setup-header">
+                        <h1>🌍 GeoDraw</h1>
+                        <p>Build your empire. Shape history.</p>
+                    </div>
+
+                    <div className="mode-selection" style={{ padding: '32px 24px' }}>
+                        {/* Local Game Button */}
+                        <button
+                            className="mode-select-btn"
+                            onClick={() => setGameMode('local')}
+                            style={{
+                                width: '100%',
+                                padding: '24px',
+                                marginBottom: '16px',
+                                background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
+                                border: 'none',
+                                borderRadius: '16px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '20px',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                boxShadow: '0 4px 20px rgba(59, 130, 246, 0.3)'
+                            }}
+                            onMouseOver={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-2px)'
+                                e.currentTarget.style.boxShadow = '0 8px 30px rgba(59, 130, 246, 0.4)'
+                            }}
+                            onMouseOut={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)'
+                                e.currentTarget.style.boxShadow = '0 4px 20px rgba(59, 130, 246, 0.3)'
+                            }}
+                        >
+                            <span style={{ fontSize: '48px' }}>🎮</span>
+                            <div style={{ textAlign: 'left' }}>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '4px' }}>Local Game</div>
+                                <div style={{ fontSize: '14px', opacity: 0.9 }}>Play solo against AI nations</div>
+                            </div>
+                        </button>
+
+                        {/* Multiplayer Button */}
+                        <button
+                            className="mode-select-btn"
+                            onClick={handleMultiplayer}
+                            style={{
+                                width: '100%',
+                                padding: '24px',
+                                background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                                border: 'none',
+                                borderRadius: '16px',
+                                color: 'white',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '20px',
+                                transition: 'transform 0.2s, box-shadow 0.2s',
+                                boxShadow: '0 4px 20px rgba(139, 92, 246, 0.3)'
+                            }}
+                            onMouseOver={(e) => {
+                                e.currentTarget.style.transform = 'translateY(-2px)'
+                                e.currentTarget.style.boxShadow = '0 8px 30px rgba(139, 92, 246, 0.4)'
+                            }}
+                            onMouseOut={(e) => {
+                                e.currentTarget.style.transform = 'translateY(0)'
+                                e.currentTarget.style.boxShadow = '0 4px 20px rgba(139, 92, 246, 0.3)'
+                            }}
+                        >
+                            <span style={{ fontSize: '48px' }}>🌐</span>
+                            <div style={{ textAlign: 'left' }}>
+                                <div style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '4px' }}>Multiplayer</div>
+                                <div style={{ fontSize: '14px', opacity: 0.9 }}>Play with friends online</div>
+                            </div>
+                        </button>
+                    </div>
+
+                    <div style={{ padding: '16px 24px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+                        <button
+                            className="cancel-btn"
+                            onClick={onCancel}
+                            style={{ width: '100%' }}
+                        >
+                            Back
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    // LOCAL GAME SETUP SCREEN
     return (
         <div className="game-setup-overlay">
             <div className="game-setup-modal">
                 <div className="setup-header">
-                    <h1>🌍 New Game</h1>
+                    <h1>🎮 Local Game</h1>
                     <p>Configure your geopolitical simulation</p>
                 </div>
 
@@ -112,10 +235,32 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onStartGame, onCancel }) =
                         </section>
                     ) : (
                         <section className="setup-section">
-                            <h2>Select Country</h2>
-                            <p className="section-desc">Choose your nation to lead</p>
-                            <div className="country-grid">
-                                {EXISTING_COUNTRIES.map(country => (
+                            <h2>Select Country ({allCountries.length} available)</h2>
+                            {/* Search Input */}
+                            <div style={{ marginBottom: '12px' }}>
+                                <input
+                                    type="text"
+                                    placeholder="🔍 Search countries..."
+                                    value={countrySearch}
+                                    onChange={(e) => setCountrySearch(e.target.value)}
+                                    style={{
+                                        width: '100%',
+                                        padding: '10px 14px',
+                                        borderRadius: '8px',
+                                        border: '1px solid rgba(255,255,255,0.2)',
+                                        background: 'rgba(0,0,0,0.3)',
+                                        color: 'white',
+                                        fontSize: '14px'
+                                    }}
+                                />
+                            </div>
+                            {/* Country Grid */}
+                            <div className="country-grid" style={{
+                                maxHeight: '250px',
+                                overflowY: 'auto',
+                                padding: '4px'
+                            }}>
+                                {filteredCountries.map(country => (
                                     <button
                                         key={country.code}
                                         className={`country-btn ${startingCountry === country.code ? 'selected' : ''}`}
@@ -124,6 +269,11 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onStartGame, onCancel }) =
                                         {country.name}
                                     </button>
                                 ))}
+                                {filteredCountries.length === 0 && (
+                                    <p style={{ color: '#888', padding: '12px', gridColumn: '1/-1' }}>
+                                        No countries match "{countrySearch}"
+                                    </p>
+                                )}
                             </div>
                         </section>
                     )}
@@ -195,8 +345,11 @@ export const GameSetup: React.FC<GameSetupProps> = ({ onStartGame, onCancel }) =
                 </div>
 
                 <div className="setup-actions">
-                    <button className="cancel-btn" onClick={onCancel}>
-                        Cancel
+                    <button
+                        className="cancel-btn"
+                        onClick={() => setGameMode('select')}
+                    >
+                        ← Back
                     </button>
                     <button className="start-btn" onClick={handleStart}>
                         🚀 Start Game

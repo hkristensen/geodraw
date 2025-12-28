@@ -186,10 +186,58 @@ export function initFreeformDraw(
         console.log('🛑 Freeform drawing disabled')
     }
 
+    // Mobile Touch handlers
+    const onTouchStart = (e: TouchEvent) => {
+        if (!isEnabled || e.touches.length !== 1) return
+
+        // Prevent map panning/scrolling
+        e.preventDefault()
+        map.dragPan.disable()
+
+        const touch = e.touches[0]
+        const { lng, lat } = map.unproject([touch.clientX, touch.clientY])
+
+        state.isDrawing = true
+        state.points = [[lng, lat]]
+
+        callbacks?.onDrawStart?.()
+    }
+
+    const onTouchMove = (e: TouchEvent) => {
+        if (!state.isDrawing || !isEnabled || e.touches.length !== 1) return
+
+        e.preventDefault() // critical to stop scroll
+
+        const touch = e.touches[0]
+        const { lng, lat } = map.unproject([touch.clientX, touch.clientY])
+
+        // Add point (with some distance threshold)
+        const lastPoint = state.points[state.points.length - 1]
+        const dx = lng - lastPoint[0]
+        const dy = lat - lastPoint[1]
+        const distance = Math.sqrt(dx * dx + dy * dy)
+
+        if (distance > 0.001) {
+            state.points.push([lng, lat])
+            updateDrawing()
+        }
+    }
+
+    const onTouchEnd = () => {
+        if (!state.isDrawing || !isEnabled) return
+        onMouseUp() // Reuse mouse up logic
+    }
+
     // Attach event listeners
     map.on('mousedown', onMouseDown)
     map.on('mousemove', onMouseMove)
     map.on('mouseup', onMouseUp)
+
+    // Add touch listeners to canvas container
+    const canvas = map.getCanvasContainer()
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false })
+    canvas.addEventListener('touchmove', onTouchMove, { passive: false })
+    canvas.addEventListener('touchend', onTouchEnd)
 
     // Cleanup function
     const cleanup = () => {
@@ -197,6 +245,10 @@ export function initFreeformDraw(
         map.off('mousedown', onMouseDown)
         map.off('mousemove', onMouseMove)
         map.off('mouseup', onMouseUp)
+
+        canvas.removeEventListener('touchstart', onTouchStart)
+        canvas.removeEventListener('touchmove', onTouchMove)
+        canvas.removeEventListener('touchend', onTouchEnd)
 
         if (map.getLayer(LINE_LAYER_ID)) map.removeLayer(LINE_LAYER_ID)
         if (map.getLayer(FILL_LAYER_ID)) map.removeLayer(FILL_LAYER_ID)

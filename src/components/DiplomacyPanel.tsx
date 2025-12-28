@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { useWorldStore } from '../store/worldStore'
+import { useMultiplayerStore } from '../store/multiplayerStore'
 import type { AICountry, DiplomaticAction } from '../types/game'
 
 function getDispositionColor(disposition: AICountry['disposition']): string {
@@ -40,7 +41,7 @@ function CountryRow({
                 <div className="flex items-center gap-2">
                     <span>{getDispositionIcon(country.disposition)}</span>
                     <span className="text-white font-medium">{country.name}</span>
-                    {country.modifiers.includes('REVANCHISM') && (
+                    {country.modifiers.some(m => m.type === 'REVANCHISM') && (
                         <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded">
                             REVANCHISM
                         </span>
@@ -83,7 +84,7 @@ function CountryRow({
                                     🤝 Improve
                                 </button>
                             )}
-                            {country.disposition === 'friendly' && !country.modifiers.includes('ALLIED') && (
+                            {country.disposition === 'friendly' && !country.modifiers.some(m => m.type === 'ALLIED') && (
                                 <button
                                     onClick={() => onAction('PROPOSE_ALLIANCE', country.code)}
                                     className="py-2 bg-green-600/20 hover:bg-green-600/30 border border-green-500/30 rounded text-green-400 text-sm transition-colors"
@@ -121,11 +122,17 @@ function CountryRow({
 
 interface DiplomacyPanelProps {
     onStartWar?: (code: string, name: string) => void
+    isMobile?: boolean
+    onClose?: () => void
 }
 
-export function DiplomacyPanel({ onStartWar }: DiplomacyPanelProps) {
+export function DiplomacyPanel({ onStartWar, isMobile, onClose }: DiplomacyPanelProps) {
     const { phase, nation, addDiplomaticEvents, annexedCountries, removeTerritory, addTerritory, removeActiveClaim, setCurrentClaim, currentClaim } = useGameStore()
     const { aiCountries, updateRelations, declareWar, makePeace, formAlliance } = useWorldStore()
+    const { isMultiplayer, isHost, gameId, user } = useMultiplayerStore()
+    // Note: async import in render body is bad practice, usually. 
+    // Ideally we assume static import or hook. 
+    // Let's use the hook properly by importing it at top level.
 
     // Only show after nation is formed
     if (phase !== 'RESULTS' || !nation) {
@@ -217,33 +224,56 @@ export function DiplomacyPanel({ onStartWar }: DiplomacyPanelProps) {
                 break
 
             case 'DECLARE_WAR':
-                declareWar(countryCode)
-                addDiplomaticEvents([{
-                    id: `war-${Date.now()}`,
-                    type: 'WAR_DECLARED',
-                    severity: 3,
-                    title: `⚔️ WAR! ${nation.name} declares war on ${country.name}!`,
-                    description: `Military forces are mobilizing as ${nation.name} has declared war on ${country.name}.`,
-                    affectedNations: [countryCode],
-                    timestamp: Date.now(),
-                }])
-                // Open war modal if provided
-                if (onStartWar) {
-                    onStartWar(countryCode, country.name)
+                if (isMultiplayer && !isHost && gameId && user) {
+                    // Client: Send Action
+                    import('../firebase/actions').then(({ sendAction }) => {
+                        sendAction(gameId, 'DECLARE_WAR', user.uid, { targetCountry: countryCode })
+                    })
+                    // Optimistic UI Feedack
+                    addDiplomaticEvents([{
+                        id: `war-sent-${Date.now()}`,
+                        type: 'WAR_DECLARED',
+                        severity: 2,
+                        title: 'Requesting Declaration...',
+                        description: `Sending war declaration to ${country.name}...`,
+                        affectedNations: [countryCode],
+                        timestamp: Date.now(),
+                    }])
+                } else {
+                    // Host/Local: Execute immediately
+                    declareWar(countryCode)
+                    addDiplomaticEvents([{
+                        id: `war-${Date.now()}`,
+                        type: 'WAR_DECLARED',
+                        severity: 3,
+                        title: `⚔️ WAR! ${nation.name} declares war on ${country.name}!`,
+                        description: `Military forces are mobilizing as ${nation.name} has declared war on ${country.name}.`,
+                        affectedNations: [countryCode],
+                        timestamp: Date.now(),
+                    }])
+                    // Open war modal if provided
+                    if (onStartWar) {
+                        onStartWar(countryCode, country.name)
+                    }
                 }
                 break
 
             case 'OFFER_PEACE':
-                makePeace(countryCode)
-                addDiplomaticEvents([{
-                    id: `peace-${Date.now()}`,
-                    type: 'PEACE_OFFERED',
-                    severity: 2,
-                    title: `Peace with ${country.name}!`,
-                    description: `The war with ${country.name} has ended. Tensions remain high.`,
-                    affectedNations: [countryCode],
-                    timestamp: Date.now(),
-                }])
+                if (isMultiplayer && !isHost && gameId && user) {
+                    // Placeholder for Peace Action implemented later
+                    console.log('Peace offers via multiplayer not yet implemented')
+                } else {
+                    makePeace(countryCode)
+                    addDiplomaticEvents([{
+                        id: `peace-${Date.now()}`,
+                        type: 'PEACE_OFFERED',
+                        severity: 2,
+                        title: `Peace with ${country.name}!`,
+                        description: `The war with ${country.name} has ended. Tensions remain high.`,
+                        affectedNations: [countryCode],
+                        timestamp: Date.now(),
+                    }])
+                }
                 break
 
             case 'RETURN_TERRITORY':
@@ -290,36 +320,56 @@ export function DiplomacyPanel({ onStartWar }: DiplomacyPanelProps) {
     const atWarCount = countries.filter(c => c.isAtWar).length
     const hostileCount = countries.filter(c => c.disposition === 'hostile').length
 
+    // Mobile: full-width drawer from bottom; Desktop: fills parent container
+    const containerClasses = isMobile
+        ? 'mobile-panel animate-slideUp bg-slate-900/98 backdrop-blur-md border-t border-orange-500/30 shadow-2xl overflow-hidden flex flex-col'
+        : 'w-full h-full bg-slate-900/90 backdrop-blur-md rounded-xl border border-orange-500/30 shadow-2xl overflow-hidden flex flex-col'
+
     return (
-        <div className="w-full h-full bg-slate-900/90 backdrop-blur-md rounded-xl border border-orange-500/30 shadow-2xl overflow-hidden flex flex-col">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 p-4 border-b border-purple-500/20 flex justify-between items-start shrink-0">
-                <div>
-                    <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                        <span>🌐</span>
-                        Diplomacy
-                    </h2>
-                    <div className="flex gap-3 mt-2 text-xs">
-                        {atWarCount > 0 && (
-                            <span className="text-red-400">⚔️ {atWarCount} at war</span>
-                        )}
-                        {hostileCount > 0 && (
-                            <span className="text-orange-400">😠 {hostileCount} hostile</span>
-                        )}
+        <>
+            {/* Mobile backdrop */}
+            {isMobile && <div className="mobile-backdrop" onClick={onClose} />}
+
+            <div className={containerClasses}>
+                {/* Mobile drawer handle */}
+                {isMobile && <div className="drawer-handle" />}
+
+                {/* Mobile close button */}
+                {isMobile && (
+                    <button onClick={onClose} className="mobile-close-btn">
+                        ✕
+                    </button>
+                )}
+
+                {/* Header */}
+                <div className="bg-gradient-to-r from-purple-600/20 to-blue-600/20 p-4 border-b border-purple-500/20 flex justify-between items-start shrink-0">
+                    <div>
+                        <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                            <span>🌐</span>
+                            Diplomacy
+                        </h2>
+                        <div className="flex gap-3 mt-2 text-xs">
+                            {atWarCount > 0 && (
+                                <span className="text-red-400">⚔️ {atWarCount} at war</span>
+                            )}
+                            {hostileCount > 0 && (
+                                <span className="text-orange-400">😠 {hostileCount} hostile</span>
+                            )}
+                        </div>
                     </div>
                 </div>
-            </div>
 
-            {/* Country List */}
-            <div className="p-3 overflow-y-auto custom-scrollbar space-y-2 flex-1">
-                {countries.map(country => (
-                    <CountryRow
-                        key={country.code}
-                        country={country}
-                        onAction={handleAction}
-                    />
-                ))}
+                {/* Country List */}
+                <div className="p-3 overflow-y-auto custom-scrollbar space-y-2 flex-1">
+                    {countries.map(country => (
+                        <CountryRow
+                            key={country.code}
+                            country={country}
+                            onAction={handleAction}
+                        />
+                    ))}
+                </div>
             </div>
-        </div>
+        </>
     )
 }

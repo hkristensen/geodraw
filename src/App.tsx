@@ -19,9 +19,6 @@ import { useWorldStore } from './store/worldStore'
 import { initCountryData } from './utils/countryData'
 import { initGeopoliticalData } from './utils/geopoliticalData'
 import { initInfrastructure, calculateInfrastructure } from './utils/infrastructure'
-import { calculateEconomy, calculateResearchOutput } from './utils/economy'
-import { initEconomicCycle, updateEconomicCycle } from './utils/economy'
-import { checkVictoryConditions, checkAchievements } from './utils/victorySystem'
 import type { VictoryCondition, Achievement } from './utils/victorySystem'
 import { WarPlanningModal } from './components/WarPlanningModal'
 import { MilitaryPanel } from './components/MilitaryPanel'
@@ -30,7 +27,7 @@ import type { BattlePlan } from './types/game'
 import { calculateConsequences } from './utils/calculateConsequences'
 import { calculateCityCapture, parseCities } from './utils/calculateCityCapture'
 import { GameOverModal } from './components/GameOverModal'
-import { VictoryModal, AchievementPopup, VictoryProgressPanel } from './components/VictoryModal'
+import { VictoryModal, AchievementPopup } from './components/VictoryModal'
 import { GameLog } from './components/GameLog'
 import { BreakingNews } from './components/BreakingNews'
 import * as turf from '@turf/turf'
@@ -40,18 +37,39 @@ import citiesData from './data/cities.json'
 import { ActiveWarsPanel } from './components/ActiveWarsPanel'
 import { CoalitionWarPanel } from './components/CoalitionWarPanel'
 import { AdvancedDiplomacyPanel } from './components/AdvancedDiplomacyPanel'
-import '../src/styles/AdvancedDiplomacyPanel.css'
+import { MobileNav, useIsMobile, type MobilePanel } from './components/MobileNav'
+import { MultiplayerFlow } from './components/MultiplayerFlow'
+import { MultiplayerStatusModal } from './components/MultiplayerStatusModal'
+import { useMultiplayerStore } from './store/multiplayerStore'
+import { subscribeGame } from './firebase/game'
+
+
+import { initializeCloudGame } from './firebase/persistence'
+import { signInAnonymous } from './firebase/auth'
+import { NotificationLog } from './components/NotificationLog'
+import { useGameLoop } from './hooks/useGameLoop'
+import { useHostSync } from './hooks/useHostSync'
+import { useHostActions } from './hooks/useHostActions'
+import { useClientSync } from './hooks/useClientSync'
+import { GameSpeedControl } from './components/GameSpeedControl'
+
+import "../src/styles/AdvancedDiplomacyPanel.css"
 
 function App() {
     const [showCoalitionPanel, setShowCoalitionPanel] = useState(false)
     const [showDiplomacyPanel, setShowDiplomacyPanel] = useState(false)
     const [showAdvancedDiplomacy, setShowAdvancedDiplomacy] = useState(false)
     const [showWarsPanel, setShowWarsPanel] = useState(false)
+    const [showMultiplayerStatus, setShowMultiplayerStatus] = useState(false)
+    const [showNotifications, setShowNotifications] = useState(false)
+
+    // Mobile navigation state
+    const [activePanel, setActivePanel] = useState<MobilePanel>('map')
+    const isMobile = useIsMobile()
 
     // Victory and Achievement state
     const [currentVictory, setCurrentVictory] = useState<VictoryCondition | null>(null)
     const [currentAchievement, setCurrentAchievement] = useState<Achievement | null>(null)
-    const [victoryConditions, setVictoryConditions] = useState<VictoryCondition[]>([])
 
     // War Planning State
     const [showWarPlanningModal, setShowWarPlanningModal] = useState(false)
@@ -63,6 +81,9 @@ function App() {
     const [arrowAssignments, setArrowAssignments] = useState<Record<string, string[]>>({})
     const [battlePlan, setBattlePlan] = useState<BattlePlan | undefined>(undefined)
     const [arrowCount, setArrowCount] = useState(0)
+
+    // Nuclear targeting mode subscription
+    const nuclearTargetingMode = useWorldStore(state => state.nuclearTargetingMode)
     const [clearWarSignal, setClearWarSignal] = useState<number | undefined>(undefined)
 
 
@@ -84,7 +105,23 @@ function App() {
         startBattle,
         gameOver
     } = useGameStore()
-    const { initializeAICountries, aiCountries, processAITurn, processAIvsAI } = useWorldStore()
+    const { initializeAICountries, aiCountries, activeWars } = useWorldStore()
+
+    // Multiplayer state
+    const {
+        isMultiplayer,
+        phase: multiplayerPhase,
+        gameId: multiplayerGameId,
+        lobbyCode,
+        enterMultiplayer,
+        exitMultiplayer
+    } = useMultiplayerStore()
+
+    // Game Logic Hooks
+    useGameLoop()
+    useHostSync()
+    useHostActions()
+    useClientSync()
 
     // Handlers for GameSetup
     const handleStartGame = (settings: GameSettings) => {
@@ -136,11 +173,200 @@ function App() {
             // Freeform drawing mode
             setPhase('DRAWING')
         }
+
+        // --- CLOUD PERSISTENCE FOR LOCAL GAME ---
+        // Automatically start a "private cloud game" to enable saving
+        const startPersistence = async () => {
+            try {
+                // 1. Ensure Auth
+                let uid = useMultiplayerStore.getState().user?.uid
+                let nickname = useMultiplayerStore.getState().nickname || 'Player'
+
+                if (!uid) {
+                    console.log('☁️ Signing in anonymously for save capability...')
+                    const user = await signInAnonymous()
+                    uid = user.uid
+                    useMultiplayerStore.getState().setUser(user)
+                }
+
+                // 2. Create Cloud Game
+                const gameId = await initializeCloudGame(uid, nickname)
+
+                // 3. Connect Store
+                useMultiplayerStore.setState({
+                    isMultiplayer: true, // Enable sync
+                    isHost: true,        // Enable write authority
+                    gameId: gameId,
+                    lobbyCode: null,     // Distinct from lobby-based game
+                    phase: 'game_active'
+                })
+
+                console.log('✅ Cloud Persistence Active. Game ID:', gameId)
+
+            } catch (err) {
+                console.error('❌ Failed to initialize cloud persistence:', err)
+                // Game continues locally without saving
+            }
+        }
+
+        // Fire and forget
+        startPersistence()
     }
 
     const handleCancelSetup = () => {
         setPhase('DRAWING')
     }
+
+    // Multiplayer State handled above
+
+    // Sync remote game state
+    useEffect(() => {
+        if (!multiplayerGameId || !isMultiplayer) return
+
+        const unsubscribe = subscribeGame(multiplayerGameId, (remoteGame) => {
+            if (remoteGame) {
+                // Update remote players in store
+                useGameStore.getState().setRemotePlayers(remoteGame.players)
+                console.log('📡 Synced remote game state:', Object.keys(remoteGame.players).length, 'players', '| Date:', remoteGame.gameDate, '| Wars:', remoteGame.wars?.length)
+
+                // Debug raw remote object
+                console.log('📡 RAW REMOTE GAME:', remoteGame)
+
+                // Update local player stats from server
+                const myId = useMultiplayerStore.getState().user?.uid
+                if (myId && remoteGame.players && remoteGame.players[myId]) {
+                    const myData = remoteGame.players[myId]
+
+                    // Sync Resources
+                    if (myData.resources) {
+                        useGameStore.setState(state => ({
+                            nation: state.nation ? {
+                                ...state.nation,
+                                stats: {
+                                    ...state.nation.stats,
+                                    ...myData.resources
+                                }
+                            } : state.nation
+                        }))
+                    }
+
+                    // Sync Territory & Map Objects (Crucial for Restore)
+                    if (myData.territory) {
+                        try {
+                            const territoryClone = typeof myData.territory === 'string'
+                                ? JSON.parse(myData.territory)
+                                : myData.territory
+
+                            // Only update if we don't have territory yet (Initial Load)
+                            // or if we trust server more (simple assumption: if we have 0 territory, take server's)
+                            if (useGameStore.getState().playerTerritories.length === 0) {
+                                console.log('🗺️ Restoring territory from cloud save...')
+                                useGameStore.getState().setUserPolygon(territoryClone)
+
+                                // Restore derived state if available in other fields, 
+                                // otherwise we might need to recalculate?
+                                // Ideally, we should sync 'consequences' and 'capturedCities' too.
+                                // For now, we assume recalculation might happen or we add those fields later.
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse remote territory', e)
+                        }
+                    }
+                }
+
+                // Sync Global State
+                useGameStore.setState({
+                    gameDate: remoteGame.gameDate
+                    // TODO: Sync AI countries here if backend simulates them
+                })
+
+                // Sync Wars (Overwrite local state with authoritative server state)
+                if (remoteGame.wars && Array.isArray(remoteGame.wars)) {
+                    // Update AI Wars locally
+                    const { setAIWars } = useWorldStore.getState()
+
+                    // Parse planArrow if it's a string (Workaround for Firestore nested array limitation)
+                    const parsedWars = remoteGame.wars.map((w: any) => {
+                        if (typeof w.planArrow === 'string') {
+                            try {
+                                w.planArrow = JSON.parse(w.planArrow)
+                            } catch (e) {
+                                console.error('Failed to parse planArrow for war', w.id)
+                            }
+                        }
+                        return w
+                    })
+
+                    setAIWars(parsedWars)
+                }
+
+                // Sync Active Battles (Player Wars)
+                // We cast to any because RemoteGameState might not have fully typed activeBattles everywhere yet
+                if (remoteGame.activeBattles && Array.isArray(remoteGame.activeBattles)) {
+                    // Force update local active battles store
+                    useGameStore.setState({ activeBattles: remoteGame.activeBattles })
+                }
+
+                // Sync Game Date
+                if (remoteGame.gameDate) {
+                    useGameStore.getState().setGameDate(remoteGame.gameDate)
+                }
+
+                // Sync Events (Append new ones)
+                if (remoteGame.events && Array.isArray(remoteGame.events)) {
+                    const localEvents = useGameStore.getState().diplomaticEvents
+                    const newEvents = remoteGame.events.filter((e: any) => !localEvents.some(le => le.id === e.id))
+
+                    if (newEvents.length > 0) {
+                        useGameStore.getState().addDiplomaticEvents(newEvents)
+                        console.log('📬 Received', newEvents.length, 'new events from host')
+                    }
+                }
+
+                // Sync Game Speed (Clients follow Host's speed)
+                if (!useMultiplayerStore.getState().isHost && (remoteGame as any).gameSpeed !== undefined) {
+                    const currentSpeed = useGameStore.getState().gameSpeed
+                    if (currentSpeed !== (remoteGame as any).gameSpeed) {
+                        useGameStore.getState().setGameSpeed((remoteGame as any).gameSpeed)
+                        console.log('⏱️ Synced game speed from host:', (remoteGame as any).gameSpeed)
+                    }
+                }
+
+                if (remoteGame.contestedZones && Array.isArray(remoteGame.contestedZones)) {
+                    const newMap = new Map()
+                    remoteGame.contestedZones.forEach((item: any) => {
+                        try {
+                            const feature = JSON.parse(item.featureString)
+                            newMap.set(item.id, feature)
+                        } catch (e) {
+                            console.error('Failed to parse contested zone', item.id)
+                        }
+                    })
+                    // Direct update to store
+                    useWorldStore.setState({ contestedZones: newMap })
+                }
+
+                // Sync Irradiated Zones (Nuclear Blasts)
+                if (remoteGame.irradiatedZones && Array.isArray(remoteGame.irradiatedZones)) {
+                    const newMap = new Map()
+                    remoteGame.irradiatedZones.forEach((item: any) => {
+                        try {
+                            const zone = JSON.parse(item.zoneString)
+                            newMap.set(item.id, zone)
+                        } catch (e) {
+                            console.error('Failed to parse nuke zone', item.id)
+                        }
+                    })
+                    useWorldStore.setState({ irradiatedZones: newMap })
+                }
+
+            } else {
+                console.warn('⚠️ Synced remote game is null/undefined!', multiplayerGameId)
+            }
+        })
+
+        return () => unsubscribe()
+    }, [multiplayerGameId, isMultiplayer])
 
     // Load data on mount
     useEffect(() => {
@@ -162,301 +388,16 @@ function App() {
         }
     }, [consequences, aiCountries, initializeAICountries, nation])
 
-    // AI Turn Loop
-    useEffect(() => {
-        if (phase !== 'RESULTS') return
-
-        const interval = setInterval(() => {
-            const { offensives, wars } = processAITurn()
-
-            // Process AI vs AI wars
-            const aiVsAiResult = processAIvsAI()
-
-            // Handle AI vs AI war declarations (news events)
-            if (aiVsAiResult.events.length > 0) {
-                aiVsAiResult.events.forEach(event => {
-                    const attacker = aiCountries.get(event.attackerCode)
-                    const defender = aiCountries.get(event.defenderCode)
-
-                    if (!attacker || !defender) return
-
-                    if (event.type === 'WAR_DECLARED') {
-                        useGameStore.getState().addDiplomaticEvents([{
-                            id: `ai-war-${Date.now()}-${event.attackerCode}-${event.defenderCode}-${Math.random().toString(36).substr(2, 9)}`,
-                            type: 'WAR_DECLARED',
-                            severity: 2, // Major news
-                            title: 'WAR BREAKS OUT',
-                            description: `${attacker.name} has declared war on ${defender.name}!`,
-                            affectedNations: [event.attackerCode, event.defenderCode],
-                            timestamp: Date.now()
-                        }])
-                    } else if (event.type === 'PEACE_TREATY') {
-                        // Winner is stored in 'attackerCode', Loser in 'defenderCode' for this event type
-                        const winner = attacker
-                        const loser = defender
-
-                        useGameStore.getState().addDiplomaticEvents([{
-                            id: `ai-peace-${Date.now()}-${event.attackerCode}-${event.defenderCode}`,
-                            type: 'DIPLOMACY',
-                            severity: 1,
-                            title: 'PEACE TREATY SIGNED',
-                            description: `${winner.name} and ${loser.name} have signed a peace treaty. ${winner.name} is victorious.`,
-                            affectedNations: [event.attackerCode, event.defenderCode],
-                            timestamp: Date.now()
-                        }])
-                    }
-                })
-            }
-
-            // Handle new wars (AI declaring war on player)
-            if (wars && wars.length > 0) {
-                wars.forEach(warCountryCode => {
-                    const attacker = aiCountries.get(warCountryCode)
-                    if (attacker) {
-                        useGameStore.getState().addDiplomaticEvents([{
-                            id: `war-decl-${Date.now()}-${warCountryCode}`,
-                            type: 'WAR_DECLARED',
-                            severity: 3, // Breaking News
-                            title: 'WAR DECLARED!',
-                            description: `${attacker.name} has declared war on us!`,
-                            affectedNations: [warCountryCode],
-                            timestamp: Date.now()
-                        }])
-                    }
-                })
-            }
+    // AI Turn Loop (HOST AUTHORITY)
 
 
-            // Handle AI Offensives (AI attacking player)
-            if (offensives && offensives.length > 0) {
-                console.log(`⚠️ App.tsx received ${offensives.length} offensives!`)
-                const { playerTerritories } = useGameStore.getState()
-                const playerPoly = playerTerritories[0]
-
-                offensives.forEach(offensive => {
-                    const attacker = aiCountries.get(offensive.countryCode)
-                    if (!attacker) return
-
-                    // Calculate battle location (on player territory)
-                    let battleLocation: [number, number] | undefined
-                    if (playerPoly) {
-                        try {
-                            const center = turf.centerOfMass(playerPoly as any)
-                            battleLocation = center.geometry.coordinates as [number, number]
-                        } catch (e) {
-                            console.warn('Failed to calculate defensive battle location', e)
-                        }
-                    }
-
-                    // Calculate defense bonus from nearby forts
-                    let defenseBonus = 0
-                    if (battleLocation && nation?.buildings) {
-                        const battlePoint = turf.point(battleLocation)
-                        const forts = nation.buildings.filter(b => b.type === 'FORT')
-
-                        for (const fort of forts) {
-                            const fortPoint = turf.point(fort.location)
-                            const distance = turf.distance(battlePoint, fortPoint, { units: 'kilometers' })
-
-                            // Forts provide protection within 500km
-                            if (distance < 500) {
-                                defenseBonus = 1
-                                console.log('🛡️ Fort providing defense bonus! Distance:', distance.toFixed(0), 'km')
-                                break // Bonuses don't stack
-                            }
-                        }
-                    }
-
-                    startBattle(
-                        offensive.countryCode,
-                        attacker.name,
-                        'PLAYER',
-                        nation?.name || 'Player',
-                        offensive.strength,
-                        nation?.stats.soldiers || 1000,
-                        'BATTLE',
-                        false, // isPlayerAttacker
-                        true,  // isPlayerDefender
-                        undefined,
-                        battleLocation,
-                        defenseBonus
-                    )
-                })
-            }
-        }, 30000) // Every 30 seconds
+    // --- HOST ACION PROCESSING LOOP ---
+    // Listens for client actions (Declaration of War, etc.) and executes them authoritatively
 
 
-        return () => clearInterval(interval)
-    }, [phase, processAITurn]) // Removed aiCountries to prevent timer reset
 
     const [selectedCountryForDiplomacy, setSelectedCountryForDiplomacy] = useState<string | null>(null)
 
-    // Economy Loop (Monthly)
-    useEffect(() => {
-        // Initialize economic cycle on mount
-        const gameState = useGameStore.getState()
-        if (!gameState.economicCycle) {
-            const cycle = initEconomicCycle()
-            useGameStore.setState({ economicCycle: cycle })
-            console.log('📊 Economic cycle initialized:', cycle.phase)
-        }
-
-        const interval = setInterval(() => {
-            const {
-                nation, infrastructureStats, updateBudget, setNation, advanceDate,
-                economicCycle, victoriesAchieved, achievementsUnlocked,
-                consecutiveMonthsAsTopPower, consecutiveMonthsAsTopGDP,
-                gameDate
-            } = useGameStore.getState()
-            if (!nation) return
-
-            const { aiCountries } = useWorldStore.getState()
-            const { netIncome, soldierGrowth, stats } = calculateEconomy(nation, infrastructureStats, aiCountries)
-
-            // Update economic cycle
-            if (economicCycle) {
-                const newCycle = updateEconomicCycle(economicCycle)
-                if (newCycle.phase !== economicCycle.phase) {
-                    console.log('📈 Economic cycle changed:', economicCycle.phase, '→', newCycle.phase)
-                }
-                useGameStore.setState({ economicCycle: newCycle })
-            }
-
-            // Apply income
-            updateBudget(netIncome)
-
-            // Advance time (1 month)
-            advanceDate(30)
-
-            // Update stats
-            setNation({
-                ...nation,
-                stats: {
-                    ...nation.stats,
-                    ...stats,
-                    soldiers: Math.min(nation.stats.manpower, nation.stats.soldiers + soldierGrowth)
-                }
-            })
-
-            // Generate research points
-            const population = infrastructureStats?.totalPopulation || 1000000
-            const researchOutput = calculateResearchOutput(nation.stats, population, nation.buildings || [])
-            if (researchOutput > 0) {
-                useGameStore.getState().addResearchPoints(researchOutput)
-            }
-
-            // Check victory conditions
-            const worldTotalLand = 510_072_000 // km2
-            const playerLand = infrastructureStats?.totalAreaKm2 || 0
-            const monthsPlayed = Math.floor((gameDate - new Date('2025-01-01').getTime()) / (30 * 24 * 60 * 60 * 1000))
-
-            // Collect all powers and GDPs
-            const playerGDP = nation.stats.wealth
-            const playerPower = nation.stats.power
-            const allPowers: number[] = [playerPower]
-            const allGDPs: number[] = [playerGDP]
-
-            aiCountries.forEach(ai => {
-                allPowers.push(ai.power)
-                // Use economy * population as GDP proxy
-                allGDPs.push((ai.economy || 50) * (ai.population || 1000000))
-            })
-
-            // Update streaks
-            const isTopPower = playerPower >= Math.max(...allPowers)
-            const isTopGDP = playerGDP >= Math.max(...allGDPs)
-            const newTopPowerMonths = isTopPower ? consecutiveMonthsAsTopPower + 1 : 0
-            const newTopGDPMonths = isTopGDP ? consecutiveMonthsAsTopGDP + 1 : 0
-            useGameStore.setState({
-                consecutiveMonthsAsTopPower: newTopPowerMonths,
-                consecutiveMonthsAsTopGDP: newTopGDPMonths
-            })
-
-            // Check victory conditions
-            const conditions = checkVictoryConditions({
-                playerTerritory: (playerLand / worldTotalLand) * 100, // Convert to %
-                playerPower,
-                allPowers,
-                playerGDP,
-                allGDPs,
-                monthsPlayed,
-                consecutiveMonthsAsTopPower: newTopPowerMonths,
-                consecutiveMonthsAsTopGDP: newTopGDPMonths
-            })
-            setVictoryConditions(conditions)
-
-            // Check for new victories
-            const newVictory = conditions.find(c => c.achieved && !victoriesAchieved.includes(c.type))
-            if (newVictory) {
-                console.log('🏆 VICTORY:', newVictory.type)
-                useGameStore.setState({ victoriesAchieved: [...victoriesAchieved, newVictory.type] })
-                setCurrentVictory(newVictory)
-            }
-
-            // Check achievements (simplified - using game state for now)
-            const { allies: allyList } = useWorldStore.getState()
-            const { activeWars } = useWorldStore.getState()
-            let positiveRelationsCount = 0
-            aiCountries.forEach(ai => { if (ai.relations > 0) positiveRelationsCount++ })
-
-            const newAchievements = checkAchievements({
-                warsWon: 0, // TODO: track properly
-                warAgainstStronger: false,
-                territoryControlled: (playerLand / worldTotalLand) * 100,
-                monthsAtPeace: activeWars.length === 0 ? monthsPlayed : 0,
-                allianceCount: allyList.length,
-                coalitionSize: 0, // TODO: track properly
-                positiveRelations: positiveRelationsCount,
-                gdpGrowthPercent: 0, // TODO: track properly
-                tradeAgreements: 0, // TODO: track properly
-                budgetReserves: nation.stats.budget,
-                lowUnrestMonths: useGameStore.getState().unrest < 20 ? monthsPlayed : 0,
-                revolutionsTriggered: 0,
-                simultaneousWars: activeWars.length,
-                isTop10Power: true, // Simplified
-                warsDeclared: 0 // TODO: track properly
-            }, achievementsUnlocked)
-
-            if (newAchievements.length > 0) {
-                console.log('🎖️ Achievements unlocked:', newAchievements.map(a => a.title))
-                useGameStore.setState({
-                    achievementsUnlocked: [...achievementsUnlocked, ...newAchievements.map(a => a.id)]
-                })
-                // Show first achievement popup
-                if (!currentAchievement) {
-                    setCurrentAchievement(newAchievements[0])
-                }
-            }
-
-            // Random Event Trigger (3% chance per month)
-            const { currentEvent, triggerEvent } = useGameStore.getState()
-            if (!currentEvent && Math.random() < 0.03) {
-                import('./data/events').then(({ RANDOM_EVENTS }) => {
-                    const validEvents = RANDOM_EVENTS.filter(e => {
-                        if (e.condition) {
-                            return e.condition(useGameStore.getState(), useWorldStore.getState())
-                        }
-                        return true
-                    })
-
-                    if (validEvents.length > 0) {
-                        const event = validEvents[Math.floor(Math.random() * validEvents.length)]
-                        triggerEvent(event)
-                        console.log('🎲 Random Event Triggered:', event.title)
-                    }
-                })
-            }
-
-            // Process Elections/Coups/Revolutions in AI countries
-            useWorldStore.getState().processElections()
-
-            // Process Advanced Diplomacy (UN, Crises, Soft Power)
-            useWorldStore.getState().processDiplomacy()
-
-        }, 5000) // 5 seconds = 1 month
-
-        return () => clearInterval(interval)
-    }, [currentAchievement])
 
 
 
@@ -597,7 +538,96 @@ function App() {
 
     // Render setup screen if in SETUP phase
     if (phase === 'SETUP') {
-        return <GameSetup onStartGame={handleStartGame} onCancel={handleCancelSetup} />
+        // Check if in multiplayer flow
+        if (isMultiplayer && multiplayerPhase !== 'offline' && multiplayerPhase !== 'game_active') {
+            return (
+                <MultiplayerFlow
+                    onGameStart={(gameId, _, selectedCountry, playerColor) => {
+                        console.log('🎮 Starting multiplayer game:', gameId, 'Country:', selectedCountry, 'Color:', playerColor)
+
+                        // Store player color in multiplayer store
+                        if (playerColor) {
+                            const currentColor = useMultiplayerStore.getState().playerColor
+                            if (currentColor !== playerColor) {
+                                console.log('🎨 Updating persistent player color from', currentColor, 'to', playerColor)
+                                useMultiplayerStore.getState().setPlayerColor(playerColor)
+                            }
+                        }
+
+                        // Initialize with selected country (like single player EXISTING_COUNTRY mode)
+                        if (selectedCountry) {
+                            const countryFeature = (countriesData as any).features.find(
+                                (f: any) => f.properties.iso_a3 === selectedCountry
+                            )
+
+                            if (countryFeature) {
+                                const countryName = countryFeature.properties?.admin || countryFeature.properties?.name
+                                console.log('🏳️ Starting as existing country:', selectedCountry, countryName)
+
+                                // Set game settings
+                                setGameSettings({
+                                    startMode: 'EXISTING_COUNTRY',
+                                    expansionPoints: 0,
+                                    startingCountry: selectedCountry,
+                                    enableRealCoalitions: true,
+                                    enableElections: true,
+                                    enableNuclearNations: true,
+                                    difficulty: 'NORMAL'
+                                })
+
+                                // Set the country as player's territory
+                                setUserPolygon(countryFeature)
+
+                                // Calculate consequences
+                                const newConsequences = calculateConsequences(countryFeature, countriesData as any)
+                                setConsequences(newConsequences)
+
+                                // Calculate captured cities
+                                const cities = parseCities(citiesData as any)
+                                const cityResult = calculateCityCapture(countryFeature, cities)
+                                setCapturedCities(cityResult.capturedCities)
+
+                                // Calculate infrastructure
+                                const infrastructureStats = calculateInfrastructure(countryFeature)
+                                setInfrastructureStats(infrastructureStats)
+
+                                // IMPORTANT: Set the selected country (this marks it as player's nation)
+                                useGameStore.getState().setSelectedCountryName(countryName)
+                                useGameStore.getState().setSelectedCountry(selectedCountry)
+
+                                console.log('📊 Multiplayer existing country initialized:', {
+                                    selectedCountry,
+                                    countryName,
+                                    consequences: newConsequences.length,
+                                    cities: cityResult.capturedCities.length
+                                })
+
+                                // Go to CONSTITUTION phase to finalize nation setup
+                                setPhase('CONSTITUTION')
+                            } else {
+                                // Fallback to drawing if country not found
+                                console.warn('Country not found:', selectedCountry)
+                                setPhase('DRAWING')
+                            }
+                        } else {
+                            // No country selected (draw mode), go to drawing phase
+                            setPhase('DRAWING')
+                        }
+                    }}
+                    onExit={() => {
+                        exitMultiplayer()
+                    }}
+                />
+            )
+        }
+
+        return (
+            <GameSetup
+                onStartGame={handleStartGame}
+                onCancel={handleCancelSetup}
+                onMultiplayer={enterMultiplayer}
+            />
+        )
     }
 
     // Handler for country clicks - opens diplomacy modal (including own country for inspection)
@@ -650,12 +680,112 @@ function App() {
                 clearWarArrowsRequest={clearWarSignal}
             />
 
-            {/* UI overlays */}
-            <NationInfoPanel />
-            <DiplomacyPanel />
-            <MilitaryPanel onOpenDefensivePlanning={() => handleLaunchOffensive('PLAYER', nation?.name || 'Player Nation')} />
-            <ConsequencesPanel />
-            <CoalitionWarPanel />
+            {/* UI overlays - Mobile: show active panel only, Desktop: show all */}
+            {(!isMobile || activePanel === 'nation') && <NationInfoPanel isMobile={isMobile} onClose={() => setActivePanel('map')} />}
+            {(!isMobile || activePanel === 'diplomacy') && <DiplomacyPanel isMobile={isMobile} onClose={() => setActivePanel('map')} />}
+            {(!isMobile || activePanel === 'military') && (
+                <MilitaryPanel
+                    isMobile={isMobile}
+                    onClose={() => setActivePanel('map')}
+                />
+            )}
+
+            {/* More Panel (Mobile Only) - Contains additional menus */}
+            {isMobile && activePanel === 'more' && (
+                <div className="fixed inset-0 bg-slate-900 z-40 overflow-y-auto pb-20">
+                    <div className="p-4 space-y-4">
+                        <div className="flex justify-between items-center mb-6">
+                            <h2 className="text-2xl font-bold text-orange-400">More Options</h2>
+                            <button
+                                onClick={() => setActivePanel('map')}
+                                className="text-gray-400 hover:text-white text-2xl"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        {/* Coalition Button */}
+                        <button
+                            onClick={() => setShowCoalitionPanel(true)}
+                            className="w-full bg-gradient-to-r from-blue-900/40 to-purple-900/40 border border-blue-500/30 rounded-xl p-4 hover:border-blue-400/50 transition-all text-left"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-3xl">🤝</span>
+                                    <div>
+                                        <div className="text-white font-bold">Coalitions</div>
+                                        <div className="text-gray-400 text-sm">View alliances</div>
+                                    </div>
+                                </div>
+                                <span className="text-gray-500">→</span>
+                            </div>
+                        </button>
+
+                        {/* Wars Button */}
+                        <button
+                            onClick={() => setShowWarsPanel(true)}
+                            className="w-full bg-gradient-to-r from-red-900/40 to-orange-900/40 border border-red-500/30 rounded-xl p-4 hover:border-red-400/50 transition-all text-left"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-3xl">⚔️</span>
+                                    <div>
+                                        <div className="text-white font-bold">Active Wars</div>
+                                        <div className="text-gray-400 text-sm">{(activeWars?.length || 0)} ongoing</div>
+                                    </div>
+                                </div>
+                                <span className="text-gray-500">→</span>
+                            </div>
+                        </button>
+
+                        {/* Notifications Button */}
+                        <button
+                            onClick={() => setShowNotifications(true)}
+                            className="w-full bg-gradient-to-r from-slate-800/40 to-slate-700/40 border border-slate-600/30 rounded-xl p-4 hover:border-slate-500/50 transition-all text-left"
+                        >
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-3xl">📬</span>
+                                    <div>
+                                        <div className="text-white font-bold">Notifications</div>
+                                        <div className="text-gray-400 text-sm">{diplomaticEvents.length} events</div>
+                                    </div>
+                                </div>
+                                <span className="text-gray-500">→</span>
+                            </div>
+                        </button>
+
+                        {/* Multiplayer Status (if in MP game) */}
+                        {isMultiplayer && (
+                            <button
+                                onClick={() => setShowMultiplayerStatus(true)}
+                                className="w-full bg-gradient-to-r from-green-900/40 to-teal-900/40 border border-green-500/30 rounded-xl p-4 hover:border-green-400/50 transition-all text-left"
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-3xl">👥</span>
+                                        <div>
+                                            <div className="text-white font-bold">Multiplayer Status</div>
+                                            <div className="text-gray-400 text-sm">{lobbyCode || 'View game'}</div>
+                                        </div>
+                                    </div>
+                                    <span className="text-gray-500">→</span>
+                                </div>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
+
+            {!isMobile && <ConsequencesPanel />}
+            {!isMobile && <CoalitionWarPanel />}
+
+            {/* Mobile Navigation */}
+            <MobileNav
+                activePanel={activePanel}
+                setActivePanel={setActivePanel}
+                hasWars={(activeWars?.length || 0) > 0}
+            />
 
 
 
@@ -693,15 +823,18 @@ function App() {
                 />
             )}
 
-            {/* Victory Progress Panel (bottom right) */}
-            {phase === 'RESULTS' && victoryConditions.length > 0 && (
+            {/* Victory Progress Panel (bottom right) - Desktop only */}
+            {/* Victory Progress Panel (disabled for now) */}
+            {/* 
+            {!isMobile && phase === 'RESULTS' && victoryConditions.length > 0 && (
                 <div className="absolute bottom-20 right-4 z-10 w-64">
                     <VictoryProgressPanel
                         conditions={victoryConditions}
                         onViewDetails={(type) => console.log('View victory:', type)}
                     />
                 </div>
-            )}
+            )} 
+            */}
 
             {/* Game Log */}
             <GameLog />
@@ -775,8 +908,8 @@ function App() {
                 </div>
             )}
 
-            {/* Floating Action Buttons */}
-            {(phase === 'RESULTS' || phase === 'EXPANSION') && (
+            {/* Floating Action Buttons - Desktop only */}
+            {!isMobile && (phase === 'RESULTS' || phase === 'EXPANSION') && (
                 <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
                     <button
                         onClick={() => setShowDiplomacyPanel(!showDiplomacyPanel)}
@@ -850,6 +983,29 @@ function App() {
                 )
             }
 
+            {/* Nuclear Targeting Mode Overlay */}
+            {nuclearTargetingMode && (
+                <div className="absolute inset-x-0 top-4 z-50 flex justify-center pointer-events-none">
+                    <div className="bg-red-900/90 backdrop-blur-sm rounded-lg px-6 py-4 border-2 border-yellow-500 shadow-2xl pointer-events-auto animate-pulse">
+                        <div className="flex items-center gap-4">
+                            <span className="text-4xl">☢️</span>
+                            <div>
+                                <h3 className="text-yellow-400 font-bold text-lg">NUCLEAR TARGETING MODE</h3>
+                                <p className="text-gray-200 text-sm">
+                                    Click on <strong className="text-yellow-400">{nuclearTargetingMode.countryCode}</strong> to select impact location (50km radius)
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => useWorldStore.getState().exitNuclearTargetingMode()}
+                                className="ml-4 px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded font-bold transition-colors"
+                            >
+                                ✕ Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Locked borders indicator */}
             {
                 phase === 'RESULTS' && (
@@ -862,10 +1018,59 @@ function App() {
                 )
             }
 
+            {/* Multiplayer Status Button - shows during multiplayer games */}
+            {isMultiplayer && phase === 'RESULTS' && (
+                <button
+                    onClick={() => setShowMultiplayerStatus(true)}
+                    className="fixed bottom-20 right-4 z-40 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-lg font-bold shadow-lg flex items-center gap-2 transition-all"
+                    style={{ boxShadow: '0 4px 20px rgba(139, 92, 246, 0.4)' }}
+                >
+                    <span className="text-xl">🌐</span>
+                    <span>Multiplayer</span>
+                </button>
+            )}
+
+            {/* Multiplayer Status Modal */}
+            <MultiplayerStatusModal
+                isOpen={showMultiplayerStatus}
+                onClose={() => setShowMultiplayerStatus(false)}
+            />
+
             {/* News Ticker */}
             {(phase === 'RESULTS' || phase === 'EXPANSION' || diplomaticEvents.length > 0) && <NewsTicker />}
+
+            {/* Game Speed Control - Top Center */}
+            {(phase === 'RESULTS' || phase === 'EXPANSION' || phase === 'WAR') && (
+                <div className="absolute top-4 left-1/2 -translate-x-1/2 z-30">
+                    <GameSpeedControl />
+                </div>
+            )}
+
+            {/* Top Right Controls - Notification Log */}
+            {(phase === 'RESULTS' || phase === 'EXPANSION' || phase === 'WAR') && (
+                <>
+                    <div className="absolute top-4 right-4 z-30 flex gap-2">
+                        <button
+                            onClick={() => setShowNotifications(!showNotifications)}
+                            className="bg-slate-800/80 p-2 rounded-full border border-white/20 hover:bg-slate-700 transition-colors shadow-lg"
+                            title="Notification Log"
+                        >
+                            📜
+                        </button>
+                    </div>
+
+                    {showNotifications && (
+                        <div className="absolute top-16 right-4 z-30">
+                            <NotificationLog onClose={() => setShowNotifications(false)} />
+                        </div>
+                    )}
+                </>
+            )}
+
+
         </div>
     )
+
 }
 
 export default App

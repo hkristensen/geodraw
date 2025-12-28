@@ -156,7 +156,10 @@ export function getAllCountryData(): Map<string, CountryData> {
  */
 export function getPrimaryReligion(iso3: string): Religion {
     const data = getCountryData(iso3)
-    if (!data) return 'Unaffiliated'
+    // Fallback to manual map if data is missing or empty
+    if (!data || Object.values(data.religions).every(v => !v)) {
+        return (COUNTRY_CULTURE_MAP[iso3] as any)?.primaryReligion as Religion || 'Unaffiliated'
+    }
 
     let maxReligion: Religion = 'Unaffiliated'
     let maxPercent = 0

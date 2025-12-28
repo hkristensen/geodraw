@@ -51,6 +51,7 @@ export function calculateNationStats(
         tradeIncome: 0,
         taxIncome: 0,
         expenses: 0,
+        inflation: 0,
         budgetAllocation: {
             social: 50,
             military: 50,

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import * as turf from '@turf/turf'
+import { createModifier, hasModifier } from '../utils/modifierUtils'
 import type { AICountry, Disposition, Constitution, Agreement, PoliticalState } from '../types/game'
 import type { WorldState, Consequence } from '../types/store'
 import { getCountryData, getPrimaryReligion, getPrimaryLanguage, getPrimaryCulture } from '../utils/countryData'
@@ -63,12 +64,20 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     coalitionInvites: [],
     coalitionsInitialized: false,
 
+    setAIWars: (wars: any[]) => set({ aiWars: wars }),
+    setAICountries: (countries: Map<string, AICountry>) => set({ aiCountries: countries }),
+
     // === Advanced Diplomacy State ===
     unitedNations: null,
     activeCrises: [],
     softPowerState: null,
     activeSummit: null,
     diplomacyMessages: [],
+
+    // === Nuclear System State ===
+    irradiatedZones: new Map(),
+    nuclearDebuffs: new Map(),
+    nuclearTargetingMode: null,
 
     initializeAICountries: (consequences: Consequence[], playerConstitution?: Constitution, allCountries?: any) => {
         const countries = new Map<string, AICountry>()
@@ -226,7 +235,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                 religion: primaryReligion,
                 culture: primaryCulture,
                 language: primaryLanguage,
-                modifiers: hasRevanchism ? ['REVANCHISM'] : [],
+                modifiers: hasRevanchism ? [createModifier('REVANCHISM', { code: countryCode, name: countryName })] : [],
                 isAtWar: false,
                 isAnnexed: false,
                 claimedPercentage: 0,
@@ -355,7 +364,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
     },
 
     declareWar: (countryCode) => {
-        const { aiCountries, activeWars } = get()
+        const { aiCountries, activeWars, aiWars, aiTerritories } = get()
         const country = aiCountries.get(countryCode)
         if (!country) return
 
@@ -367,24 +376,65 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             disposition: 'at_war',
             isAtWar: true,
             warDeclaredAt: Date.now(),
-            modifiers: [...country.modifiers, 'AT_WAR'],
+            modifiers: [...country.modifiers, createModifier('AT_WAR', { code: country.code, name: country.name })],
             agreements: [], // Clear agreements
             tariff: 'EMBARGO',
             theirTariff: 'EMBARGO'
         })
 
+        // Generate Visual Arrow for Multiplayer Sync
+        let planFeature: any = null
+        const playerPoly = useGameStore.getState().userPolygon
+        const defenderPoly = aiTerritories.get(countryCode)
+
+        if (playerPoly && defenderPoly) {
+            try {
+                const p1 = turf.centroid(playerPoly as any).geometry.coordinates
+                const p2 = turf.centroid(defenderPoly as any).geometry.coordinates
+                planFeature = {
+                    type: 'Feature',
+                    properties: {
+                        id: `plan-player-${Date.now()}`,
+                        type: 'OFFENSE',
+                        attackerCode: 'PLAYER'
+                    },
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: [p1, p2]
+                    }
+                }
+            } catch (e) {
+                console.warn('Failed to generate player war arrow', e)
+            }
+        }
+
+        // Create AIWar object for sync
+        const war: import('../types/game').AIWar = {
+            id: `playerwar-${countryCode}-${Date.now()}`,
+            attackerCode: 'PLAYER',
+            defenderCode: countryCode,
+            startTime: Date.now(),
+            lastBattleTime: 0,
+            status: 'active',
+            attackerGain: 0,
+            defenderGain: 0,
+            planArrow: planFeature,
+            casualties: { attacker: 0, defender: 0 }
+        }
+
         set({
             aiCountries: new Map(aiCountries),
             activeWars: [...activeWars, countryCode],
+            aiWars: [...aiWars, war]
         })
     },
 
     makePeace: (countryCode) => {
-        const { aiCountries, activeWars } = get()
+        const { aiCountries, activeWars, aiWars } = get()
         const country = aiCountries.get(countryCode)
         if (!country) return
 
-        const newModifiers = country.modifiers.filter(m => m !== 'AT_WAR')
+        const newModifiers = country.modifiers.filter(m => m.type !== 'AT_WAR')
 
         aiCountries.set(countryCode, {
             ...country,
@@ -395,9 +445,19 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             theirTariff: 'HIGH'
         })
 
+        // End the war in AIWars list (for sync)
+        const updatedAIWars = aiWars.map(w => {
+            if ((w.attackerCode === 'PLAYER' && w.defenderCode === countryCode) ||
+                (w.attackerCode === countryCode && w.defenderCode === 'PLAYER')) {
+                return { ...w, status: 'peace' as const }
+            }
+            return w
+        })
+
         set({
             aiCountries: new Map(aiCountries),
             activeWars: activeWars.filter(c => c !== countryCode),
+            aiWars: updatedAIWars
         })
     },
 
@@ -419,7 +479,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             ...country,
             disposition: 'friendly',
             relations: 100,
-            modifiers: [...country.modifiers, 'ALLIED'],
+            modifiers: [...country.modifiers, createModifier('ALLIED', { code: country.code, name: country.name })],
             agreements: [...country.agreements, alliance]
         })
 
@@ -482,7 +542,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             let newAllies = [...allies]
 
             if (type === 'MILITARY_ALLIANCE') {
-                newModifiers.push('ALLIED')
+                newModifiers.push(createModifier('ALLIED', { code: country.code, name: country.name }))
                 newAllies.push(countryCode)
             }
 
@@ -542,7 +602,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         let newAllies = [...allies]
 
         if (agreement.type === 'MILITARY_ALLIANCE') {
-            newModifiers = newModifiers.filter(m => m !== 'ALLIED')
+            newModifiers = newModifiers.filter(m => m.type !== 'ALLIED')
             newAllies = newAllies.filter(c => c !== countryCode)
         }
 
@@ -571,8 +631,21 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         const playerPower = gameState.nation?.stats?.power || 50
         const gameDate = gameState.gameDate || Date.now()
 
+        // Create a Set of human-controlled country codes (Host + Remote Clients)
+        const hostCountry = gameState.selectedCountry
+        const remoteCountryCodes = Object.values(gameState.remotePlayers || {})
+            .map(p => p.countryCode)
+            .filter(Boolean) as string[]
+        const humanCountries = new Set([hostCountry, ...remoteCountryCodes].filter(Boolean))
+
         // Iterate through all AI countries
         aiCountries.forEach((country, code) => {
+            // CRITICAL: Skip if this country is human-controlled!
+            // The AI should NOT make decisions for human players.
+            if (humanCountries.has(code)) {
+                return
+            }
+
             // Skip if annexed
             if (country.isAnnexed) return
 
@@ -657,7 +730,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     if (strategyState.personality === 'ISOLATIONIST') offensiveChance -= 0.08
 
                     // If they are losing badly (revanchism), they are desperate
-                    if (country.modifiers.includes('REVANCHISM')) offensiveChance += 0.1
+                    if (country.modifiers.some(m => m.type === 'REVANCHISM')) offensiveChance += 0.1
 
                     if (Math.random() < offensiveChance) {
                         offensives.push({
@@ -673,7 +746,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             }
 
             // Skip if allied with player
-            if (country.modifiers.includes('ALLIED')) return
+            if (country.modifiers.some(m => m.type === 'ALLIED')) return
 
             // === PHASE 3: PROCESS ACTION QUEUE ===
             for (const action of strategyState.actionQueue.slice(0, 2)) {
@@ -682,7 +755,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         // Only if relations are very bad
                         if (country.relations < -50) {
                             // Create war goal based on situation
-                            const warGoal = country.modifiers.includes('REVANCHISM')
+                            const warGoal = country.modifiers.some(m => m.type === 'REVANCHISM')
                                 ? createWarGoal('RECONQUEST', 'PLAYER')
                                 : createWarGoal('AGGRESSION', 'PLAYER')
 
@@ -695,7 +768,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                                 isAtWar: true,
                                 warDeclaredAt: Date.now(),
                                 warGoal,
-                                modifiers: [...country.modifiers, 'AT_WAR'],
+                                modifiers: [...country.modifiers, createModifier('AT_WAR', { code: updatedCountry.code, name: updatedCountry.name })],
                                 agreements: [],
                                 tariff: 'EMBARGO',
                                 theirTariff: 'EMBARGO'
@@ -710,7 +783,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
                     case 'DEMAND_TERRITORY':
                         // Check for claim generation
-                        if (!country.modifiers.includes('REVANCHISM') && country.relations < -20) {
+                        if (!country.modifiers.some(m => m.type === 'REVANCHISM') && country.relations < -20) {
                             if (Math.random() < 0.1) { // 10% chance when focusing on expansion
                                 generateAIClaim(code)
                                 events.push(`CLAIM_FABRICATED:${code}`)
@@ -829,7 +902,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             // === PHASE 5: WAR DECLARATION CHECK (Legacy + Strategy) ===
             // Only very aggressive personalities will actually declare war, and only with very bad relations
             if ((strategyState.personality === 'EXPANSIONIST')
-                && (country.relations < -70 || country.modifiers.includes('REVANCHISM'))) {
+                && (country.relations < -70 || country.modifiers.some(m => m.type === 'REVANCHISM'))) {
 
                 let warChance = 0.002 // Base 0.2% (reduced from 0.5%)
 
@@ -838,12 +911,12 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                 if (strategyState.currentFocus === 'EXPAND') warChance *= 1.25 // Reduced from 1.5x
 
                 // Revanchism increases chance (but reduced)
-                if (country.modifiers.includes('REVANCHISM')) {
+                if (country.modifiers.some(m => m.type === 'REVANCHISM')) {
                     warChance += 0.01 + Math.min(0.05, country.territoryLost / 400) // Halved
                 }
 
                 if (Math.random() < warChance && !newWars.includes(code)) {
-                    const warGoal = country.modifiers.includes('REVANCHISM')
+                    const warGoal = country.modifiers.some(m => m.type === 'REVANCHISM')
                         ? createWarGoal('RECONQUEST', 'PLAYER')
                         : createWarGoal('TERRITORIAL', 'PLAYER')
 
@@ -856,7 +929,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         isAtWar: true,
                         warDeclaredAt: Date.now(),
                         warGoal,
-                        modifiers: [...country.modifiers, 'AT_WAR'],
+                        modifiers: [...country.modifiers, createModifier('AT_WAR', { code: country.code, name: country.name })],
                         agreements: [],
                         tariff: 'EMBARGO',
                         theirTariff: 'EMBARGO'
@@ -888,8 +961,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
         // Add Revanchism if they lost significant land
         const newModifiers = [...country.modifiers]
-        if (newTerritoryLost > 5 && !newModifiers.includes('REVANCHISM')) {
-            newModifiers.push('REVANCHISM')
+        if (newTerritoryLost > 5 && !hasModifier(newModifiers, 'REVANCHISM')) {
+            newModifiers.push(createModifier('REVANCHISM', { code: countryCode, name: country.name }))
         }
 
         aiCountries.set(countryCode, {
@@ -965,8 +1038,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
         // Add modifier if not present
         const newModifiers = [...country.modifiers]
-        if (!newModifiers.includes('DESTABILIZED')) {
-            newModifiers.push('DESTABILIZED')
+        if (!hasModifier(newModifiers, 'DESTABILIZED')) {
+            newModifiers.push(createModifier('DESTABILIZED', { code: countryCode, name: country.name }))
         }
 
         aiCountries.set(countryCode, {
@@ -993,8 +1066,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         const newRelations = Math.min(100, country.relations + 15)
 
         const newModifiers = [...country.modifiers]
-        if (!newModifiers.includes('PROPAGANDA_CAMPAIGN')) {
-            newModifiers.push('PROPAGANDA_CAMPAIGN')
+        if (!hasModifier(newModifiers, 'PROPAGANDA_CAMPAIGN')) {
+            newModifiers.push(createModifier('PROPAGANDA_CAMPAIGN', { code: countryCode, name: country.name }))
         }
 
         aiCountries.set(countryCode, {
@@ -1045,7 +1118,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             ...country,
             relations: newRelations,
             disposition: 'hostile',
-            modifiers: [...country.modifiers, 'REVANCHISM'] // Add Revanchism as a marker for "wants land"
+            modifiers: [...country.modifiers, createModifier('REVANCHISM', { code: country.code, name: country.name })] // Add Revanchism as a marker for "wants land"
         })
 
         set({ aiCountries: new Map(aiCountries) })
@@ -1076,7 +1149,16 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
                 if (loserPoly) {
                     if (annexerCode === 'PLAYER') {
-                        // Territory handled by gameStore addTerritory, just remove AI entry
+                        // FIXED: Actually add territory to player using gameStore.addTerritory
+                        import('../store/gameStore').then(({ useGameStore }) => {
+                            // Add the conquered territory to the player
+                            useGameStore.getState().addTerritory(loserPoly as GeoJSON.Feature)
+                            // Also track in annexedCountries list
+                            useGameStore.getState().annexCountry(countryCode)
+                            console.log(`🗺️ Player annexed ${countryCode} - territory added!`)
+                        })
+
+                        // Remove from AI territories
                         const newMap = new Map(aiTerritories)
                         newMap.delete(countryCode)
                         set({ aiTerritories: newMap })
@@ -1116,8 +1198,10 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         const country = aiCountries.get(countryCode)
         if (!country) return
 
-        const newModifiers = country.modifiers.filter(m => m !== 'ANNEXED')
-        if (!newModifiers.includes('LIBERATED')) newModifiers.push('LIBERATED')
+        const newModifiers = country.modifiers.filter(m => m.type !== 'ANNEXED')
+        if (!hasModifier(newModifiers, 'LIBERATED')) {
+            newModifiers.push(createModifier('LIBERATED', { code: countryCode, name: country.name }))
+        }
 
         aiCountries.set(countryCode, {
             ...country,
@@ -1141,7 +1225,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         if (country.isAtWar) return 0
 
         // Check if allied or high relations
-        const isAllied = country.modifiers.includes('ALLIED')
+        const isAllied = country.modifiers.some(m => m.type === 'ALLIED')
         if (!isAllied && country.relations < 50) return 0
 
         // Calculate support amount (5-10% of their soldiers)
@@ -2219,24 +2303,41 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                             }
                         }
 
-                        // Calculate Beachhead location (use Centroid, fallback to Vertex if in water)
+                        // Calculate Beachhead location
+                        // Instead of centroid (which looks like an enclave), find the point on defender's border CLOSEST to attacker
                         let battleLoc: [number, number] | undefined
                         try {
-                            const cent = turf.centroid(loserPoly as any)
-                            battleLoc = cent.geometry.coordinates as [number, number]
+                            const attackerCentroid = turf.centroid(effectiveWinnerPoly as any)
+                            const defenderBoundary = turf.polygonToLine(loserPoly as any)
 
-                            // Check if centroid is actually inside the polygon (helper since islands can have centroid in water)
-                            const isInside = turf.booleanPointInPolygon(cent, loserPoly as any)
-
-                            if (!isInside) {
-                                // Fallback to first vertex of the first polygon ring
-                                const geom = (loserPoly.geometry as any)
-                                const coords = geom.type === 'MultiPolygon' ? geom.coordinates[0][0] : geom.coordinates[0]
-                                if (coords && coords.length > 0) {
-                                    battleLoc = coords[0] as [number, number]
-                                }
+                            // Handle both Feature<LineString> and FeatureCollection<LineString>
+                            let targetLine: any = defenderBoundary
+                            if (defenderBoundary.type === 'FeatureCollection') {
+                                // For MultiPolygons, polygonToLine returns FeatureCollection.
+                                // We need to find the specific ring closest to attacker, or just flatten it.
+                                // Simplest: Convert to MultiLineString or just iterate
+                                // Workaround: pick the first feature or find nearest among all
+                                targetLine = (defenderBoundary as any).features[0]
                             }
-                        } catch (e) { }
+
+                            if (targetLine) {
+                                const nearest = turf.nearestPointOnLine(targetLine, attackerCentroid)
+                                battleLoc = nearest.geometry.coordinates as [number, number]
+                            } else {
+                                // Fallback to centroid logic if boundary conversion failed
+                                const cent = turf.centroid(loserPoly as any)
+                                battleLoc = cent.geometry.coordinates as [number, number]
+                            }
+
+                            // Sanity check: Ensure point is somewhat valid? 
+                            // Actually, nearestPointOnLine ensures it's on the line.
+                        } catch (e) {
+                            // Fallback to centroid if complex geometry fails
+                            try {
+                                const cent = turf.centroid(loserPoly as any)
+                                battleLoc = cent.geometry.coordinates as [number, number]
+                            } catch (e2) { }
+                        }
 
                         const conquest = calculateConquest(effectiveWinnerPoly as any, loserPoly as any, intensity, undefined, undefined, battleLoc)
                         // Silenced - too noisy: console.log('🗺️ Territory conquest result:', conquest ? 'SUCCESS' : 'FAILED', 'Intensity:', intensity)
@@ -2579,6 +2680,199 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         return { events }
     },
 
+    // === NUCLEAR SYSTEM ACTIONS ===
+
+    enterNuclearTargetingMode: (countryCode: string, warheads: number) => {
+        set({ nuclearTargetingMode: { countryCode, warheads } })
+        console.log(`☢️ Nuclear targeting mode activated for ${countryCode}`)
+    },
+
+    exitNuclearTargetingMode: () => {
+        set({ nuclearTargetingMode: null })
+        console.log('☢️ Nuclear targeting mode cancelled')
+    },
+
+    launchNuclearStrike: (location: [number, number], countryCode: string) => {
+        const { aiCountries, irradiatedZones, nuclearDebuffs } = get()
+        const target = aiCountries.get(countryCode)
+
+        if (!target) {
+            console.warn('⚠️ Nuclear target not found:', countryCode)
+            set({ nuclearTargetingMode: null })
+            return
+        }
+
+        // Create 50km radius circle using turf.circle
+        const circleFeature = turf.circle(location, 50, { units: 'kilometers' })
+
+        // Create the irradiated zone
+        const zoneId = `nuke-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        const gameDate = (useGameStore as any).getState?.()?.gameDate || Date.now()
+
+        // Estimate population killed (rough: use country's population density)
+        // 50km radius = ~7,850 km² area
+        // Average world pop density is ~60/km², but we'll use target's ratio
+        const circleAreaKm2 = Math.PI * 50 * 50 // ~7,854 km²
+        const countryPopDensity = target.population / 500000 // Rough estimate per km²
+        const populationKilled = Math.floor(circleAreaKm2 * countryPopDensity * 0.9) // 90% kill rate
+
+        const zone: import('../types/game').IrradiatedZone = {
+            id: zoneId,
+            location,
+            radius: 50,
+            countryCode,
+            createdAt: gameDate,
+            expiresAt: -1, // Never expires (permanent wasteland)
+            populationKilled,
+            geometry: circleFeature as GeoJSON.Feature
+        }
+
+        // Add zone to map
+        const newZones = new Map(irradiatedZones)
+        newZones.set(zoneId, zone)
+
+        // Apply 10-year debuff to the country
+        const TEN_YEARS_MS = 10 * 365 * 24 * 60 * 60 * 1000
+        const debuff: import('../types/game').NuclearDebuff = {
+            countryCode,
+            appliedAt: gameDate,
+            expiresAt: gameDate + TEN_YEARS_MS,
+            economyPenalty: 0.5,    // -50%
+            researchPenalty: 0.3,   // -30%
+            tradePenalty: 0.4,      // -40%
+            militaryPenalty: 0.25   // -25%
+        }
+
+        const newDebuffs = new Map(nuclearDebuffs)
+        newDebuffs.set(countryCode, debuff)
+
+        // Apply immediate effects to target country
+        const updatedCountries = new Map(aiCountries)
+        const updatedTarget = {
+            ...target,
+            population: Math.max(1000, target.population - populationKilled),
+            soldiers: Math.floor(target.soldiers * 0.75), // Lose 25% soldiers immediately
+            modifiers: [...target.modifiers.filter(m => m.type !== 'NUCLEAR_DEVASTATED'), createModifier('NUCLEAR_DEVASTATED', { code: countryCode, name: target.name })]
+        }
+        updatedCountries.set(countryCode, updatedTarget)
+
+        // Consume warhead from player
+        import('../store/gameStore').then(({ useGameStore }) => {
+            const gameState = useGameStore.getState()
+            if (gameState.nation?.stats?.nuclearProgram) {
+                const newWarheads = Math.max(0, gameState.nation.stats.nuclearProgram.warheads - 1)
+                useGameStore.setState(state => ({
+                    nation: state.nation ? {
+                        ...state.nation,
+                        stats: {
+                            ...state.nation.stats,
+                            nuclearProgram: {
+                                ...state.nation.stats.nuclearProgram!,
+                                warheads: newWarheads
+                            }
+                        }
+                    } : null
+                }))
+            }
+
+            // Add diplomatic event
+            useGameStore.getState().addDiplomaticEvents([{
+                id: `nuke-${Date.now()}`,
+                type: 'NUCLEAR_ATTACK',
+                severity: 3,
+                title: '☢️ NUCLEAR STRIKE',
+                description: `A nuclear weapon has devastated ${target.name}! ${populationKilled.toLocaleString()} killed. The area is now uninhabitable.`,
+                affectedNations: [countryCode],
+                timestamp: Date.now()
+            }])
+        })
+
+        // Massive diplomatic penalty with ALL nations
+        aiCountries.forEach((_ai, code) => {
+            if (code !== countryCode) {
+                get().updateRelations(code, -50) // -50 relations with everyone
+            }
+        })
+
+        console.log(`☢️ NUCLEAR STRIKE on ${target.name}:`)
+        console.log(`   Location: [${location[0].toFixed(2)}, ${location[1].toFixed(2)}]`)
+        console.log(`   Population killed: ${populationKilled.toLocaleString()}`)
+        console.log(`   10-year debuff applied`)
+
+        // Trigger Article 5 (Collective Defense) check
+        // If the target is in a defensive alliance (e.g. NATO), allies will declare war on Player
+        get().triggerAllianceResponse(target.code || countryCode, 'PLAYER')
+
+        // Check for retaliation from nuclear allies
+        const { coalitions } = get()
+        const defenderCoalitions = coalitions.filter(c => c.members.includes(countryCode) && c.type === 'MILITARY')
+        for (const coalition of defenderCoalitions) {
+            for (const memberCode of coalition.members) {
+                if (memberCode === countryCode || memberCode === 'PLAYER') continue
+                const member = aiCountries.get(memberCode)
+                if (member?.nuclearProgram?.warheads && member.nuclearProgram.warheads > 0) {
+                    // 70% chance of nuclear retaliation
+                    if (Math.random() < 0.7) {
+                        console.log(`☢️ NUCLEAR RETALIATION from ${member.name}!`)
+                        import('../store/gameStore').then(({ useGameStore }) => {
+                            useGameStore.getState().addDiplomaticEvents([{
+                                id: `retaliation-${Date.now()}-${memberCode}`,
+                                type: 'NUCLEAR_ATTACK',
+                                severity: 3,
+                                title: '☢️ NUCLEAR RETALIATION',
+                                description: `${member.name} has launched a retaliatory nuclear strike! Your nation is devastated.`,
+                                affectedNations: ['PLAYER'],
+                                timestamp: Date.now()
+                            }])
+                            // Devastate player budget
+                            const gameState = useGameStore.getState()
+                            useGameStore.getState().updateBudget(-(gameState.nation?.stats?.budget ?? 0) * 0.5)
+                        })
+                        break // Only one retaliation
+                    }
+                }
+            }
+        }
+
+        set({
+            irradiatedZones: newZones,
+            nuclearDebuffs: newDebuffs,
+            aiCountries: updatedCountries,
+            nuclearTargetingMode: null // Exit targeting mode
+        })
+    },
+
+    processNuclearDebuffs: (currentGameDate: number) => {
+        const { nuclearDebuffs } = get()
+        let changed = false
+        const newDebuffs = new Map(nuclearDebuffs)
+
+        // Check for expired debuffs
+        nuclearDebuffs.forEach((debuff, countryCode) => {
+            if (debuff.expiresAt > 0 && currentGameDate >= debuff.expiresAt) {
+                console.log(`☢️ Nuclear debuff expired for ${countryCode}`)
+                newDebuffs.delete(countryCode)
+
+                // Remove NUCLEAR_DEVASTATED modifier
+                const { aiCountries } = get()
+                const country = aiCountries.get(countryCode)
+                if (country) {
+                    const updatedCountries = new Map(aiCountries)
+                    updatedCountries.set(countryCode, {
+                        ...country,
+                        modifiers: country.modifiers.filter(m => m.type !== 'NUCLEAR_DEVASTATED')
+                    })
+                    set({ aiCountries: updatedCountries })
+                }
+                changed = true
+            }
+        })
+
+        if (changed) {
+            set({ nuclearDebuffs: newDebuffs })
+        }
+    },
+
     reset: () => set({
         aiCountries: new Map(),
         aiTerritories: new Map(),
@@ -2587,6 +2881,9 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         activeCoalitionWars: [],
         activeWars: [],
         allies: [],
+        irradiatedZones: new Map(),
+        nuclearDebuffs: new Map(),
+        nuclearTargetingMode: null,
     }),
 
     // Article 5: Collective Defense
@@ -2663,9 +2960,10 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                 soldiers: ally.soldiers - allyContribution
             })
 
-            // A. Declare War on Attacker (AI ally -> AI attacker)
-            if (attackerCode !== 'PLAYER') {
-                // AI vs AI: Ally declares war on AI Attacker
+            // A. Declare War on Attacker (AI ally -> AI attacker OR Player)
+            // if (attackerCode !== 'PLAYER') { // ALLOW PLAYER WARS
+            {
+                // Check if already at war
                 const { aiWars } = get()
                 const alreadyAtWar = aiWars.some(w =>
                     (w.attackerCode === allyCode && w.defenderCode === attackerCode) ||
@@ -2692,7 +2990,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     aiCountries.set(allyCode, {
                         ...updatedAlly,
                         isAtWar: true,
-                        modifiers: [...updatedAlly.modifiers.filter(m => m !== 'AT_WAR'), 'AT_WAR']
+                        modifiers: [...updatedAlly.modifiers.filter(m => m.type !== 'AT_WAR'), createModifier('AT_WAR', { code: allyCode, name: updatedAlly.name })]
                     })
 
                     alliesJoined++
@@ -2705,7 +3003,9 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         if (!isPlayerDefender && defender) {
             const newSoldiers = defender.soldiers + totalReinforcements
             const newModifiers = [...defender.modifiers]
-            if (!newModifiers.includes('MILITARY_QUALITY')) newModifiers.push('MILITARY_QUALITY')
+            if (!hasModifier(newModifiers, 'MILITARY_QUALITY')) {
+                newModifiers.push(createModifier('MILITARY_QUALITY', { code: defenderCode, name: defender.name }))
+            }
 
             aiCountries.set(defenderCode, {
                 ...defender,
@@ -2803,8 +3103,10 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
         if (endedWarsCount > 0) {
             // Apply Humiliation
-            const currentModifiers = surrenderingCountry.modifiers.filter(m => m !== 'AT_WAR')
-            if (!currentModifiers.includes('HUMILIATED')) currentModifiers.push('HUMILIATED')
+            const currentModifiers = surrenderingCountry.modifiers.filter(m => m.type !== 'AT_WAR')
+            if (!hasModifier(currentModifiers, 'HUMILIATED')) {
+                currentModifiers.push(createModifier('HUMILIATED', { code: surrenderingCountryCode, name: surrenderingCountry.name }))
+            }
 
             aiCountries.set(surrenderingCountryCode, {
                 ...surrenderingCountry,

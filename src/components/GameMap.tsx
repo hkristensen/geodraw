@@ -8,6 +8,7 @@ import type { Feature, Polygon, MultiPolygon, FeatureCollection } from 'geojson'
 import * as turf from '@turf/turf'
 import { useGameStore } from '../store/gameStore'
 import { useWorldStore } from '../store/worldStore'
+import { useMultiplayerStore } from '../store/multiplayerStore'
 import { calculateConsequences } from '../utils/calculateConsequences'
 import { calculateCityCapture, parseCities } from '../utils/calculateCityCapture'
 import { analyzeExpansionClaim } from '../utils/resolveExpansion'
@@ -143,6 +144,11 @@ export function GameMap({
         infrastructureLoaded,
     } = useGameStore()
 
+    // Get player color from multiplayer store
+    const playerColor = useMultiplayerStore(state => state.playerColor) || '#f97316'
+    const userId = useMultiplayerStore(state => state.user?.uid)
+    const remotePlayers = useGameStore(state => state.remotePlayers)
+
     const {
         aiTerritories,
         contestedZones,
@@ -192,8 +198,8 @@ export function GameMap({
         }
     }, [contestedZones])
 
-    // Update map with irradiated zones (nuclear strike affected areas - green)
-    const aiCountriesForIrradiated = useWorldStore(state => state.aiCountries)
+    // Update map with irradiated zones (nuclear strike impact zones - 50km green circles)
+    const irradiatedZones = useWorldStore(state => state.irradiatedZones)
     useEffect(() => {
         const mapInstance = map.current
         if (!mapInstance || !mapInstance.getStyle()) return
@@ -201,27 +207,24 @@ export function GameMap({
         try {
             const source = mapInstance.getSource?.('irradiated-zones') as maplibregl.GeoJSONSource | undefined
             if (source) {
-                // Find all countries with IRRADIATED modifier
-                const irradiatedCountries: Feature[] = []
-                aiCountriesForIrradiated.forEach((country, code) => {
-                    if (country.modifiers.includes('IRRADIATED')) {
-                        const territory = aiTerritories.get(code)
-                        if (territory) {
-                            irradiatedCountries.push(territory as Feature)
-                            console.log(`☢️ Rendering irradiated zone for ${country.name}`)
-                        }
+                // Collect all irradiated zone geometries (pre-computed circles)
+                const zoneFeatures: Feature[] = []
+                irradiatedZones.forEach((zone) => {
+                    if (zone.geometry) {
+                        zoneFeatures.push(zone.geometry as Feature)
+                        console.log(`☢️ Rendering irradiated zone at [${zone.location[0].toFixed(2)}, ${zone.location[1].toFixed(2)}]`)
                     }
                 })
 
                 source.setData({
                     type: 'FeatureCollection',
-                    features: irradiatedCountries
+                    features: zoneFeatures
                 })
             }
         } catch (e) {
             console.warn('⚠️ Error updating irradiated zones:', e)
         }
-    }, [aiCountriesForIrradiated, aiTerritories])
+    }, [irradiatedZones])
 
     // RENDER AI WAR PLANS (Visual Arrows)
     useEffect(() => {
@@ -534,6 +537,45 @@ export function GameMap({
 
     }, [aiCountries])
 
+    // Update remote players visualization
+    useEffect(() => {
+        if (!map.current || !map.current.getSource('remote-players')) return
+
+        const features: Feature[] = Object.values(remotePlayers)
+            .filter(p => p.id !== userId) // Filter out self
+            .map(p => {
+                let territory = p.territory
+
+                // Hydrate from local countries data if missing
+                if (!territory && p.countryCode) {
+                    const feature = (countriesData as FeatureCollection).features.find(
+                        f => f.properties?.iso_a3 === p.countryCode
+                    )
+                    if (feature) {
+                        territory = feature as any
+                    }
+                }
+
+                if (!territory) return null
+
+                return {
+                    ...territory,
+                    properties: {
+                        ...territory.properties,
+                        color: p.color,
+                        nickname: p.nickname
+                    }
+                }
+            })
+            .filter((f): f is Feature => f !== null)
+
+        const source = map.current.getSource('remote-players') as maplibregl.GeoJSONSource
+        source.setData({
+            type: 'FeatureCollection',
+            features
+        })
+    }, [remotePlayers, userId])
+
     // Initialize map
     useEffect(() => {
         if (!mapContainer.current) return
@@ -550,6 +592,10 @@ export function GameMap({
                     'countries': {
                         type: 'geojson',
                         data: countriesData as FeatureCollection
+                    },
+                    'remote-players': {
+                        type: 'geojson',
+                        data: { type: 'FeatureCollection', features: [] }
                     }
                 },
                 layers: [
@@ -567,6 +613,33 @@ export function GameMap({
                         paint: {
                             'fill-color': '#1e293b', // Slate 800 (Land)
                             'fill-opacity': 1
+                        }
+                    },
+                    {
+                        id: 'remote-players-fill',
+                        type: 'fill',
+                        source: 'remote-players',
+                        paint: {
+                            'fill-color': ['get', 'color'],
+                            'fill-opacity': 0.6,
+                            'fill-outline-color': '#ffffff'
+                        }
+                    },
+                    {
+                        id: 'remote-players-label',
+                        type: 'symbol',
+                        source: 'remote-players',
+                        layout: {
+                            'text-field': ['get', 'nickname'],
+                            'text-font': ['Open Sans Bold'],
+                            'text-size': 14,
+                            'text-offset': [0, 1],
+                            'text-anchor': 'top'
+                        },
+                        paint: {
+                            'text-color': '#ffffff',
+                            'text-halo-color': '#000000',
+                            'text-halo-width': 2
                         }
                     },
                     {
@@ -653,6 +726,52 @@ export function GameMap({
             // Unified Click Handler
             map.current.on('click', (e) => {
                 const { phase, annexedCountries, activeClaims, setSelectedCountry, buildingMode, addBuilding } = useGameStore.getState()
+                const { nuclearTargetingMode } = useWorldStore.getState()
+
+                // -1. Check for Nuclear Targeting Mode (Highest Priority)
+                if (nuclearTargetingMode) {
+                    // Check if click is on the target country
+                    const countryFeatures = map.current?.queryRenderedFeatures(e.point, {
+                        layers: ['countries-fill']
+                    })
+
+                    if (countryFeatures && countryFeatures.length > 0) {
+                        const clickedCountryCode = countryFeatures[0].properties?.iso_a3
+
+                        if (clickedCountryCode === nuclearTargetingMode.countryCode) {
+                            // Valid target - launch nuclear strike at this location
+                            const { isMultiplayer, isHost, gameId: multiplayerGameId, user } = useMultiplayerStore.getState()
+
+                            if (isMultiplayer && !isHost && multiplayerGameId && user) {
+                                // Client: Dispatch action to Host
+                                import('../firebase/actions').then(({ sendAction }) => {
+                                    sendAction(multiplayerGameId, 'LAUNCH_NUCLEAR_STRIKE', user.uid, {
+                                        location: [e.lngLat.lng, e.lngLat.lat],
+                                        countryCode: nuclearTargetingMode.countryCode
+                                    })
+                                })
+                                console.log(`☢️ Client dispatching nuclear strike to host at [${e.lngLat.lng.toFixed(2)}, ${e.lngLat.lat.toFixed(2)}]`)
+                            } else {
+                                // Host or Local: Execute directly
+                                console.log(`☢️ Nuclear strike confirmed at [${e.lngLat.lng.toFixed(2)}, ${e.lngLat.lat.toFixed(2)}]`)
+                                useWorldStore.getState().launchNuclearStrike(
+                                    [e.lngLat.lng, e.lngLat.lat],
+                                    nuclearTargetingMode.countryCode
+                                )
+                            }
+                            return
+                        } else {
+                            // Wrong country - show warning
+                            console.log(`🚫 Invalid target: clicked ${clickedCountryCode}, need ${nuclearTargetingMode.countryCode}`)
+                            // Could add a toast message here
+                            return
+                        }
+                    } else {
+                        // Clicked on ocean or outside countries
+                        console.log('🚫 Cannot target ocean - click on land')
+                        return
+                    }
+                }
 
                 // 0. Check for Building Mode (Top Priority)
                 if (buildingMode) {
@@ -773,7 +892,7 @@ export function GameMap({
                     'fill-color': '#f97316', // Orange
                     'fill-opacity': 0.4,
                 },
-            })
+            }, 'remote-players-fill') // Insert below remote players so they appear on top
 
             // Player territory border
             map.current.addLayer({
@@ -1282,6 +1401,20 @@ export function GameMap({
         const retryTimeout = setTimeout(updateTerritoryLayer, 100)
         return () => clearTimeout(retryTimeout)
     }, [playerTerritories, nation])
+
+    // Update territory layer colors when playerColor changes
+    useEffect(() => {
+        if (!map.current || !map.current.isStyleLoaded()) return
+
+        // Check if layers exist before updating
+        if (map.current.getLayer('player-territory-fill')) {
+            map.current.setPaintProperty('player-territory-fill', 'fill-color', playerColor)
+        }
+        if (map.current.getLayer('player-territory-line')) {
+            map.current.setPaintProperty('player-territory-line', 'line-color', playerColor)
+        }
+        console.log('🎨 Updated territory color to:', playerColor)
+    }, [playerColor])
 
     // Update buildings display
     // Manage Building Markers

@@ -70,12 +70,15 @@ export function NewsTicker() {
         return null
     }
 
+    // Detect mobile for responsive positioning
+    const isMobile = window.innerWidth < 768
+
     return (
-        <div className="absolute bottom-0 left-0 right-0 z-20 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-t border-orange-500/30">
-            <div className="flex items-center h-10 overflow-hidden">
+        <div className={`absolute ${isMobile ? 'bottom-16' : 'bottom-0'} left-0 right-0 z-20 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-t border-orange-500/30`}>
+            <div className={`flex items-center ${isMobile ? 'h-8' : 'h-10'} overflow-hidden`}>
                 {/* Breaking News Label */}
-                <div className="flex-shrink-0 px-4 h-full flex items-center bg-red-600 font-bold text-white text-sm">
-                    BREAKING
+                <div className={`flex-shrink-0 ${isMobile ? 'px-2' : 'px-4'} h-full flex items-center bg-red-600 font-bold text-white ${isMobile ? 'text-xs' : 'text-sm'}`}>
+                    {isMobile ? '⚡' : 'BREAKING'}
                 </div>
 
                 {/* Scrolling Headlines */}

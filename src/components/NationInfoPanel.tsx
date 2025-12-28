@@ -15,7 +15,12 @@ function formatNumber(num: number): string {
     return num.toLocaleString()
 }
 
-export function NationInfoPanel() {
+interface NationInfoPanelProps {
+    isMobile?: boolean
+    onClose?: () => void
+}
+
+export function NationInfoPanel({ isMobile, onClose }: NationInfoPanelProps) {
     const { nation, consequences, annexedCountries, infrastructureStats, gameDate } = useGameStore()
     const { activeWars, allies, aiCountries } = useWorldStore()
     const [activeTab, setActiveTab] = useState<'overview' | 'economy' | 'build' | 'stats'>('overview')
@@ -50,11 +55,29 @@ export function NationInfoPanel() {
     const totalArea = consequences.reduce((sum, c) => sum + c.lostArea, 0)
     const totalPop = consequences.reduce((sum, c) => sum + c.populationCaptured, 0)
 
+    // Mobile: full-width drawer from bottom; Desktop: floating panel top-left
+    const containerClasses = isMobile
+        ? 'mobile-panel animate-slideUp bg-slate-900/98 backdrop-blur-md border-t border-orange-500/30 shadow-2xl overflow-hidden flex flex-col'
+        : 'absolute top-4 left-4 z-10 w-80'
+
     return (
         <>
-            <div className="absolute top-4 left-4 z-10 w-80">
+            {/* Mobile backdrop */}
+            {isMobile && <div className="mobile-backdrop" onClick={onClose} />}
+
+            <div className={containerClasses}>
+                {/* Mobile drawer handle */}
+                {isMobile && <div className="drawer-handle" />}
+
+                {/* Mobile close button */}
+                {isMobile && (
+                    <button onClick={onClose} className="mobile-close-btn">
+                        ✕
+                    </button>
+                )}
+
                 {/* Main Nation Card */}
-                <div className="bg-slate-900/95 backdrop-blur-md rounded-xl border border-orange-500/30 shadow-2xl overflow-hidden">
+                <div className={`${isMobile ? '' : 'bg-slate-900/95 backdrop-blur-md rounded-xl border border-orange-500/30 shadow-2xl'} overflow-hidden flex-1 flex flex-col`}>
                     {/* Header with flag */}
                     <div className="bg-gradient-to-r from-orange-600/20 to-amber-600/20 p-4 border-b border-orange-500/20">
                         <div className="flex items-center gap-3">
@@ -115,8 +138,8 @@ export function NationInfoPanel() {
                         <>
                             {/* Main Stats */}
                             <div className="p-3 border-b border-white/5">
-                                <div className="grid grid-cols-4 gap-1 text-center text-xs">
-                                    <div className="bg-black/30 rounded p-1.5" title="Total Power">
+                                <div className="grid grid-cols-5 gap-1 text-center text-xs">
+                                    <div className="bg-black/30 rounded p-1.5" title={`Score Breakdown:\nArmy: ${formatNumber(nation.stats.soldiers * 0.5)}\nWealth: ${formatNumber(nation.stats.wealth / 1000000)}\nTech: ${formatNumber(researchPoints * 100)}\nBuildings: ${nation.buildings.length * 50}`}>
                                         <div className="text-yellow-400 font-bold">{formatNumber(nation.stats.power)}</div>
                                         <div className="text-gray-500 text-[10px] uppercase">Power</div>
                                     </div>
@@ -128,9 +151,15 @@ export function NationInfoPanel() {
                                         <div className="text-green-400 font-bold">{Math.min(100, Math.floor(nation.stats.wealth / 1000000))}</div>
                                         <div className="text-gray-500 text-[10px] uppercase">Econ</div>
                                     </div>
-                                    <div className="bg-black/30 rounded p-1.5" title="Active Soldiers">
+                                    <div className="bg-black/30 rounded p-1.5" title={`Active: ${formatNumber(nation.stats.soldiers)}\nReserves: ${formatNumber(nation.stats.manpower - nation.stats.soldiers)}\nMax Cap: ${formatNumber(nation.stats.manpower)}`}>
                                         <div className="text-red-400 font-bold">{formatNumber(nation.stats.soldiers)}</div>
                                         <div className="text-gray-500 text-[10px] uppercase">Army</div>
+                                    </div>
+                                    <div className="bg-black/30 rounded p-1.5" title={economyData ? `Income: +${formatMoney(economyData.totalIncome)}\nExpenses: -${formatMoney(economyData.expenses)}\nNet: ${economyData.netIncome >= 0 ? '+' : ''}${formatMoney(economyData.netIncome)}` : 'Calculating...'}>
+                                        <div className={nation.stats.budget >= 0 ? "text-green-400 font-bold" : "text-red-400 font-bold"}>
+                                            {formatNumber(nation.stats.budget)}
+                                        </div>
+                                        <div className="text-gray-500 text-[10px] uppercase">Cash</div>
                                     </div>
                                 </div>
                             </div>

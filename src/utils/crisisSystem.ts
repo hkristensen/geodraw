@@ -98,7 +98,7 @@ export function checkCrisisTriggers(
         }
 
         // Territorial dispute: revanchist countries
-        if (country.modifiers.includes('REVANCHISM') && country.territoryLost > 10) {
+        if (country.modifiers.some(m => m.type === 'REVANCHISM') && country.territoryLost > 10) {
             if (Math.random() < 0.03) { // 3% chance
                 const target = playerCountryCode || getRandomEnemy(country, aiCountries)
                 if (target) {

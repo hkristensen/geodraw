@@ -382,7 +382,7 @@ export function DiplomacyActionModal({ countryCode, onClose, onLaunchOffensive }
                                 )}
 
                                 {/* Request Support Button */}
-                                {(country.relations > 50 || country.modifiers.includes('ALLIED')) && (
+                                {(country.relations > 50 || country.modifiers.some(m => m.type === 'ALLIED')) && (
                                     <button
                                         onClick={() => {
                                             const amount = requestSupport(countryCode)
@@ -769,120 +769,31 @@ export function DiplomacyActionModal({ countryCode, onClose, onLaunchOffensive }
                                         <div className="p-4 bg-yellow-900/20 border border-yellow-500/30 rounded mt-4">
                                             <h3 className="text-yellow-400 font-bold mb-2">☢️ Nuclear Strike</h3>
                                             <p className="text-sm text-gray-400 mb-2">
-                                                Launch a nuclear weapon at {country.name}. This will cause <strong className="text-red-400">massive devastation</strong> in a 500km radius.
+                                                Launch a nuclear weapon at {country.name}. Click on the map to select the <strong className="text-red-400">exact impact location</strong>.
+                                            </p>
+                                            <p className="text-xs text-green-400 mb-2">
+                                                ☢️ Impact zone: 50km radius (uninhabitable wasteland)
                                             </p>
                                             <p className="text-xs text-red-400 mb-4">
                                                 ⚠️ <strong>WARNING:</strong> Using nuclear weapons will:
-                                                <br />• Kill 90% of population in target area
-                                                <br />• Destroy all infrastructure
+                                                <br />• Kill all population in 50km radius (permanent)
+                                                <br />• 10-year economic/research/trade/military debuff on {country.name}
                                                 <br />• Cause -50 relations with ALL nations
                                                 <br />• 70% chance of nuclear retaliation from allies
                                             </p>
                                             <button
                                                 onClick={() => {
-                                                    // Launch nuclear strike
-                                                    const storeState = useWorldStore.getState()
-                                                    const gameState = useGameStore.getState()
-
-                                                    // Consume a warhead
-                                                    if (gameState.nation?.stats?.nuclearProgram) {
-                                                        const newWarheads = gameState.nation.stats.nuclearProgram.warheads - 1
-                                                        useGameStore.setState(state => ({
-                                                            nation: state.nation ? {
-                                                                ...state.nation,
-                                                                stats: {
-                                                                    ...state.nation.stats,
-                                                                    nuclearProgram: {
-                                                                        ...state.nation.stats.nuclearProgram!,
-                                                                        warheads: newWarheads
-                                                                    }
-                                                                }
-                                                            } : null
-                                                        }))
-                                                    }
-
-                                                    // Devastating effects on target
-                                                    const target = storeState.aiCountries.get(countryCode)
-                                                    if (target) {
-                                                        // Kill 90% soldiers and population
-                                                        const newSoldiers = Math.floor(target.soldiers * 0.1)
-                                                        const newPower = Math.floor(target.power * 0.2)
-                                                        const newPopulation = Math.floor(target.population * 0.3)
-                                                        const devastation = 50 // 50% territory as "irradiated"
-
-                                                        console.log(`☢️ NUCLEAR STRIKE on ${target.name}:`)
-                                                        console.log(`   Soldiers: ${target.soldiers} → ${newSoldiers} (90% killed)`)
-                                                        console.log(`   Power: ${target.power} → ${newPower} (80% destroyed)`)
-                                                        console.log(`   Population: ${target.population} → ${newPopulation} (70% killed)`)
-                                                        console.log(`   Territory devastated: +${devastation}%`)
-
-                                                        const updatedCountries = new Map(storeState.aiCountries)
-                                                        updatedCountries.set(countryCode, {
-                                                            ...target,
-                                                            soldiers: newSoldiers,
-                                                            power: newPower,
-                                                            population: newPopulation,
-                                                            territoryLost: Math.min(100, target.territoryLost + devastation),
-                                                            modifiers: [...target.modifiers, 'IRRADIATED']
-                                                        })
-
-                                                        useWorldStore.setState({
-                                                            aiCountries: updatedCountries
-                                                        })
-                                                    }
-
-                                                    // Massive diplomatic consequences - relations penalty with EVERYONE
-                                                    const freshState = useWorldStore.getState()
-                                                    freshState.aiCountries.forEach((_ai, code) => {
-                                                        if (code !== countryCode) {
-                                                            freshState.updateRelations(code, -50)
-                                                        }
-                                                    })
-
-                                                    // Event
-                                                    addDiplomaticEvents([{
-                                                        id: `nuke-${Date.now()}`,
-                                                        type: 'NUCLEAR_ATTACK',
-                                                        severity: 3,
-                                                        title: '☢️ NUCLEAR STRIKE',
-                                                        description: `${nation?.name} has launched a nuclear weapon at ${country.name}! Massive devastation reported.`,
-                                                        affectedNations: [countryCode],
-                                                        timestamp: Date.now()
-                                                    }])
-
-                                                    // Check for retaliation from allies
-                                                    const defenderCoalitions = coalitions.filter(c => c.members.includes(countryCode) && c.type === 'MILITARY')
-                                                    for (const coalition of defenderCoalitions) {
-                                                        for (const memberCode of coalition.members) {
-                                                            if (memberCode === countryCode || memberCode === 'PLAYER') continue
-                                                            const member = freshState.aiCountries.get(memberCode)
-                                                            if (member?.nuclearProgram?.warheads && member.nuclearProgram.warheads > 0) {
-                                                                // 70% chance of nuclear retaliation
-                                                                if (Math.random() < 0.7) {
-                                                                    console.log(`☢️ NUCLEAR RETALIATION from ${member.name}!`)
-                                                                    addDiplomaticEvents([{
-                                                                        id: `retaliation-${Date.now()}-${memberCode}`,
-                                                                        type: 'NUCLEAR_ATTACK',
-                                                                        severity: 3,
-                                                                        title: '☢️ NUCLEAR RETALIATION',
-                                                                        description: `${member.name} has launched a retaliatory nuclear strike! Your nation is devastated.`,
-                                                                        affectedNations: ['PLAYER'],
-                                                                        timestamp: Date.now()
-                                                                    }])
-                                                                    // Devastate player
-                                                                    gameState.updateBudget(-(gameState.nation?.stats?.budget ?? 0) * 0.5)
-                                                                    break
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-
-                                                    setMessage('☢️ Nuclear strike launched! The world will remember this...')
-                                                    setTimeout(() => onClose(), 3000)
+                                                    // Enter nuclear targeting mode - player will click on map to select target
+                                                    useWorldStore.getState().enterNuclearTargetingMode(
+                                                        countryCode,
+                                                        nation?.stats?.nuclearProgram?.warheads ?? 1
+                                                    )
+                                                    setMessage('☢️ Nuclear targeting mode active. Click on the map to select impact location.')
+                                                    setTimeout(() => onClose(), 1500)
                                                 }}
                                                 className="w-full py-3 bg-gradient-to-r from-yellow-600 to-red-600 hover:from-yellow-500 hover:to-red-500 text-white font-bold rounded shadow-lg transition-all flex items-center justify-center gap-2"
                                             >
-                                                <span>☢️</span> LAUNCH NUCLEAR STRIKE ({nation?.stats?.nuclearProgram?.warheads} remaining)
+                                                <span>🎯</span> SELECT TARGET LOCATION ({nation?.stats?.nuclearProgram?.warheads} warheads)
                                             </button>
                                         </div>
                                     )}
@@ -1330,13 +1241,13 @@ function DataTab({ countryCode, country, geoData }: DataTabProps) {
                                     {country.modifiers.map((mod, i) => (
                                         <span
                                             key={i}
-                                            className={`text-xs px-2 py-0.5 rounded ${mod === 'AT_WAR' ? 'bg-red-900/50 text-red-400 border border-red-500/30' :
-                                                mod === 'ALLIED' ? 'bg-green-900/50 text-green-400 border border-green-500/30' :
-                                                    mod === 'REVANCHISM' ? 'bg-orange-900/50 text-orange-400 border border-orange-500/30' :
+                                            className={`text-xs px-2 py-0.5 rounded ${mod.type === 'AT_WAR' ? 'bg-red-900/50 text-red-400 border border-red-500/30' :
+                                                mod.type === 'ALLIED' ? 'bg-green-900/50 text-green-400 border border-green-500/30' :
+                                                    mod.type === 'REVANCHISM' ? 'bg-orange-900/50 text-orange-400 border border-orange-500/30' :
                                                         'bg-slate-700 text-gray-300'
                                                 }`}
                                         >
-                                            {mod.replace(/_/g, ' ')}
+                                            {mod.type.replace(/_/g, ' ')}
                                         </span>
                                     ))}
                                 </div>

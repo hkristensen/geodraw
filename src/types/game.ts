@@ -60,6 +60,18 @@ export type ModifierType =
     | 'STABILITY'     // General stability
     | 'ECONOMIC_DEPRESSION' // Reduced income
     | 'ECONOMIC_BOOM' // Increased income
+    | 'ECONOMIC_CRISIS'
+    | 'MILITARY_BUILDUP'
+    | 'PACIFIST_MOVEMENT'
+    | 'SCANDAL'
+    | 'GOLDEN_AGE'
+    | 'NUCLEAR_DEVASTATED'
+    | 'MARTIAL_LAW'
+    | 'DIPLOMATIC_ISOLATION'
+    | 'SANCTIONS'
+    | 'TRADE_WAR'
+    | 'HYPERINFLATION'
+    | 'FAMINE'
     | 'DEFENSE_BONUS' // Military defense bonus
     | 'MILITARY_QUALITY' // Better troops
     | 'MILITARY_QUANTITY' // More troops
@@ -79,6 +91,7 @@ export type ModifierType =
     | 'ENRICHMENT_ENABLED'    // Can enrich uranium
     | 'NUCLEAR_WEAPONS_ENABLED' // Can build nuclear warheads
     | 'IRRADIATED'           // Territory hit by nuclear strike
+    | 'NUCLEAR_DEVASTATED'   // Country suffering from nuclear strike (10-year debuff)
 
 export interface CountryModifier {
     id: string
@@ -247,6 +260,7 @@ export interface NationStats {
     tradeIncome: number      // Calculated from ports/airports
     taxIncome: number        // Calculated from population * GDP * taxRate
     expenses: number         // Calculated from soldiers * cost
+    inflation: number        // 0 to X (decimal percentage), affects costs
 
     // Nuclear Program (optional)
     nuclearProgram?: NuclearProgram
@@ -258,6 +272,29 @@ export interface NuclearProgram {
     reactors: number             // Nuclear reactors built (produce power)
     enrichmentFacilities: number // Enrichment facilities (produce HEU)
     productionStartTime?: number // When warhead production started
+}
+
+// Nuclear Strike Impact Zone (50km radius circle)
+export interface IrradiatedZone {
+    id: string
+    location: [number, number]  // Center point [lng, lat]
+    radius: number              // km (50km default)
+    countryCode: string         // Which country was hit
+    createdAt: number           // Game timestamp
+    expiresAt: number           // Never expires (permanent wasteland)
+    populationKilled: number    // Tracked for events
+    geometry: GeoJSON.Feature   // Pre-computed circle polygon
+}
+
+// Nuclear Devastation Debuff (10-year effect on hit country)
+export interface NuclearDebuff {
+    countryCode: string
+    appliedAt: number           // Game timestamp
+    expiresAt: number           // 10 years in game time
+    economyPenalty: number      // -50% (0.5)
+    researchPenalty: number     // -30% (0.3)
+    tradePenalty: number        // -40% (0.4)
+    militaryPenalty: number     // -25% (0.25)
 }
 
 export interface Budget {
@@ -389,7 +426,7 @@ export interface AICountry {
     religion: ReligionType
     culture: string
     language: string
-    modifiers: ModifierType[]
+    modifiers: CountryModifier[]
     isAtWar: boolean
     isAnnexed?: boolean
     warDeclaredAt?: number
@@ -403,6 +440,10 @@ export interface AICountry {
     aggression: number     // 1-5 from geopolitical data
 
     // Diplomacy
+    stats?: NationStats // Optional stats object (created during game loop)
+
+    // Separatism
+    foreignInterference?: { [countryCode: string]: number } // Amount funded by other nations
     agreements: Agreement[]
     tariff: TariffStatus // Tariff player imposes on them
     theirTariff: TariffStatus // Tariff they impose on player
@@ -523,6 +564,7 @@ export type GamePhase =
     | 'CONSTITUTION'  // Naming the nation
     | 'RESULTS'       // Normal gameplay (borders locked, use diplomacy)
     | 'EXPANSION'     // Drawing an expansion claim
+    | 'WAR'           // Active war view (optional, might be overlay)
 
 // Expansion claim status
 export type ExpansionClaimStatus =
@@ -621,4 +663,53 @@ export interface AIWar {
         attacker: number
         defender: number
     }
+}
+
+// Remote Player (Multiplayer)
+export interface RemotePlayer {
+    id: string
+    nickname: string
+    color: string
+    countryCode?: string
+    territory?: any // GeoJSON
+    isAlive: boolean
+    resources: {
+        budget: number
+        soldiers: number
+        power: number
+    }
+}
+
+// Remote Game State (Stored in 'games/{gameId}')
+export interface RemoteGameState {
+    gameDate: number
+    players: { [id: string]: RemotePlayer }
+    wars: any[]
+    aiCountries: any[]
+    events: any[]
+    contestedZones?: { id: string, featureString: string }[]
+    irradiatedZones?: { id: string, zoneString: string }[]
+    activeBattles?: any[] // Synced player battles (ActiveBattle[])
+}
+
+// =============================================================================
+// CLIENT ACTIONS (Multiplayer)
+// =============================================================================
+
+export type ClientActionType =
+    | 'DECLARE_WAR'
+    | 'LAUNCH_OFFENSIVE'
+    | 'LAUNCH_NUCLEAR_STRIKE'
+    | 'PROPOSE_AGREEMENT'
+    | 'BREAK_AGREEMENT'
+    | 'SEND_AID'
+
+export interface ClientAction {
+    id: string
+    type: ClientActionType
+    playerId: string
+    payload: any // Specific params for the action
+    createdAt: number
+    status: 'pending' | 'processed' | 'failed'
+    processedAt?: number
 }

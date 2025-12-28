@@ -16,11 +16,13 @@ const MAX_SOLDIERS = 50000
 
 interface MilitaryPanelProps {
     onOpenDefensivePlanning?: () => void
+    isMobile?: boolean
+    onClose?: () => void
 }
 
 type Tab = 'OVERVIEW' | 'RECRUIT' | 'ORGANIZE'
 
-export function MilitaryPanel({ onOpenDefensivePlanning }: MilitaryPanelProps) {
+export function MilitaryPanel({ onOpenDefensivePlanning, isMobile, onClose }: MilitaryPanelProps) {
     const { nation, createUnit, updateBudget, deleteUnit, transferSoldiers, recallUnit } = useGameStore()
     const [isOpen, setIsOpen] = useState(false)
     const [activeTab, setActiveTab] = useState<Tab>('OVERVIEW')
@@ -86,35 +88,35 @@ export function MilitaryPanel({ onOpenDefensivePlanning }: MilitaryPanelProps) {
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="w-full max-w-4xl bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
+            <div className={`w-full ${isMobile ? 'max-w-full h-full' : 'max-w-4xl max-h-[85vh]'} bg-slate-900 border border-slate-700 ${isMobile ? 'rounded-none' : 'rounded-xl'} shadow-2xl overflow-hidden flex flex-col`}>
 
                 {/* Header */}
-                <div className="p-4 bg-slate-800 border-b border-slate-700 flex justify-between items-center">
-                    <div className="flex items-center gap-4">
-                        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                            🪖 Military Command Center
+                <div className={`p-4 bg-slate-800 border-b border-slate-700 ${isMobile ? 'flex flex-col gap-3' : 'flex justify-between items-center'}`}>
+                    <div className={`flex ${isMobile ? 'justify-between w-full' : 'items-center gap-4'}`}>
+                        <h2 className={`${isMobile ? 'text-lg' : 'text-xl'} font-bold text-white flex items-center gap-2`}>
+                            🪖 {isMobile ? 'Military' : 'Military Command Center'}
                         </h2>
-                        {/* Tabs */}
-                        <div className="flex bg-slate-900 rounded-lg p-1 border border-white/10">
-                            {(['OVERVIEW', 'RECRUIT', 'ORGANIZE'] as Tab[]).map(tab => (
-                                <button
-                                    key={tab}
-                                    onClick={() => setActiveTab(tab)}
-                                    className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === tab
-                                            ? 'bg-blue-600 text-white shadow'
-                                            : 'text-gray-400 hover:text-white hover:bg-white/5'
-                                        }`}
-                                >
-                                    {tab}
-                                </button>
-                            ))}
-                        </div>
+                        <button onClick={() => { setIsOpen(false); onClose?.(); }} className="text-gray-400 hover:text-white text-xl">✕</button>
                     </div>
-                    <button onClick={() => setIsOpen(false)} className="text-gray-400 hover:text-white text-xl">✕</button>
+                    {/* Tabs */}
+                    <div className={`flex bg-slate-900 rounded-lg p-1 border border-white/10 ${isMobile ? 'w-full' : ''}`}>
+                        {(['OVERVIEW', 'RECRUIT', 'ORGANIZE'] as Tab[]).map(tab => (
+                            <button
+                                key={tab}
+                                onClick={() => setActiveTab(tab)}
+                                className={`${isMobile ? 'flex-1' : 'px-4'} py-1.5 text-xs font-bold rounded-md transition-all ${activeTab === tab
+                                    ? 'bg-blue-600 text-white shadow'
+                                    : 'text-gray-400 hover:text-white hover:bg-white/5'
+                                    }`}
+                            >
+                                {tab}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Manpower Bar */}
-                <div className="bg-black/30 p-2 flex gap-4 text-xs border-b border-white/5">
+                <div className={`bg-black/30 p-2 ${isMobile ? 'flex flex-col gap-2' : 'flex gap-4'} text-xs border-b border-white/5`}>
                     <div className="flex-1 flex flex-col justify-center">
                         <div className="flex justify-between text-gray-400 mb-1">
                             <span>Total Army: <strong className="text-white">{totalSoldiers.toLocaleString()}</strong></span>
@@ -161,7 +163,7 @@ export function MilitaryPanel({ onOpenDefensivePlanning }: MilitaryPanelProps) {
                                                     <div className="text-xs text-gray-400">{unit.type}</div>
                                                 </div>
                                                 <div className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${unit.status === 'IDLE' ? 'bg-green-900/50 text-green-400' :
-                                                        unit.status === 'ATTACKING' ? 'bg-red-900/50 text-red-400' : 'bg-blue-900/50 text-blue-400'
+                                                    unit.status === 'ATTACKING' ? 'bg-red-900/50 text-red-400' : 'bg-blue-900/50 text-blue-400'
                                                     }`}>
                                                     {unit.status}
                                                 </div>
@@ -230,8 +232,8 @@ export function MilitaryPanel({ onOpenDefensivePlanning }: MilitaryPanelProps) {
                                         key={type}
                                         onClick={() => setRecruitType(type as UnitType)}
                                         className={`p-3 rounded-lg border transition-all flex flex-col items-center gap-2 ${recruitType === type
-                                                ? 'bg-blue-600/20 border-blue-500 text-white ring-1 ring-blue-500'
-                                                : 'bg-slate-800 border-white/5 text-gray-400 hover:bg-slate-700'
+                                            ? 'bg-blue-600/20 border-blue-500 text-white ring-1 ring-blue-500'
+                                            : 'bg-slate-800 border-white/5 text-gray-400 hover:bg-slate-700'
                                             }`}
                                     >
                                         <span className="text-2xl">{tmpl.emoji}</span>
@@ -291,8 +293,8 @@ export function MilitaryPanel({ onOpenDefensivePlanning }: MilitaryPanelProps) {
                                             key={unit.id}
                                             onClick={() => setTransferSourceId(unit.id)}
                                             className={`text-left p-2 rounded border transition-colors ${transferSourceId === unit.id
-                                                    ? 'bg-blue-600/20 border-blue-500 text-white'
-                                                    : 'bg-slate-800 border-white/5 text-gray-400 hover:bg-slate-700'
+                                                ? 'bg-blue-600/20 border-blue-500 text-white'
+                                                : 'bg-slate-800 border-white/5 text-gray-400 hover:bg-slate-700'
                                                 }`}
                                         >
                                             <div className="font-bold text-xs">{unit.name}</div>
@@ -333,8 +335,8 @@ export function MilitaryPanel({ onOpenDefensivePlanning }: MilitaryPanelProps) {
                                             key={unit.id}
                                             onClick={() => setTransferTargetId(unit.id)}
                                             className={`text-left p-2 rounded border transition-colors ${transferTargetId === unit.id
-                                                    ? 'bg-blue-600/20 border-blue-500 text-white'
-                                                    : 'bg-slate-800 border-white/5 text-gray-400 hover:bg-slate-700'
+                                                ? 'bg-blue-600/20 border-blue-500 text-white'
+                                                : 'bg-slate-800 border-white/5 text-gray-400 hover:bg-slate-700'
                                                 } ${transferSourceId === unit.id ? 'opacity-30 cursor-not-allowed' : ''}`}
                                             disabled={transferSourceId === unit.id}
                                         >
@@ -352,6 +354,6 @@ export function MilitaryPanel({ onOpenDefensivePlanning }: MilitaryPanelProps) {
 
                 </div>
             </div>
-        </div>
+        </div >
     )
 }

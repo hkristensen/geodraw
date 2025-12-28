@@ -176,6 +176,40 @@ export function getCycleDescription(cycle: EconomicCycleState): string {
  * Calculate total income based on stats and budget
  * Now includes optional economic cycle modifier
  */
+/**
+ * Calculate Total GDP (Annual)
+ */
+export function calculateTotalGDP(
+    stats: NationStats,
+    population: number,
+    buildings: Building[] = []
+): number {
+    const factories = buildings.filter(b => b.type === 'FACTORY').length
+    const baseGDP = stats.gdpPerCapita || 20000
+
+    const infraMult = 0.5 + (stats.budgetAllocation.infrastructure / 100) * 1.5
+    const stabilityMult = 0.8 + (stats.budgetAllocation.social / 100) * 0.4
+    const factoryBonus = factories * 0.1
+
+    // Real GDP per capita
+    const realGDP = baseGDP * infraMult * stabilityMult * (1 + factoryBonus)
+    return realGDP * population
+}
+
+/**
+ * Calculate Inflation based on Budget vs GDP
+ */
+export function calculateInflation(budget: number, totalGDP: number): number {
+    const annualGDP = totalGDP // totalGDP is usually passed as annual amount
+    // If treasury holds more than 50% of annual GDP, inflation rises
+    const ratio = budget / (annualGDP || 1)
+
+    if (ratio < 0.5) return 0
+
+    // Linear scaling: 0.5 ratio -> 0% inflation. 1.5 ratio -> 20% inflation.
+    return Math.max(0, Math.min(2.0, (ratio - 0.5) * 0.2))
+}
+
 export function calculateIncome(
     stats: NationStats,
     infra: InfrastructureStats,
@@ -295,7 +329,8 @@ export function calculateIncome(
 export function calculateExpenses(
     stats: NationStats,
     population: number,
-    buildings: Building[] = []
+    buildings: Building[] = [],
+    inflation: number = 0
 ): {
     total: number
     militaryExpense: number
@@ -304,39 +339,34 @@ export function calculateExpenses(
     researchExpense: number
     upkeepExpense: number
 } {
+    // Inflation Multiplier
+    const inflationMult = 1 + inflation
+
     // 1. Military Expense
     // Cost per soldier + equipment maintenance
-    // Equipment cost scales with army size and budget intensity
-    const costPerSoldier = 2000 // Monthly cost per soldier
-    const baseEquipmentCost = 5000000 // Base fixed cost
-    const equipmentPerSoldier = 500 // Equipment cost per soldier at max budget
+    const costPerSoldier = 2000 * inflationMult
+    const baseEquipmentCost = 5000000 * inflationMult
+    const equipmentPerSoldier = 500 * inflationMult
     const equipmentCost = (stats.budgetAllocation.military / 100) * (baseEquipmentCost + (stats.soldiers * equipmentPerSoldier))
     const militaryExpense = (stats.soldiers * costPerSoldier) + equipmentCost
 
     // 2. Social Expense
-    // Cost per capita based on social budget setting
-    // $10 - $200 per person per month (Increased top end)
-    const perCapitaSocial = 10 + (stats.budgetAllocation.social / 100) * 190
+    // Cost per capita
+    const perCapitaSocial = (10 + (stats.budgetAllocation.social / 100) * 190) * inflationMult
     const socialExpense = population * perCapitaSocial
 
     // 3. Infrastructure Expense
-    // Maintenance of roads, ports, etc.
-    // Base cost + budget allocation scaling with territory size (wealth)
-    const infraBase = stats.wealth * 500 // $500 per km2 maintenance
-    // Investment scales with territory size: up to $2000 per km2 at max budget
-    const infraInvestment = (stats.budgetAllocation.infrastructure / 100) * (stats.wealth * 2000)
+    const infraBase = stats.wealth * 500 * inflationMult
+    const infraInvestment = (stats.budgetAllocation.infrastructure / 100) * (stats.wealth * 2000 * inflationMult)
     const infraExpense = infraBase + infraInvestment
 
     // 4. Research Expense
-    // Investment scales with population (more scientists/universities)
-    // Up to $100 per capita at max budget
-    const researchExpense = (stats.budgetAllocation.research / 100) * (population * 100)
+    const researchExpense = (stats.budgetAllocation.research / 100) * (population * 100 * inflationMult)
 
-    // 5. General Upkeep (Bureaucracy + Buildings)
-    // Scales with population and territory
-    const bureaucracyCost = (population * 5) + (stats.wealth * 100)
+    // 5. General Upkeep
+    const bureaucracyCost = ((population * 5) + (stats.wealth * 100)) * inflationMult
 
-    // Building Upkeep
+    // Building Upkeep (also affected by inflation)
     let buildingUpkeep = 0
     buildings.forEach(b => {
         switch (b.type) {
@@ -350,6 +380,7 @@ export function calculateExpenses(
             case 'HOSPITAL': buildingUpkeep += 60000; break
         }
     })
+    buildingUpkeep *= inflationMult
 
     const upkeepExpense = bureaucracyCost + buildingUpkeep
 
@@ -397,8 +428,12 @@ export function calculateEconomy(
     // In a real game this would be tracked more precisely
     const population = safeInfra.totalPopulation || 1000000
 
+    // Calculate Inflation
+    const totalGDP = calculateTotalGDP(stats, population, buildings)
+    const inflation = calculateInflation(stats.budget, totalGDP)
+
     const income = calculateIncome(stats, safeInfra, population, buildings, aiCountries)
-    const expense = calculateExpenses(stats, population, buildings)
+    const expense = calculateExpenses(stats, population, buildings, inflation)
 
     const netIncome = income.total - expense.total
 
@@ -421,7 +456,8 @@ export function calculateEconomy(
         stats: {
             taxIncome: income.taxIncome,
             tradeIncome: income.tradeIncome,
-            expenses: expense.total
+            expenses: expense.total,
+            inflation: inflation
         }
     }
 }
