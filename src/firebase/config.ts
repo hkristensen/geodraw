@@ -5,12 +5,12 @@ import { getAuth } from 'firebase/auth'
 import { getFunctions } from 'firebase/functions'
 
 const firebaseConfig = {
-    apiKey: "AIzaSyAfvgSFmx_Ieszosr8gbYS_Ch9quRXFiQc",
-    authDomain: "geodraw-game-7392.firebaseapp.com",
-    projectId: "geodraw-game-7392",
-    storageBucket: "geodraw-game-7392.firebasestorage.app",
-    messagingSenderId: "1061511872518",
-    appId: "1:1061511872518:web:7b4c74579be7d98d168387"
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID
 }
 
 // Initialize Firebase
