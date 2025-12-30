@@ -182,7 +182,8 @@ export function assessThreats(
 export function assessOpportunities(
     country: AICountry,
     allCountries: Map<string, AICountry>,
-    _playerPower: number
+    playerPower: number,
+    coalitions: import('../types/game').Coalition[] = []
 ): OpportunityAssessment {
     const weakNeighbors: string[] = []
     const allianceGaps: string[] = []
@@ -193,16 +194,62 @@ export function assessOpportunities(
     const myTradePartners = new Set(country.tradePartners || [])
     const myEnemies = new Set(country.enemies || [])
 
+    // Helper to get total defensive power of a nation (including coalition allies)
+    const getDefensivePower = (targetCode: string, basePower: number): number => {
+        let totalPower = basePower
+
+        // Find military coalitions this target is in
+        const alliances = coalitions.filter(c =>
+            c.type === 'MILITARY' && c.members.includes(targetCode)
+        )
+
+        const accountedAllies = new Set<string>()
+
+        alliances.forEach(alliance => {
+            alliance.members.forEach(memberCode => {
+                if (memberCode !== targetCode && !accountedAllies.has(memberCode)) {
+                    // Check if ally is player
+                    if (memberCode === 'PLAYER') {
+                        // Estimate player power if not directly available (passed in args for player relation, but treating as raw power here)
+                        // We use playerPower from arguments
+                        totalPower += playerPower
+                    } else {
+                        const ally = allCountries.get(memberCode)
+                        if (ally && !ally.isAnnexed) {
+                            totalPower += (ally.power || 50)
+                        }
+                    }
+                    accountedAllies.add(memberCode)
+                }
+            })
+        })
+
+        return totalPower
+    }
+
     for (const [code, other] of allCountries) {
         if (code === country.code || other.isAnnexed) continue
 
-        const theirPower = other.power || 50
+        const theirBasePower = other.power || 50
+        // CRITICAL UPDATE: Check combined strength of target + allies (NATO deterrence)
+        // If target is PLAYER, we should pass playerCode or handle 'PLAYER' explicitly? 
+        // Note: 'other' in loop is AI. Player is handled separately implicitly? 
+        // Wait, loop iterates 'allCountries'. Does 'allCountries' include PLAYER? 
+        // Usually NO. The player is outside.
+        // BUT, if the AI is looking to attack the PLAYER, where is that check? 
+        // Ah, assessThreats checks player. assessOpportunities usually checks neighbors.
+        // If player is neighbour, logic might be needed.
+        // But for now, let's fix AI-vs-AI and AI-vs-Small-Proxy logic.
+
+        const totalDefensivePower = getDefensivePower(code, theirBasePower)
+
         const isHostile = myEnemies.has(code)
         const isAlly = myAllies.has(code)
         const isTradePartner = myTradePartners.has(code)
 
         // Weak neighbors (can expand into)
-        if (!isAlly && theirPower < myPower * 0.6 && country.aggression >= 3) {
+        // Using totalDefensivePower to deter attacks on coalition members
+        if (!isAlly && totalDefensivePower < myPower * 0.6 && country.aggression >= 3) {
             weakNeighbors.push(code)
         }
 
@@ -412,14 +459,15 @@ export function assessStrategy(
     country: AICountry,
     allCountries: Map<string, AICountry>,
     playerPower: number,
-    gameDate: number
+    gameDate: number,
+    coalitions: import('../types/game').Coalition[] = []
 ): AIStrategyState {
     // Get or assign personality
     const personality = country.strategyState?.personality || assignPersonality(country)
 
     // Assess current situation
     const threatLevel = assessThreats(country, allCountries, playerPower)
-    const opportunities = assessOpportunities(country, allCountries, playerPower)
+    const opportunities = assessOpportunities(country, allCountries, playerPower, coalitions)
 
     // Determine focus
     const currentFocus = selectStrategicFocus(personality, threatLevel, opportunities, country)

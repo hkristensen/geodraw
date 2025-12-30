@@ -61,6 +61,62 @@ export function Flag({ flag, className = '' }: FlagProps) {
                         <rect x="60" y="40" width="60" height="40" fill={c1} />
                     </>
                 )}
+                {pattern === 'canton' && (
+                    <>
+                        <rect x="0" y="0" width="120" height="80" fill={c1} />
+                        <rect x="0" y="0" width="60" height="40" fill={c2} />
+                    </>
+                )}
+
+                {pattern === 'triangle' && (
+                    <>
+                        <rect x="0" y="0" width="120" height="80" fill={c1} />
+                        <path d="M0 0 L60 40 L0 80 Z" fill={c2} />
+                    </>
+                )}
+
+                {/* Symbols Overlay */}
+                {flag.symbol && flag.symbol !== 'none' && (
+                    <g transform="translate(60, 40)" fill={flag.symbolColor || c3}>
+                        {flag.symbol === 'star' && (
+                            <path d="M0,-20 L5,-5 L20,-5 L8,5 L12,20 L0,10 L-12,20 L-8,5 L-20,-5 L-5,-5 Z" />
+                        )}
+                        {flag.symbol === 'crescent' && (
+                            <path d="M-10,-15 A 20,20 0 1,0 -10,15 A 16,16 0 1,1 -10,-15 Z" transform="scale(0.8)" />
+                        )}
+                        {flag.symbol === 'sun' && (
+                            <g>
+                                <circle r="10" />
+                                <path d="M0,-20 L4,-12 M0,20 L-4,12 M20,0 L12,4 M-20,0 L-12,-4 M14,-14 L10,-8 M-14,14 L-10,8 M14,14 L10,8 M-14,-14 L-10,-8" stroke={flag.symbolColor || c3} strokeWidth="2" />
+                            </g>
+                        )}
+                        {flag.symbol === 'eagle' && (
+                            <path d="M0,-15 Q15,-20 25,-10 T30,5 L20,0 L25,10 Q10,15 0,10 Q-10,15 -25,10 L-20,0 L-30,5 T-25,-10 Q-15,-20 0,-15 Z M0,-15 L0,10" transform="scale(0.8)" />
+                        )}
+                        {flag.symbol === 'shield' && (
+                            <path d="M-15,-15 H15 V5 Q15,20 0,25 Q-15,20 -15,5 Z" />
+                        )}
+                        {flag.symbol === 'crown' && (
+                            <path d="M-15,10 L-15,-5 L-10,0 L0,-10 L10,0 L15,-5 L15,10 Z M-15,10 H15" />
+                        )}
+                        {flag.symbol === 'swords' && (
+                            <g stroke={flag.symbolColor || c3} strokeWidth="3">
+                                <path d="M-15,-15 L15,15 M-15,15 L15,-15" />
+                            </g>
+                        )}
+                        {flag.symbol === 'skull' && (
+                            <g>
+                                <circle r="10" cy="-5" />
+                                <rect x="-8" y="5" width="16" height="10" rx="2" />
+                                <circle cx="-4" cy="-5" r="3" fill={c1} />
+                                <circle cx="4" cy="-5" r="3" fill={c1} />
+                            </g>
+                        )}
+                        {flag.symbol === 'laurel' && (
+                            <path d="M-20,10 Q-25,0 -15,-10 Q-10,-15 0,-18 Q10,-15 15,-10 Q25,0 20,10 M-20,10 Q-15,5 -15,0 M20,10 Q15,5 15,0" fill="none" stroke={flag.symbolColor || c3} strokeWidth="2" />
+                        )}
+                    </g>
+                )}
             </svg>
         </div>
     )

@@ -46,10 +46,10 @@ async function loadCountryData(): Promise<Map<string, CountryData>> {
     const dataMap = new Map<string, CountryData>()
 
     try {
-        // Fetch both files
+        // Fetch both files from PUBLIC folder
         const [indicesResponse, religionResponse] = await Promise.all([
-            fetch('/src/data/2023-world-indices.geojson'),
-            fetch('/src/data/2012-world-religion.geojson'),
+            fetch('/data/2023-world-indices.geojson'),
+            fetch('/data/2012-world-religion.geojson'),
         ])
 
         const indicesFC = await indicesResponse.json() as FeatureCollection

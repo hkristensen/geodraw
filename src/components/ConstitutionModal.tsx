@@ -3,9 +3,9 @@ import { useGameStore } from '../store/gameStore'
 import { useWorldStore } from '../store/worldStore'
 import { getCityCaptureStats } from '../utils/calculateCityCapture'
 import { calculateNationStats } from '../utils/calculateNationStats'
-import { getPrimaryLanguage, getPrimaryCulture, getPrimaryReligion } from '../utils/countryData'
+import { getPrimaryLanguage, getPrimaryCulture, getPrimaryReligion, getCountryData } from '../utils/countryData'
 import { LANGUAGES, CULTURES, RELIGIONS } from '../types/game'
-import type { Nation, FlagData, FlagPattern } from '../types/game'
+import type { Nation, FlagData, FlagPattern, FlagSymbol } from '../types/game'
 import { Flag } from './Flag'
 import countriesData from '../data/countries.json'
 
@@ -25,19 +25,33 @@ const PALETTES = [
     ['#701a75', '#fbcfe8', '#500724'], // Magenta
 ]
 
-const PATTERNS: FlagPattern[] = ['tricolor-v', 'tricolor-h', 'cross', 'saltire', 'circle', 'checkered']
+const PATTERNS: FlagPattern[] = ['tricolor-v', 'tricolor-h', 'cross', 'saltire', 'circle', 'checkered', 'canton', 'triangle']
 
 // Generate random flag
 function generateFlag(): FlagData {
     const colors = PALETTES[Math.floor(Math.random() * PALETTES.length)] as [string, string, string]
+    // Patterns from global const
     const pattern = PATTERNS[Math.floor(Math.random() * PATTERNS.length)]
 
     // Shuffle colors for more variety
     const shuffled = [...colors].sort(() => Math.random() - 0.5) as [string, string, string]
 
+    // Symbols
+    const SYMBOLS: FlagSymbol[] = ['star', 'crescent', 'sun', 'eagle', 'shield', 'swords', 'crown', 'skull', 'laurel', 'none']
+
+    // 60% chance of having a symbol
+    const hasSymbol = Math.random() < 0.6
+    const symbol = hasSymbol ? SYMBOLS[Math.floor(Math.random() * (SYMBOLS.length - 1))] : 'none'
+
+    // Choose a contrasting color for symbol? Often white or gold (yellow) or black
+    const symbolColors = ['#ffffff', '#fcd34d', '#000000', shuffled[2]]
+    const symbolColor = symbolColors[Math.floor(Math.random() * symbolColors.length)]
+
     return {
         pattern,
-        colors: shuffled
+        colors: shuffled,
+        symbol: symbol as FlagSymbol,
+        symbolColor
     }
 }
 
@@ -178,9 +192,27 @@ export function ConstitutionModal() {
             foundedAt: Date.now(),
             stats: {
                 ...stats,
-                budget: 1_000_000_000_000_000, // Start with $1000T for testing
+                // Realistic Economy Initialization
+                budget: (() => {
+                    if (isExistingCountry && playerCountryCode) {
+                        const realData = getCountryData(playerCountryCode)
+                        // 15% of Total GNI as starting reserves
+                        // GNI per capita * Population * 0.15
+                        if (realData) {
+                            return Math.round(realData.gniPerCapita * totalPop * 0.15)
+                        }
+                    }
+                    // For custom nations or fallback, assume average $15k per capita and 5% reserves
+                    // Or based on captured cities wealth
+                    return Math.round(15000 * totalPop * 0.05)
+                })(),
                 taxRate: 20, // 20% default tax
-                gdpPerCapita: 10000, // Placeholder, updated by economy loop
+                gdpPerCapita: (() => {
+                    if (isExistingCountry && playerCountryCode) {
+                        return getCountryData(playerCountryCode)?.gniPerCapita || 15000
+                    }
+                    return 15000 // Reasonable start for custom nation
+                })(),
                 tradeIncome: 0,
                 taxIncome: 0,
                 expenses: 0,

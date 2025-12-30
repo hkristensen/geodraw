@@ -344,6 +344,12 @@ function App() {
                     })
                     // Direct update to store
                     useWorldStore.setState({ contestedZones: newMap })
+                    console.log(`📥 SYNC [Client]: Updated ${newMap.size} contested zones from Host`)
+                    // Log the first zone for debug
+                    if (newMap.size > 0) {
+                        const firstKey = newMap.keys().next().value
+                        console.log(`  -> Sample Zone (${firstKey}):`, JSON.stringify(newMap.get(firstKey)))
+                    }
                 }
 
                 // Sync Irradiated Zones (Nuclear Blasts)
@@ -396,7 +402,7 @@ function App() {
 
 
 
-    const [selectedCountryForDiplomacy, setSelectedCountryForDiplomacy] = useState<string | null>(null)
+    const [selectedCountryForDiplomacy, setSelectedCountryForDiplomacy] = useState<{ code: string, name?: string } | null>(null)
 
 
 
@@ -631,8 +637,8 @@ function App() {
     }
 
     // Handler for country clicks - opens diplomacy modal (including own country for inspection)
-    const handleCountryClick = (code: string) => {
-        setSelectedCountryForDiplomacy(code)
+    const handleCountryClick = (code: string, name?: string) => {
+        setSelectedCountryForDiplomacy({ code, name })
     }
 
     return (
@@ -845,7 +851,8 @@ function App() {
             {/* Diplomacy Action Modal */}
             {selectedCountryForDiplomacy && (
                 <DiplomacyActionModal
-                    countryCode={selectedCountryForDiplomacy}
+                    countryCode={selectedCountryForDiplomacy.code}
+                    initialName={selectedCountryForDiplomacy.name}
                     onClose={() => setSelectedCountryForDiplomacy(null)}
                     onLaunchOffensive={handleLaunchOffensive}
                 />
@@ -908,9 +915,21 @@ function App() {
                 </div>
             )}
 
-            {/* Floating Action Buttons - Desktop only */}
-            {!isMobile && (phase === 'RESULTS' || phase === 'EXPANSION') && (
+            {/* Floating Action Buttons - Unified Top Right Container */}
+            {!isMobile && (phase === 'RESULTS' || phase === 'EXPANSION' || phase === 'WAR') && (
                 <div className="absolute top-4 right-4 flex flex-col gap-2 z-20">
+                    {/* Notification Toggle */}
+                    <button
+                        onClick={() => setShowNotifications(!showNotifications)}
+                        className={`p-3 rounded-full shadow-lg border transition-all ${showNotifications
+                            ? 'bg-amber-600 text-white border-amber-400'
+                            : 'bg-slate-800/90 hover:bg-slate-700 text-white border-slate-600'
+                            }`}
+                        title="Notification Log"
+                    >
+                        📜
+                    </button>
+
                     <button
                         onClick={() => setShowDiplomacyPanel(!showDiplomacyPanel)}
                         className={`p-3 rounded-full shadow-lg border transition-all ${showDiplomacyPanel
@@ -1046,25 +1065,11 @@ function App() {
                 </div>
             )}
 
-            {/* Top Right Controls - Notification Log */}
-            {(phase === 'RESULTS' || phase === 'EXPANSION' || phase === 'WAR') && (
-                <>
-                    <div className="absolute top-4 right-4 z-30 flex gap-2">
-                        <button
-                            onClick={() => setShowNotifications(!showNotifications)}
-                            className="bg-slate-800/80 p-2 rounded-full border border-white/20 hover:bg-slate-700 transition-colors shadow-lg"
-                            title="Notification Log"
-                        >
-                            📜
-                        </button>
-                    </div>
-
-                    {showNotifications && (
-                        <div className="absolute top-16 right-4 z-30">
-                            <NotificationLog onClose={() => setShowNotifications(false)} />
-                        </div>
-                    )}
-                </>
+            {/* Notification Log Render - Now handled in unified container above */}
+            {showNotifications && (
+                <div className="absolute top-4 right-20 z-30">
+                    <NotificationLog onClose={() => setShowNotifications(false)} />
+                </div>
             )}
 
 

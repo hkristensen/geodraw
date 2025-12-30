@@ -11,6 +11,8 @@ import { useGameStore } from './gameStore'
 import { createCoalition as createCoalitionUtil, seedRealWorldCoalitions, calculateJoinChance } from '../utils/coalitionSystem'
 // Imports removed (unused)
 import { assessStrategy, createWarGoal } from '../utils/aiStrategy'
+import { calculateConquest, subtractTerritory } from '../utils/territoryUtils'
+import countriesData from '../data/countries.json'
 
 
 // Calculate initial disposition based on territory lost
@@ -649,9 +651,28 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             // Skip if annexed
             if (country.isAnnexed) return
 
-            // FORCE ANNEXATION CHECK: If country has lost 100%+ territory, force annexation
-            if (country.territoryLost >= 100) {
-                console.log(`☠️ Force annexation: ${country.name} has lost ${country.territoryLost}% territory`)
+            // FORCE ANNEXATION CHECK: Use ACTUAL GEOMETRY AREA, not just the loss counter
+            // This prevents "False Collapse" where the counter says 100% but they still have land.
+            let shouldAnnex = false
+            const currentPoly = get().aiTerritories.get(code)
+
+            if (currentPoly) {
+                const area = turf.area(currentPoly)
+                // If area is less than ~10 sq km, they are gone
+                if (area < 10000000) {
+                    shouldAnnex = true
+                } else if (country.territoryLost >= 100) {
+                    // Safety Valve: If they have land but counter says 100%, clamp it to 99%
+                    country.territoryLost = 99
+                    aiCountries.set(code, { ...country, territoryLost: 99 })
+                }
+            } else if (country.territoryLost >= 100) {
+                // No geometry found? Then rely on counter
+                shouldAnnex = true
+            }
+
+            if (shouldAnnex) {
+                console.log(`☠️ Nation Collapse: ${country.name} has effectively lost all territory`)
 
                 // Mark as annexed
                 aiCountries.set(code, {
@@ -663,7 +684,10 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                 })
 
                 // End any wars with this country
-                const { aiWars, activeWars } = get()
+                const { aiWars, activeWars, contestedZones: currentContested, aiTerritories: currentTerritories } = get()
+                const warsToEnd = aiWars.filter(war =>
+                    (war.attackerCode === code || war.defenderCode === code) && war.status === 'active'
+                )
                 const updatedAIWars = aiWars.map(war => {
                     if ((war.attackerCode === code || war.defenderCode === code) && war.status === 'active') {
                         return { ...war, status: 'peace' as const }
@@ -671,6 +695,54 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     return war
                 })
                 const updatedActiveWars = activeWars.filter(c => c !== code)
+
+                // FINALIZE CONTESTED ZONES for wars involving this country
+                import('../utils/territoryUtils').then(({ mergeTerritory, subtractTerritory }) => {
+                    const newTerritoryMap = new Map(currentTerritories)
+                    const newContestedMap = new Map(currentContested)
+
+                    warsToEnd.forEach(war => {
+                        // Find all contested zones for this war
+                        const keysToRemove: string[] = []
+                        currentContested.forEach((feature, key) => {
+                            if (key.startsWith(`${war.id}-`)) {
+                                const winnerCode = feature.properties?.winnerCode
+                                const loserCode = feature.properties?.loserCode
+
+                                if (winnerCode && loserCode) {
+                                    // Merge into winner's territory
+                                    const winnerPoly = newTerritoryMap.get(winnerCode)
+                                    if (winnerPoly) {
+                                        const merged = mergeTerritory(winnerPoly as any, feature as any)
+                                        if (merged) {
+                                            newTerritoryMap.set(winnerCode, merged as any)
+                                            console.log(`🏳️ Merged contested zone into ${winnerCode} territory (annexation)`)
+                                        }
+                                    }
+
+                                    // Subtract from loser (may already be gone)
+                                    const loserPoly = newTerritoryMap.get(loserCode)
+                                    if (loserPoly) {
+                                        const newLoser = subtractTerritory(loserPoly as any, feature as any)
+                                        if (newLoser) {
+                                            newTerritoryMap.set(loserCode, newLoser as any)
+                                        } else {
+                                            // Country fully conquered - remove from territory map
+                                            newTerritoryMap.delete(loserCode)
+                                        }
+                                    }
+                                }
+                                keysToRemove.push(key)
+                            }
+                        })
+                        keysToRemove.forEach(k => newContestedMap.delete(k))
+                    })
+
+                    if (newContestedMap.size !== currentContested.size) {
+                        set({ aiTerritories: newTerritoryMap, contestedZones: newContestedMap })
+                        console.log('🏳️ Contested zones finalized for annexed country:', code)
+                    }
+                })
 
                 set({
                     aiWars: updatedAIWars,
@@ -698,7 +770,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
             // === PHASE 1: STRATEGIC ASSESSMENT ===
             // Run strategy assessment (assigns personality if needed, evaluates situation)
-            const strategyState = assessStrategy(country, aiCountries, playerPower, gameDate)
+            // Pass coalitions for deterrence calculation
+            const strategyState = assessStrategy(country, aiCountries, playerPower, gameDate, get().coalitions || [])
 
             // Update country with strategy state
             const updatedCountry = {
@@ -755,9 +828,12 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         // Only if relations are very bad
                         if (country.relations < -50) {
                             // Create war goal based on situation
-                            const warGoal = country.modifiers.some(m => m.type === 'REVANCHISM')
-                                ? createWarGoal('RECONQUEST', 'PLAYER')
-                                : createWarGoal('AGGRESSION', 'PLAYER')
+                            // Create war goal based on situation
+                            let warGoalType: import('../types/game').WarGoalType = 'AGGRESSION'
+                            if (country.modifiers.some(m => m.type === 'REVANCHISM')) warGoalType = 'RECONQUEST'
+                            else if (country.modifiers.some(m => m.type === 'TERRITORIAL_CLAIM')) warGoalType = 'TERRITORIAL'
+
+                            const warGoal = createWarGoal(warGoalType, 'PLAYER')
 
                             newWars.push(code)
                             events.push(`WAR_DECLARED:${code}`)
@@ -783,7 +859,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
                     case 'DEMAND_TERRITORY':
                         // Check for claim generation
-                        if (!country.modifiers.some(m => m.type === 'REVANCHISM') && country.relations < -20) {
+                        if (!country.modifiers.some(m => m.type === 'REVANCHISM' || m.type === 'TERRITORIAL_CLAIM') && country.relations < -20) {
                             if (Math.random() < 0.1) { // 10% chance when focusing on expansion
                                 generateAIClaim(code)
                                 events.push(`CLAIM_FABRICATED:${code}`)
@@ -1100,6 +1176,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
 
     // Generate a claim from AI against player
+    // Generate a claim from AI against player
     generateAIClaim: (countryCode) => {
         const { aiCountries } = get()
         const country = aiCountries.get(countryCode)
@@ -1114,11 +1191,16 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         // Worsen relations significantly
         const newRelations = Math.max(-100, country.relations - 30)
 
+        // DETERMINE TYPE OF CLAIM: REVANCHISM vs IMPERIALISM
+        // If they lost territory to us (> 5%), it's Revanchism.
+        // Otherwise, it's just aggressive expansion (Territorial Claim).
+        const modifierType: import('../types/game').ModifierType = (country.territoryLost > 5) ? 'REVANCHISM' : 'TERRITORIAL_CLAIM'
+
         aiCountries.set(countryCode, {
             ...country,
             relations: newRelations,
             disposition: 'hostile',
-            modifiers: [...country.modifiers, createModifier('REVANCHISM', { code: country.code, name: country.name })] // Add Revanchism as a marker for "wants land"
+            modifiers: [...country.modifiers, createModifier(modifierType, { code: country.code, name: country.name })]
         })
 
         set({ aiCountries: new Map(aiCountries) })
@@ -1144,11 +1226,15 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
         // Transfer Territory if annexer is provided
         if (annexerCode) {
+            console.log(`🗺️ ANNEXATION: Transferring ${countryCode} territory to ${annexerCode}`)
+
             import('../utils/territoryUtils').then(({ mergeTerritory }) => {
                 const loserPoly = aiTerritories.get(countryCode)
 
                 if (loserPoly) {
                     if (annexerCode === 'PLAYER') {
+                        console.log(`🗺️ Player Annexation Triggered for ${countryCode}`)
+
                         // FIXED: Actually add territory to player using gameStore.addTerritory
                         import('../store/gameStore').then(({ useGameStore }) => {
                             // Add the conquered territory to the player
@@ -1251,7 +1337,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         return supportAmount
     },
 
-    ensureCountryInitialized: (countryCode, playerConstitution) => {
+    ensureCountryInitialized: (countryCode, playerConstitution, initialName) => {
         const { aiCountries } = get()
         if (aiCountries.has(countryCode)) return
 
@@ -1393,7 +1479,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
         aiCountries.set(countryCode, {
             code: countryCode,
-            name: realData?.name || countryCode,
+            name: realData?.name || initialName || countryCode,
             disposition: 'neutral',
             relations: calculateRelations(0, compatibility),
             territoryLost: 0,
@@ -1824,7 +1910,80 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         })
     },
 
-    // Process AI vs AI wars
+    // Process natural unrest generation for AI countries (called monthly)
+    processNaturalUnrest: () => {
+        const { aiCountries, aiWars } = get()
+        const newCountries = new Map(aiCountries)
+        let unrestChanges = 0
+
+        newCountries.forEach((country, code) => {
+            // Skip annexed countries
+            if ((country as any).isAnnexed) return
+
+            let unrestDelta = 0
+
+            // 1. Territory loss causes unrest (revanchism)
+            // Every 10% lost = +5 unrest
+            if (country.territoryLost > 10) {
+                unrestDelta += Math.floor(country.territoryLost / 10) * 5
+            }
+
+            // 2. Being at war causes stress (+3 unrest per tick while at war)
+            const atWar = aiWars.some(w =>
+                (w.attackerCode === code || w.defenderCode === code) && w.status === 'active'
+            )
+            if (atWar) unrestDelta += 3
+
+            // 3. Low leader popularity causes unrest
+            const leaderPop = country.politicalState?.leader_pop ?? 3
+            if (leaderPop < 2) unrestDelta += 8
+            else if (leaderPop < 3) unrestDelta += 3
+
+            // 4. Poor economy causes unrest
+            if (country.economy < 30) unrestDelta += 5
+            else if (country.economy < 50) unrestDelta += 2
+
+            // 5. Natural decay (stability) - reduce unrest over time if stable
+            const currentUnrest = country.modifiers?.find(m => m.type === 'UNREST')?.intensity || 0
+            if (unrestDelta === 0 && currentUnrest > 0) {
+                unrestDelta = -2 // Unrest decays slowly when country is stable
+            }
+
+            // Apply unrest changes
+            if (unrestDelta !== 0) {
+                const newIntensity = Math.max(0, Math.min(100, currentUnrest + unrestDelta))
+
+                // Only track unrest if it's significant (>=20)
+                if (newIntensity >= 20) {
+                    const modifiers = (country.modifiers || []).filter(m => m.type !== 'UNREST')
+                    modifiers.push({
+                        id: `unrest-${code}-${Date.now()}`,
+                        countryCode: code,
+                        countryName: country.name,
+                        type: 'UNREST',
+                        intensity: newIntensity,
+                        duration: -1, // Permanent until addressed
+                        description: `Civil unrest at ${newIntensity}%`
+                    })
+                    newCountries.set(code, { ...country, modifiers })
+                    unrestChanges++
+
+                    // Log high unrest for debugging
+                    if (newIntensity >= 50) {
+                        console.log(`🔥 High unrest in ${country.name}: ${newIntensity}% (delta: ${unrestDelta > 0 ? '+' : ''}${unrestDelta})`)
+                    }
+                } else if (currentUnrest > 0 && newIntensity < 20) {
+                    // Remove unrest modifier if it dropped below threshold
+                    const modifiers = (country.modifiers || []).filter(m => m.type !== 'UNREST')
+                    newCountries.set(code, { ...country, modifiers })
+                }
+            }
+        })
+
+        if (unrestChanges > 0) {
+            set({ aiCountries: newCountries })
+        }
+    },
     processAIvsAI: () => {
         const { aiCountries, aiWars, aiTerritories: _aiTerritories } = get() // _aiTerritories will be used for territory transfer
         const events: Array<{ type: string, attackerCode: string, defenderCode: string }> = []
@@ -2012,7 +2171,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     if (coalitionRatio > 5 || soldierRatio > 5) {
                         // Coalition is overwhelmingly stronger - almost never attack
                         warChance *= 0.02
-                        console.log(`🛡️ ${attacker.name} deterred from attacking ${defender.name} - ${coalition.name} is overwhelming (${coalitionRatio.toFixed(1)}x power)`)
+                        // console.log(`🛡️ ${attacker.name} deterred from attacking ${defender.name} - ${coalition.name} is overwhelming (${coalitionRatio.toFixed(1)}x power)`)
                     } else if (coalitionRatio > 3 || soldierRatio > 3) {
                         // Coalition is much stronger - very unlikely
                         warChance *= 0.1
@@ -2144,7 +2303,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                 const attSoldiers = Math.floor(attacker.soldiers * 0.05)
                 const defSoldiers = Math.floor(defender.soldiers * 0.05)
 
-                if (attSoldiers < 100 || defSoldiers < 100) {
+                if (attSoldiers < 100 || defSoldiers < 100 || (attacker.territoryLost || 0) > 99 || (defender.territoryLost || 0) > 99) {
                     // One side has collapsed
                     war.status = 'peace'
 
@@ -2285,9 +2444,16 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     // Minimum intensity of 0.15 ensures visible gains even for small victories
                     const intensity = Math.max(0.15, Math.min(0.5, gain / 20))
 
-                    import('../utils/territoryUtils').then(({ calculateConquest, subtractTerritory, mergeTerritory }) => {
+                    import('../utils/territoryUtils').then(({ subtractTerritory, mergeTerritory, healGeometry, calculateAnchoredConquest: anchoredConquest, clipToBoundary: clipFn }) => {
                         // Get winner code for this battle
                         const winnerCode = attLossPct < defLossPct ? war.attackerCode : war.defenderCode
+                        const loserCode = attLossPct < defLossPct ? war.defenderCode : war.attackerCode
+
+                        // CRITICAL FIX: Get the ORIGINAL defender geometry from countriesData
+                        // This never changes, so we can always anchor contested zones to it
+                        const originalDefenderFeature = (countriesData as any).features.find(
+                            (f: any) => f.properties?.iso_a3 === loserCode
+                        )
 
                         // CRITICAL FIX: Merge winner's contested zones with their territory for buffer calculation
                         // This allows subsequent battles to expand from the FRONTLINE, not the original border
@@ -2303,20 +2469,37 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                             }
                         }
 
+                        // CRITICAL FIX (DEFERRED UPDATES):
+                        // Calculate "Effective Loser" by subtracting what they've already lost (in contested zones)
+                        let effectiveLoserPoly = loserPoly
+
+                        if (existingContested) {
+                            // AGGRESSIVE OVERLAP STRATEGY:
+                            // We shrink the existing contested zone slightly (-0.02km) before subtracting it from the loser.
+                            // This means the loser's "effective" territory will arguably OVERLAP the contested zone by 20-50m.
+                            // When we calculate the *new* conquest from this effective territory, it will start 20-50m INSIDE the existing red zone.
+                            // This guarantees that the new conquest and the existing red zone physicaly overlap, allowing turf.union to succeed without gaps.
+                            let shrinkBuffer: any = existingContested
+                            try {
+                                const shrunk = turf.buffer(existingContested as any, -0.02, { units: 'kilometers' })
+                                if (shrunk) shrinkBuffer = shrunk
+                            } catch (e) { }
+
+                            const subtracted = subtractTerritory(loserPoly as any, shrinkBuffer as any)
+                            if (subtracted) effectiveLoserPoly = subtracted
+                        }
+
                         // Calculate Beachhead location
                         // Instead of centroid (which looks like an enclave), find the point on defender's border CLOSEST to attacker
                         let battleLoc: [number, number] | undefined
                         try {
                             const attackerCentroid = turf.centroid(effectiveWinnerPoly as any)
-                            const defenderBoundary = turf.polygonToLine(loserPoly as any)
+                            const defenderBoundary = turf.polygonToLine(effectiveLoserPoly as any)
 
                             // Handle both Feature<LineString> and FeatureCollection<LineString>
                             let targetLine: any = defenderBoundary
                             if (defenderBoundary.type === 'FeatureCollection') {
                                 // For MultiPolygons, polygonToLine returns FeatureCollection.
-                                // We need to find the specific ring closest to attacker, or just flatten it.
-                                // Simplest: Convert to MultiLineString or just iterate
-                                // Workaround: pick the first feature or find nearest among all
                                 targetLine = (defenderBoundary as any).features[0]
                             }
 
@@ -2324,64 +2507,122 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                                 const nearest = turf.nearestPointOnLine(targetLine, attackerCentroid)
                                 battleLoc = nearest.geometry.coordinates as [number, number]
                             } else {
-                                // Fallback to centroid logic if boundary conversion failed
-                                const cent = turf.centroid(loserPoly as any)
+                                const cent = turf.centroid(effectiveLoserPoly as any)
                                 battleLoc = cent.geometry.coordinates as [number, number]
                             }
-
-                            // Sanity check: Ensure point is somewhat valid? 
-                            // Actually, nearestPointOnLine ensures it's on the line.
                         } catch (e) {
-                            // Fallback to centroid if complex geometry fails
                             try {
-                                const cent = turf.centroid(loserPoly as any)
+                                const cent = turf.centroid(effectiveLoserPoly as any)
                                 battleLoc = cent.geometry.coordinates as [number, number]
                             } catch (e2) { }
                         }
 
-                        const conquest = calculateConquest(effectiveWinnerPoly as any, loserPoly as any, intensity, undefined, undefined, battleLoc)
-                        // Silenced - too noisy: console.log('🗺️ Territory conquest result:', conquest ? 'SUCCESS' : 'FAILED', 'Intensity:', intensity)
+                        // Use ANCHORED CONQUEST to prevent border drift (the "river gap" bug)
+                        // This calculates conquest relative to the ORIGINAL defender border, not the effective one
+                        const conquest = originalDefenderFeature
+                            ? anchoredConquest(effectiveWinnerPoly as any, originalDefenderFeature as any, intensity, existingContested as any)
+                            : calculateConquest(effectiveWinnerPoly as any, effectiveLoserPoly as any, intensity, undefined, undefined, battleLoc)
+
                         if (conquest) {
-                            const newLoser = subtractTerritory(loserPoly as any, conquest as any)
-                            // console.log('🗺️ Territory merge result - Loser:', newLoser ? 'OK' : 'NULL')
+                            // VALIDATION: Check if this conquest is valid against the REAL loser poly
+                            const newLoser = subtractTerritory(effectiveLoserPoly as any, conquest as any)
 
                             if (newLoser) {
-                                // CRITICAL: Get fresh state to avoid stale closure
-                                const { aiTerritories: freshTerritories, contestedZones: freshContested } = get()
-                                const loserCode = attLossPct < defLossPct ? war.defenderCode : war.attackerCode
-                                // winnerCode already declared earlier
-
-                                // Update loser's territory (subtract conquest)
-                                const newTerritoryMap = new Map(freshTerritories)
-                                newTerritoryMap.set(loserCode, newLoser as any)
-
-                                // Add conquest to contested zones (shown in red)
-                                // Merge with existing contested zone for this war if any
-                                const contestKey = `${war.id}-${winnerCode}` // Track per-war per-winner
-                                const existingContested = freshContested.get(contestKey)
-                                let newContested: GeoJSON.Feature
-                                if (existingContested) {
-                                    // Merge new conquest with existing contested area
-                                    const merged = mergeTerritory(existingContested as any, conquest as any)
-                                    newContested = merged || conquest
-                                } else {
-                                    newContested = conquest
-                                }
-                                // Add winner info to properties for styling
-                                newContested.properties = {
-                                    ...newContested.properties,
-                                    winnerCode,
-                                    loserCode,
-                                    warId: war.id
-                                }
-
+                                const { contestedZones: freshContested } = get()
                                 const newContestedMap = new Map(freshContested)
-                                newContestedMap.set(contestKey, newContested as any)
+
+                                // TUG OF WAR LOGIC
+                                const enemyOccupationKey = `${war.id}-${loserCode}`
+                                const contestKey = `${war.id}-${winnerCode}`
+                                const existingEnemyOccupation = freshContested.get(enemyOccupationKey)
+                                const existingContested = freshContested.get(contestKey)
+
+                                let isLiberation = false
+
+                                if (existingEnemyOccupation) {
+                                    // Make sure the conquest actually overlaps/cuts into the enemy occupation
+                                    const reducedEnemyZone = subtractTerritory(existingEnemyOccupation as any, conquest as any)
+
+                                    if (reducedEnemyZone) {
+                                        newContestedMap.set(enemyOccupationKey, reducedEnemyZone as any)
+                                        console.log(`⚔️ TUG-OF-WAR: ${winnerCode} LIBERATED land from ${loserCode}`)
+                                        isLiberation = true
+                                    } else {
+                                        newContestedMap.delete(enemyOccupationKey)
+                                        console.log(`⚔️ TUG-OF-WAR: ${winnerCode} FULLY EXPELLED ${loserCode}`)
+                                        isLiberation = true
+                                    }
+                                }
+
+                                if (!isLiberation) {
+                                    let newContested: GeoJSON.Feature | null = null
+
+                                    if (existingContested) {
+                                        // Buffer the conquest slightly before merging to ensure it touches
+                                        let buffConquest = conquest
+                                        try {
+                                            const b = turf.buffer(conquest as any, 0.05, { units: 'kilometers' })
+                                            if (b) buffConquest = b as any
+                                        } catch (e) { }
+
+                                        let merged = mergeTerritory(existingContested as any, buffConquest as any)
+
+                                        // GAP DETECTION
+                                        if (merged && merged.geometry.type === 'MultiPolygon' && existingContested.geometry.type === 'Polygon') {
+                                            console.warn('🌊 RIVER DETECTED: Merge created MultiPolygon from Polygon. Attempting aggressive heal.')
+                                            // Try filling the gap by buffering the UNION result
+                                            try {
+                                                const gapFilled = turf.buffer(merged as any, 0.05, { units: 'kilometers' })
+                                                if (gapFilled) merged = gapFilled as any
+                                            } catch (e) { }
+                                        }
+
+                                        // Fallback protection: If merge fails completely, DO NOT replace the big zone with small conquest
+                                        // Instead, keep the old zone (effectively cancelling the visual update but keeping game state valid)
+                                        if (!merged) {
+                                            console.error('❌ MERGE FAILED DETECTED. Reverting to existing zone to prevent data loss.')
+                                            newContested = existingContested
+                                        } else {
+                                            newContested = merged
+                                        }
+                                    } else {
+                                        newContested = conquest
+                                    }
+
+                                    // Add winner info to properties for styling
+                                    let finalContested = newContested ? healGeometry(newContested as any) : null
+
+                                    // CRITICAL FIX: Re-clip to original defender boundary to eliminate drift
+                                    // This ensures the outer edge always perfectly aligns with the real country border
+                                    if (finalContested && originalDefenderFeature) {
+                                        const clipped = clipFn(finalContested as any, originalDefenderFeature as any)
+                                        if (clipped) {
+                                            finalContested = clipped
+                                            console.log('🔒 Re-clipped contested zone to original defender boundary')
+                                        }
+                                    }
+
+                                    if (finalContested) {
+                                        finalContested.properties = { winnerCode, loserCode }
+
+                                        // DEBUG LOGGING FOR RIVER GAPS
+                                        console.log(`🔍 GEO_DEBUG [ActiveWar] ${war.id} (${winnerCode} vs ${loserCode})`)
+                                        console.log('  -> Conquest:', JSON.stringify(conquest.geometry))
+                                        if (existingContested) console.log('  -> Existing Contested:', JSON.stringify(existingContested.geometry))
+                                        if (newContested) console.log('  -> Merged/New Contested:', JSON.stringify(newContested.geometry))
+
+                                        newContestedMap.set(contestKey, finalContested as any)
+                                        set({ contestedZones: new Map(newContestedMap) }) // Update immediately
+                                    }
+                                }
 
                                 // STATS RECALCULATION: Update country stats based on territory change
                                 try {
                                     const conquestArea = turf.area(conquest as any) // sq meters
-                                    const originalLoserArea = turf.area(loserPoly as any)
+                                    // Use ORIGINAL pristine area to prevent inflated percentages as country shrinks
+                                    const originalLoserArea = originalDefenderFeature
+                                        ? turf.area(originalDefenderFeature as any)
+                                        : turf.area(loserPoly as any)
                                     const lossRatio = Math.min(0.5, conquestArea / originalLoserArea) // Cap at 50% per battle
 
                                     const { aiCountries: freshCountries } = get()
@@ -2410,67 +2651,29 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                                     }
                                 } catch (statsError) {
                                     console.warn('Stats recalculation failed:', statsError)
-                                }
+                                } // Close stats catch
 
-                                set({ aiTerritories: newTerritoryMap, contestedZones: newContestedMap })
-                                console.log('🔥 Contested zone UPDATED for', war.attackerCode, 'vs', war.defenderCode)
-                            }
-                        }
-                    })
-                }
-
-                war.lastBattleTime = Date.now()
-
-                // Check End Conditions
-                // If attacker has taken significant territory (> 85%), trigger full annexation
-                // effectively ending the loser's existence.
-                if (war.attackerGain >= 85) {
-                    import('../store/worldStore').then(store => store.useWorldStore.getState().annexCountry(war.defenderCode, war.attackerCode))
-                    war.status = 'peace'
-                    const peaceEvent = {
-                        id: `peace-${Date.now()}-${Math.random()}`,
-                        type: 'PEACE_TREATY',
-                        title: 'Annexation',
-                        description: `${defender.name} has been ANNEXED by ${attacker.name}`,
-                        affectedNations: [attacker.code, defender.code],
-                        timestamp: Date.now(),
-                        severity: 3
-                    }
-                    import('../store/gameStore').then(({ useGameStore }) => {
-                        useGameStore.getState().addDiplomaticEvents([peaceEvent as any])
-                    })
-                    console.log(`🏳️ ${defender.name} has been ANNEXED by ${attacker.name}`)
-                }
-
-
-                else if (war.attackerGain >= 60 || defender.soldiers < 500) { // Forced peace (Survival)
-                    war.status = 'peace'
-                    const forcedPeaceEvent = {
-                        id: `peace-${Date.now()}-${Math.random()}`,
-                        type: 'PEACE_TREATY',
-                        title: 'Forced Peace',
-                        description: `${defender.name} was forced to surrender.`,
-                        affectedNations: [attacker.code, defender.code],
-                        timestamp: Date.now(),
-                        severity: 2
-                    }
-                    import('../store/gameStore').then(({ useGameStore }) => {
-                        useGameStore.getState().addDiplomaticEvents([forcedPeaceEvent as any])
+                                // Only update contested zones, NOT territory map
+                                set({ contestedZones: newContestedMap })
+                            } // Close if(newLoser)
+                        } // Close if(conquest)
                     })
                 }
             }
-        })
+        });
 
-        // Remove ended wars
+
+
         const activeWarsOnly = newWars.filter(w => w.status === 'active')
         const endedWars = newWars.filter(w => w.status !== 'active')
 
         // Finalize contested zones for ended wars -> merge into winner's territory
         if (endedWars.length > 0) {
-            import('../utils/territoryUtils').then(({ mergeTerritory }) => {
-                const { aiTerritories: currentTerritories, contestedZones: currentContested } = get()
+            import('../utils/territoryUtils').then(({ mergeTerritory, subtractTerritory }) => {
+                const { aiTerritories: currentTerritories, contestedZones: currentContested, aiCountries: currentCountries } = get()
                 const newTerritoryMap = new Map(currentTerritories)
                 const newContestedMap = new Map(currentContested)
+                const newCountryMap = new Map(currentCountries)
 
                 endedWars.forEach(war => {
                     // Find all contested zones for this war
@@ -2478,13 +2681,48 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     currentContested.forEach((feature, key) => {
                         if (key.startsWith(`${war.id}-`)) {
                             const winnerCode = feature.properties?.winnerCode
-                            if (winnerCode) {
-                                // Merge into winner's final territory
+                            const loserCode = feature.properties?.loserCode
+
+                            if (winnerCode && loserCode) {
+                                // 1. Merge into winner's final territory
                                 const winnerPoly = newTerritoryMap.get(winnerCode)
+                                let merged: any = null
                                 if (winnerPoly) {
-                                    const merged = mergeTerritory(winnerPoly as any, feature as any)
+                                    merged = mergeTerritory(winnerPoly as any, feature as any)
                                     if (merged) {
                                         newTerritoryMap.set(winnerCode, merged as any)
+                                    }
+                                }
+
+                                // 2. CRITICAL: Subtract from loser's final territory (Deferred Cut)
+                                // This happens ONCE at the end of the war
+                                const loserPoly = newTerritoryMap.get(loserCode)
+                                if (loserPoly) {
+                                    const newLoser = subtractTerritory(loserPoly as any, feature as any)
+
+                                    // DEBUG LOGGING FOR RIVER GAPS (FINALIZATION)
+                                    console.log(`🔍 GEO_DEBUG [WarEnd] ${war.id} Final Cut`)
+                                    console.log(`  -> Winner (${winnerCode}) Merge Result:`, merged ? 'SUCCESS' : 'FAILED')
+                                    console.log(`  -> Loser (${loserCode}) Subtract Source:`, JSON.stringify(loserPoly.geometry))
+                                    console.log(`  -> Loser (${loserCode}) Subtract Target (Contested):`, JSON.stringify(feature.geometry))
+
+                                    if (newLoser) {
+                                        console.log(`  -> Loser (${loserCode}) New Geometry:`, JSON.stringify(newLoser.geometry))
+                                        newTerritoryMap.set(loserCode, newLoser as any)
+                                    } else {
+                                        console.log(`💀 TOTAL ANNEXATION: ${loserCode} lost all territory to ${winnerCode}`)
+                                        newTerritoryMap.delete(loserCode)
+
+                                        // Mark as annexed
+                                        const loserCountry = newCountryMap.get(loserCode)
+                                        if (loserCountry) {
+                                            newCountryMap.set(loserCode, {
+                                                ...loserCountry,
+                                                isAnnexed: true,
+                                                soldiers: 0,
+                                                disposition: 'neutral'
+                                            })
+                                        }
                                     }
                                 }
                             }
@@ -2494,8 +2732,12 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     keysToRemove.forEach(k => newContestedMap.delete(k))
                 })
 
-                if (newContestedMap.size !== currentContested.size) {
-                    set({ aiTerritories: newTerritoryMap, contestedZones: newContestedMap })
+                if (newContestedMap.size !== currentContested.size || newTerritoryMap.size !== currentTerritories.size) {
+                    set({
+                        aiTerritories: newTerritoryMap,
+                        contestedZones: newContestedMap,
+                        aiCountries: newCountryMap
+                    })
                     console.log('🏳️ Contested zones finalized for', endedWars.length, 'ended wars')
                 }
             })
@@ -2625,6 +2867,46 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     territoryLost: newTerritoryLost
                 })
 
+                // --- GEOMETRY UPDATE FOR GENERAL OFFENSIVE ---
+                const enemyPoly = get().aiTerritories.get(enemyCode)
+                const gameState = (useGameStore as any).getState()
+                const playerPoly = gameState.playerTerritories[0]
+
+                console.log(`🛡️ PlayerWar Geo Check: Enemy=${!!enemyPoly}, Player=${!!playerPoly}`)
+
+                if (enemyPoly && playerPoly) {
+                    try {
+                        // Calculate conquest based on territoryChange %
+                        // For simplicity, we assume `territoryChange` maps roughly to `intensity` 0.1 - 0.3
+                        const intensity = Math.min(0.5, territoryChange / 40) // Scale down slightly
+
+                        const conquest = calculateConquest(
+                            playerPoly as any,
+                            enemyPoly as any,
+                            intensity
+                        )
+
+                        if (conquest) {
+                            console.log(`⚔️ General Offensive Conquest: ${territoryChange}%`)
+
+                            // 1. Add to Player (using store action)
+                            gameState.addTerritory(conquest)
+
+                            // 2. Remove from Enemy
+                            const newEnemyPoly = subtractTerritory(enemyPoly as any, conquest as any)
+                            if (newEnemyPoly) {
+                                const newMap = new Map(get().aiTerritories)
+                                newMap.set(enemyCode, newEnemyPoly as any)
+                                set({ aiTerritories: newMap })
+                            } else {
+                                console.warn('⚠️ General Offensive: Enemy wiped out calculation-wise (waiting for 100%)')
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Failed to process general offensive geometry', e)
+                    }
+                }
+
                 events.push({
                     type: 'BATTLE_WON',
                     attackerCode: 'PLAYER',
@@ -2634,8 +2916,18 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
                 console.log(`⚔️ PLAYER wins battle vs ${enemy.name}: +${territoryChange}% territory`)
 
-                // Check for full conquest
-                if (newTerritoryLost >= 100) {
+                // Check for full conquest - VALIDATE WITH GEOMETRY
+                let actualConquest = false
+                const defenderPoly = get().aiTerritories.get(enemyCode)
+                if (defenderPoly) {
+                    const remainingArea = turf.area(defenderPoly)
+                    // If < 10 sq km left, it's over
+                    if (remainingArea < 10000000) actualConquest = true
+                } else if (newTerritoryLost >= 100) {
+                    actualConquest = true
+                }
+
+                if (actualConquest) {
                     // Annex the country
                     get().annexCountry(enemyCode, 'PLAYER')
                     events.push({
@@ -2897,13 +3189,30 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             ? (useGameStore.getState().nation?.name || 'Player Nation')
             : defender?.name || defenderCode
 
+        // RESOLVE EFFECTIVE DEFENDER CODE (Fix for Article 5)
+        // Coalition members are stored as ISO codes (e.g. 'DEU'), so we must map 'PLAYER' -> 'DEU'
+        let effectiveDefenderCode = defenderCode
+        if (isPlayerDefender) {
+            effectiveDefenderCode = useGameStore.getState().selectedCountry || 'PLAYER'
+            if (effectiveDefenderCode === 'PLAYER') {
+                console.warn(`⚠️ Article 5 Risk: Player is defender but selectedCountry is undefined. Trying to match by name...`)
+                // Fallback: try to match by name if possible, or just log aggressively
+                // Note: If selectedCountry is missing, it's a critical state issue for Article 5
+            }
+        }
+
+        console.log(`🛡️ Checking Article 5 for ${effectiveDefenderCode} (Defender: ${defenderName})`)
+
         // 1. Find if defender is in a MILITARY coalition
         const alliance = coalitions.find(c =>
-            c.type === 'MILITARY' && c.members.includes(defenderCode)
+            c.type === 'MILITARY' && c.members.includes(effectiveDefenderCode)
         )
 
         if (!alliance) {
-            console.log(`⚠️ No alliance found for ${defenderCode} - no Article 5 triggered`)
+            console.log(`⚠️ No alliance found for ${effectiveDefenderCode} - no Article 5 triggered. checked ${coalitions.length} coalitions.`)
+            // Debug: List coalitions member of
+            const memberOf = coalitions.filter(c => c.members.includes(effectiveDefenderCode)).map(c => c.name)
+            if (memberOf.length > 0) console.log(`   (Is member of: ${memberOf.join(', ')})`)
             return
         }
 
@@ -2924,7 +3233,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         }])
 
         // 3. Mobilize Allies - Calculate 10% of all coalition armies
-        const allies = alliance.members.filter(m => m !== defenderCode && m !== 'PLAYER')
+        const allies = alliance.members.filter(m => m !== defenderCode && m !== 'PLAYER' && m !== effectiveDefenderCode)
 
         // Calculate total coalition military strength (excluding defender)
         let totalCoalitionSoldiers = 0
@@ -2977,6 +3286,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         attackerCode: allyCode,
                         defenderCode: attackerCode,
                         startTime: Date.now(),
+
                         lastBattleTime: 0,
                         status: 'active',
                         attackerGain: 0,

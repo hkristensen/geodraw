@@ -77,7 +77,7 @@ export function NationInfoPanel({ isMobile, onClose }: NationInfoPanelProps) {
                 )}
 
                 {/* Main Nation Card */}
-                <div className={`${isMobile ? '' : 'bg-slate-900/95 backdrop-blur-md rounded-xl border border-orange-500/30 shadow-2xl'} overflow-hidden flex-1 flex flex-col`}>
+                <div className={`${isMobile ? 'h-[85vh] overflow-y-auto pb-20' : 'bg-slate-900/95 backdrop-blur-md rounded-xl border border-orange-500/30 shadow-2xl'} overflow-hidden flex-1 flex flex-col`}>
                     {/* Header with flag */}
                     <div className="bg-gradient-to-r from-orange-600/20 to-amber-600/20 p-4 border-b border-orange-500/20">
                         <div className="flex items-center gap-3">

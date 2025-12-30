@@ -47,6 +47,7 @@ export interface CapturedCity extends City {
 // Country modifiers
 export type ModifierType =
     | 'REVANCHISM'    // +100% aggression when capital captured
+    | 'TERRITORIAL_CLAIM' // Imperialist/Expansionist claim (not revanchism)
     | 'LANDLOCKED'    // Lost sea access
     | 'PARTITIONED'   // Country split in two
     | 'HUMILIATED'    // Lost >50% territory
@@ -307,10 +308,14 @@ export interface Budget {
 
 
 // Flag definitions
-export type FlagPattern = 'tricolor-v' | 'tricolor-h' | 'cross' | 'saltire' | 'circle' | 'checkered'
+export type FlagPattern = 'tricolor-v' | 'tricolor-h' | 'cross' | 'saltire' | 'circle' | 'checkered' | 'canton' | 'triangle'
+export type FlagSymbol = 'star' | 'crescent' | 'sun' | 'eagle' | 'shield' | 'swords' | 'crown' | 'skull' | 'laurel' | 'none'
+
 export interface FlagData {
     pattern: FlagPattern
     colors: [string, string, string] // Primary, Secondary, Emblem/Detail
+    symbol?: FlagSymbol
+    symbolColor?: string
 }
 
 // Building Types
@@ -683,6 +688,8 @@ export interface RemotePlayer {
 // Remote Game State (Stored in 'games/{gameId}')
 export interface RemoteGameState {
     gameDate: number
+    gameSpeed?: number  // 0 = Paused, 1 = Normal, etc
+    tickNumber?: number // Timestamp for heartbeat
     players: { [id: string]: RemotePlayer }
     wars: any[]
     aiCountries: any[]

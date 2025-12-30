@@ -3,9 +3,9 @@ import { useGameStore } from '../store/gameStore'
 import type { NuclearProgram } from '../types/game'
 
 // Costs in billions
-const REACTOR_COST = 500_000_000_000 // 500B
-const ENRICHMENT_FACILITY_COST = 1_000_000_000_000 // 1T
-const WARHEAD_COST = 200_000_000_000 // 200B per warhead
+const REACTOR_COST = 25_000_000_000 // 25B
+const ENRICHMENT_FACILITY_COST = 50_000_000_000 // 50B
+const WARHEAD_COST = 10_000_000_000 // 10B per warhead
 const ENRICHMENT_TIME = 300_000 // 5 minutes in ms
 
 export function NuclearPanel({ onClose }: { onClose: () => void }) {

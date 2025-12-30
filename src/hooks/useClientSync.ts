@@ -10,6 +10,8 @@ import { updateGame } from '../firebase/game'
 export function useClientSync() {
     const { isMultiplayer, isHost, gameId: multiplayerGameId, user, nickname, playerColor } = useMultiplayerStore()
     const lastSyncRef = useRef<number>(0)
+    const lastDataHashRef = useRef<string>('') // Track if data changed
+    const isSyncingRef = useRef(false) // Prevent overlapping writes
 
     useEffect(() => {
         // Only run if we are in multiplayer, we have a game ID, and we are NOT the host
@@ -19,8 +21,13 @@ export function useClientSync() {
 
         const interval = setInterval(() => {
             const now = Date.now()
-            // Throttle sync to every 2 seconds
-            if (now - lastSyncRef.current < 2000) return
+            // INCREASED THROTTLE: Was 2s, now 5s to reduce Firebase writes
+            if (now - lastSyncRef.current < 5000) return
+
+            // Prevent overlapping syncs
+            if (isSyncingRef.current) return
+            isSyncingRef.current = true
+
             lastSyncRef.current = now
 
             const gameState = useGameStore.getState()
@@ -60,16 +67,28 @@ export function useClientSync() {
                 playerData.countryCode = gameState.selectedCountry
             }
 
+            // DIRTY CHECK: Only sync if data actually changed
+            const dataHash = JSON.stringify(playerData)
+            if (dataHash === lastDataHashRef.current) {
+                isSyncingRef.current = false
+                return // Skip this sync - nothing changed
+            }
+            lastDataHashRef.current = dataHash
+
             const updateData: any = {
                 [playerKey]: playerData
             }
 
             // Execute Update
-            updateGame(multiplayerGameId, updateData).catch(err => {
-                console.error('❌ CLIENT SYNC FAILED:', err)
-            })
+            updateGame(multiplayerGameId, updateData)
+                .catch(err => {
+                    console.error('❌ CLIENT SYNC FAILED:', err)
+                })
+                .finally(() => {
+                    isSyncingRef.current = false
+                })
 
-        }, 2000)
+        }, 5000) // INCREASED: Was 2000ms, now 5000ms
 
         return () => clearInterval(interval)
     }, [isMultiplayer, isHost, multiplayerGameId, user, nickname, playerColor])

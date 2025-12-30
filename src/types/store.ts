@@ -316,10 +316,13 @@ export interface WorldState {
     annexCountry: (countryCode: string, annexerCode?: string) => void
 
     // Ensure country is initialized (for interaction)
-    ensureCountryInitialized: (countryCode: string, playerConstitution?: Constitution) => void
+    ensureCountryInitialized: (countryCode: string, playerConstitution?: Constitution, initialName?: string) => void
 
     // Process elections, coups, and revolutions monthly
     processElections: () => void
+
+    // Process natural unrest generation for AI countries (called monthly)
+    processNaturalUnrest: () => void
 
     // Liberate country
     liberateCountry: (countryCode: string) => void

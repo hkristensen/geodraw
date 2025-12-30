@@ -4,6 +4,7 @@ import { useWorldStore } from '../store/worldStore'
 import { calculateEconomy, calculateResearchOutput, initEconomicCycle, updateEconomicCycle } from '../utils/economy'
 import { checkVictoryConditions, checkAchievements } from '../utils/victorySystem'
 import { useMultiplayerStore } from '../store/multiplayerStore'
+import { checkSeparatistRebellion } from '../utils/separatistSystem'
 
 export function useGameLoop() {
     const intervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -188,10 +189,11 @@ export function useGameLoop() {
 
                     useWorldStore.getState().processElections()
 
+                    // Generate natural unrest for AI countries (must run BEFORE separatist check)
+                    useWorldStore.getState().processNaturalUnrest()
+
                     // Check for Separatist Rebellions
-                    import('../utils/separatistSystem').then(({ checkSeparatistRebellion }) => {
-                        checkSeparatistRebellion(useWorldStore.getState(), useGameStore)
-                    })
+                    checkSeparatistRebellion(useWorldStore, useGameStore)
 
                     const currentWorldState = useWorldStore.getState()
                     const currentAiCountries = currentWorldState.aiCountries

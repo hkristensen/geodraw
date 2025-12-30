@@ -9,6 +9,7 @@ export interface RemoteGameState {
     status: 'initializing' | 'active' | 'paused' | 'finished'
     players: { [id: string]: RemotePlayer }
     gameDate: number
+    gameSpeed?: number  // 0 = Paused, 1 = Normal, 2 = Fast, 5 = Super Fast
     tickNumber: number
     lastTick: any // Timestamp
     aiCountries?: { [code: string]: any }
@@ -47,8 +48,21 @@ export function subscribeGame(gameId: string, callback: (game: RemoteGameState |
 export async function updateGame(gameId: string, updates: Partial<RemoteGameState>): Promise<void> {
     const gameRef = doc(db, 'games', gameId)
     try {
+        // Sanity check for nested arrays before sending
+        Object.entries(updates).forEach(([key, value]) => {
+            if (Array.isArray(value)) {
+                // Check if any element is also an array (Nested Array)
+                const hasNested = value.some(item => Array.isArray(item))
+                if (hasNested) {
+                    console.error(`🚨 DETECTED NESTED ARRAY in field '${key}':`, value)
+                }
+            }
+        })
         await updateDoc(gameRef, updates)
-    } catch (err) {
+    } catch (err: any) {
         console.error('Failed to update game:', err)
+        if (err.measure || err.message?.includes('Nested arrays')) {
+            console.error('🔥 PAYLOAD CAUSING CRASH:', JSON.stringify(updates, null, 2))
+        }
     }
 }

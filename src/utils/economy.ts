@@ -330,7 +330,8 @@ export function calculateExpenses(
     stats: NationStats,
     population: number,
     buildings: Building[] = [],
-    inflation: number = 0
+    inflation: number = 0,
+    totalGDP: number = 0
 ): {
     total: number
     militaryExpense: number
@@ -342,29 +343,42 @@ export function calculateExpenses(
     // Inflation Multiplier
     const inflationMult = 1 + inflation
 
+    // Annual GDP used for percentage-based spending
+    const annualGDP = totalGDP || 1_000_000_000
+
     // 1. Military Expense
-    // Cost per soldier + equipment maintenance
+    // Base upkeep per soldier + % of GDP for budget
+    // Standard military spending is 2-4% of GDP. War economies go higher.
+    // 0% slider -> Min upkeep. 100% slider -> 10% of GDP.
     const costPerSoldier = 2000 * inflationMult
-    const baseEquipmentCost = 5000000 * inflationMult
-    const equipmentPerSoldier = 500 * inflationMult
-    const equipmentCost = (stats.budgetAllocation.military / 100) * (baseEquipmentCost + (stats.soldiers * equipmentPerSoldier))
-    const militaryExpense = (stats.soldiers * costPerSoldier) + equipmentCost
+    const baseSoldierUpkeep = stats.soldiers * costPerSoldier
+
+    // Procurement & Operations Budget (% of GDP)
+    // Map 0-100 slider to 0-8% of GDP (plus the base soldier salaries)
+    const milBudgetPercent = (stats.budgetAllocation.military / 100) * 0.08
+    const procurementCost = (annualGDP * milBudgetPercent) / 12
+
+    const militaryExpense = baseSoldierUpkeep + procurementCost
 
     // 2. Social Expense
-    // Cost per capita
-    const perCapitaSocial = (10 + (stats.budgetAllocation.social / 100) * 190) * inflationMult
-    const socialExpense = population * perCapitaSocial
+    // Welfare, Education, Health are huge parts of modern budgets (10-30% of GDP).
+    // Map 0-100 slider to 2-25% of GDP.
+    const socialBudgetPercent = 0.02 + (stats.budgetAllocation.social / 100) * 0.23
+    const socialExpense = (annualGDP * socialBudgetPercent) / 12
 
     // 3. Infrastructure Expense
-    const infraBase = stats.wealth * 500 * inflationMult
-    const infraInvestment = (stats.budgetAllocation.infrastructure / 100) * (stats.wealth * 2000 * inflationMult)
-    const infraExpense = infraBase + infraInvestment
+    // Roads, power, transport. Map 0-100 slider to 1-12% of GDP.
+    const infraBudgetPercent = 0.01 + (stats.budgetAllocation.infrastructure / 100) * 0.11
+    const infraExpense = (annualGDP * infraBudgetPercent) / 12
 
     // 4. Research Expense
-    const researchExpense = (stats.budgetAllocation.research / 100) * (population * 100 * inflationMult)
+    // R&D. Map 0-100 slider to 0-5% of GDP.
+    const researchBudgetPercent = (stats.budgetAllocation.research / 100) * 0.05
+    const researchExpense = (annualGDP * researchBudgetPercent) / 12
 
-    // 5. General Upkeep
-    const bureaucracyCost = ((population * 5) + (stats.wealth * 100)) * inflationMult
+    // 5. General Upkeep (Fixed costs)
+    // Bureaucracy scales with population
+    const bureaucracyCost = ((population * 10) + (stats.wealth * 100)) * inflationMult
 
     // Building Upkeep (also affected by inflation)
     let buildingUpkeep = 0
@@ -433,7 +447,7 @@ export function calculateEconomy(
     const inflation = calculateInflation(stats.budget, totalGDP)
 
     const income = calculateIncome(stats, safeInfra, population, buildings, aiCountries)
-    const expense = calculateExpenses(stats, population, buildings, inflation)
+    const expense = calculateExpenses(stats, population, buildings, inflation, totalGDP)
 
     const netIncome = income.total - expense.total
 

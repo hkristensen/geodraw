@@ -103,7 +103,7 @@ function WarMapMarker({ war, map, aiTerritories, onClick }: { war: AIWar, map: m
 }
 
 interface GameMapProps {
-    onCountryClick?: (code: string) => void
+    onCountryClick?: (code: string, name?: string) => void
     warPlanningMode?: boolean
     isDrawingWarArrows?: boolean
     onWarArrowsUpdate?: (arrows: FeatureCollection) => void
@@ -539,7 +539,7 @@ export function GameMap({
 
     // Update remote players visualization
     useEffect(() => {
-        if (!map.current || !map.current.getSource('remote-players')) return
+        if (!map.current || !map.current.getStyle() || !map.current.getSource('remote-players')) return
 
         const features: Feature[] = Object.values(remotePlayers)
             .filter(p => p.id !== userId) // Filter out self
@@ -568,6 +568,14 @@ export function GameMap({
                 }
             })
             .filter((f): f is Feature => f !== null)
+
+        // DEBUG: Log remote player data
+        if (features.length > 0) {
+            console.log('🎨 Remote players update:', features.length, 'players')
+            features.forEach(f => {
+                console.log(`  -> ${f.properties?.nickname || 'Unknown'}: color=${f.properties?.color}`)
+            })
+        }
 
         const source = map.current.getSource('remote-players') as maplibregl.GeoJSONSource
         source.setData({
@@ -868,7 +876,7 @@ export function GameMap({
 
                         if (phase === 'RESULTS') {
                             if (onCountryClick) {
-                                onCountryClick(countryCode)
+                                onCountryClick(countryCode, countryName)
                             }
                         } else {
                             setSelectedCountry(countryCode)

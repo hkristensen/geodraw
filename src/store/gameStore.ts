@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import * as turf from '@turf/turf'
+import { mergeTerritory, subtractTerritory } from '../utils/territoryUtils'
 import { calculateInfrastructure } from '../utils/infrastructure'
 import {
     DiplomaticEvent,
@@ -9,7 +10,7 @@ import type { GameState } from '../types/store'
 import { useWorldStore } from './worldStore'
 import { calculatePower } from '../utils/powerSystem'
 import { simulateWar } from '../utils/warSystem'
-import { calculateIncome, calculateExpenses } from '../utils/economy'
+import { calculateIncome, calculateExpenses, calculateTotalGDP, calculateInflation } from '../utils/economy'
 import countriesData from '../data/countries.json'
 
 export const useGameStore = create<GameState>((set) => ({
@@ -89,18 +90,18 @@ export const useGameStore = create<GameState>((set) => ({
                 // Get current combined territory
                 const combined = state.playerTerritories[0]
 
-                // Merge with new territory using turf.union
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const merged = turf.union(turf.featureCollection([combined, territory]) as any)
+                // Merge with new territory using robust mergeTerritory
+                const merged = mergeTerritory(combined as any, territory as any)
 
                 if (merged) {
-                    console.log('🔗 Merged territory with existing land')
+                    console.log(`🔗 Merged territory from annexation: ${(territory as any).properties?.name || 'Unknown'}`)
                     newTerritories = [merged as GeoJSON.Feature]
                 } else {
+                    console.warn('⚠️ Merge failed (returned null), appending separate polygon')
                     newTerritories = [...state.playerTerritories, territory]
                 }
             } catch (e) {
-                console.warn('⚠️ Could not merge territory:', e)
+                console.error('⚠️ Could not merge territory (Exception):', e)
                 newTerritories = [...state.playerTerritories, territory]
             }
         }
@@ -150,8 +151,8 @@ export const useGameStore = create<GameState>((set) => ({
 
         try {
             const currentPoly = state.playerTerritories[0]
-            // Use turf.difference to subtract the lost territory
-            const newPoly = turf.difference(turf.featureCollection([currentPoly, territory]) as any)
+            // Use subtractTerritory to safely remove territory without creating oceans
+            const newPoly = subtractTerritory(currentPoly as any, territory as any)
 
             if (!newPoly) {
                 console.warn('⚠️ Territory removal resulted in null geometry (wiped out?)')
@@ -385,8 +386,13 @@ export const useGameStore = create<GameState>((set) => ({
                 1000000
 
             const buildings = state.nation.buildings || []
+
+
+            const totalGDP = calculateTotalGDP(stats, population, buildings)
+            const inflation = calculateInflation(stats.budget, totalGDP)
+
             const income = calculateIncome(stats, infra, population, buildings)
-            const expenses = calculateExpenses(stats, population, buildings)
+            const expenses = calculateExpenses(stats, population, buildings, inflation, totalGDP)
 
             const netIncome = income.total - expenses.total
 
@@ -633,7 +639,7 @@ export const useGameStore = create<GameState>((set) => ({
     createUnit: (type, soldierCount, source = 'HIRE') => set((state) => {
         if (!state.nation) return {}
 
-        const unitId = `unit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        const unitId = `unit - ${Date.now()} -${Math.random().toString(36).substr(2, 9)} `
 
         // Base stats
         const unitBaseStats = {

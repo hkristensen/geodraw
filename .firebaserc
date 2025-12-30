@@ -1,5 +1,7 @@
 {
-  "projects": {},
+  "projects": {
+    "default": "geodraw-game-7392"
+  },
   "targets": {},
   "etags": {}
 }

@@ -4,119 +4,203 @@ import type { Feature, Polygon, MultiPolygon } from 'geojson'
 /**
  * Generate an organic-looking shape for invasions (instead of perfect circle)
  */
+/**
+ * Generate an organic-looking shape for invasions using noisy radial generation.
+ * Creates a jagged, irregular "splat" shape.
+ */
 export function createOrganicInvasionShape(
     center: import('geojson').Feature<import('geojson').Point> | import('geojson').Position,
-    radius: number, // km
-    options: { steps?: number } = {}
+    baseRadius: number, // km
+    options: { steps?: number, noise?: number } = {}
 ): Feature<Polygon> {
-    const steps = options.steps || (5 + Math.floor(Math.random() * 5)) // 5-9 sides (pentagon to nonagon)
+    const centerCoords = Array.isArray(center) ? center : (center as any).geometry.coordinates
+    const steps = options.steps || 24 // More steps = more detail
+    const noiseFactor = options.noise || 0.4 // 0.0 = circle, 0.9 = spiky star
 
-    // Create base polygon
-    const basePoly = turf.circle(center, radius, {
-        steps: steps,
-        units: 'kilometers'
-    })
+    const points: number[][] = []
 
-    // Random rotation to avoid uniform look
-    const rotation = Math.random() * 360
-    const rotated = turf.transformRotate(basePoly, rotation)
+    // Generate initial random seed for global rotation
+    const rotationOffset = Math.random() * 360
 
-    return rotated
+    for (let i = 0; i <= steps; i++) {
+        // Calculate angle
+        const angleStep = 360 / steps
+        const angle = (i * angleStep + rotationOffset) % 360
+
+        // Add randomness to the radius (Perlin-ish noise would be better but random works for independent vertices)
+        // We use a simple smoothing by averaging with previous to avoid extreme spikes
+        const randomVariation = (Math.random() - 0.5) * 2 * noiseFactor // -noise to +noise
+        const r = baseRadius * (1 + randomVariation)
+
+        const destination = turf.destination(turf.point(centerCoords), r, angle, { units: 'kilometers' })
+        points.push(destination.geometry.coordinates)
+    }
+
+    // Close the loop
+    points.push(points[0])
+
+    const poly = turf.polygon([points])
+
+    // Smooth it slightly - standard bezier spline would be nicer but simplified cleanCoords helps
+    // Actually, let's leave it jagged for that "frontline" look
+    return poly
 }
 
 /**
- * Validate availability of a polygon feature
+ * STRICT validation of a polygon feature.
+ * Reject empty coordinates to prevent phantom geometries.
  */
 function isValidFeature(feature: Feature<Polygon | MultiPolygon> | null | undefined): boolean {
     if (!feature || !feature.geometry || !feature.geometry.coordinates) return false
-    if (feature.geometry.type === 'Polygon' && feature.geometry.coordinates[0].length < 4) return false
-    // For MultiPolygon, at least one poly should be valid
-    if (feature.geometry.type === 'MultiPolygon' && feature.geometry.coordinates.length > 0) {
-        return feature.geometry.coordinates.some(poly => poly[0].length >= 4)
+
+    const geom = feature.geometry
+    if (geom.type === 'Polygon') {
+        // Must have at least one ring, and that ring must have >= 4 points
+        return geom.coordinates.length > 0 && geom.coordinates[0].length >= 4
     }
-    return true
+
+    if (geom.type === 'MultiPolygon') {
+        // Must have at least one valid polygon
+        return geom.coordinates.length > 0 && geom.coordinates.some(poly => poly.length > 0 && poly[0].length >= 4)
+    }
+
+    return false
 }
 
 /**
- * Heal invalid geometry using multiple strategies to prevent land->ocean bugs
- * Strategy 1: buffer(0) - standard GIS trick
- * Strategy 2: Simplify + buffer - for complex self-intersecting geometries
- * Strategy 3: Return null to prevent corruption from propagating
+ * Manual MultiPolygon creation to avoid turf.combine failures
  */
-function healGeometry(feature: Feature<Polygon | MultiPolygon>): Feature<Polygon | MultiPolygon> | null {
+function manualCombine(p1: Feature<Polygon | MultiPolygon>, p2: Feature<Polygon | MultiPolygon>): Feature<MultiPolygon> {
+    const coords1 = p1.geometry.type === 'Polygon'
+        ? [p1.geometry.coordinates]
+        : p1.geometry.coordinates
+
+    const coords2 = p2.geometry.type === 'Polygon'
+        ? [p2.geometry.coordinates]
+        : p2.geometry.coordinates
+
+    return turf.multiPolygon([...coords1, ...coords2] as any)
+}
+
+/**
+ * Safely Union two polygons with fallbacks.
+ * Guaranteed to return a result containing both inputs if they are valid.
+ */
+function safeUnion(
+    p1: Feature<Polygon | MultiPolygon>,
+    p2: Feature<Polygon | MultiPolygon>
+): Feature<Polygon | MultiPolygon> | null {
+    try {
+        // 1. Try standard union
+        return turf.union(turf.featureCollection([p1, p2])) as Feature<Polygon | MultiPolygon>
+    } catch (e) {
+        // 2. Try buffering inputs slightly to fix topology
+        // INCREASED BUFFER to 0.05km (50m) to fix precision gaps/ocean bug
+        try {
+            const b1 = turf.buffer(p1, 0.05, { units: 'kilometers' })
+            const b2 = turf.buffer(p2, 0.05, { units: 'kilometers' })
+            if (b1 && b2) {
+                return turf.union(turf.featureCollection([b1, b2])) as Feature<Polygon | MultiPolygon>
+            }
+        } catch (e2) { }
+
+        // 3. Fallback: Manual Combine (MultiPolygon)
+        // This is guaranteed to succeed if inputs are valid arrays
+        try {
+            return manualCombine(p1, p2)
+        } catch (e3) {
+            console.error('safeUnion manual combine failed:', e3)
+        }
+
+        return null
+    }
+}
+
+/**
+ * Safely Subtract p2 from p1
+ */
+function safeDifference(
+    p1: Feature<Polygon | MultiPolygon>,
+    p2: Feature<Polygon | MultiPolygon>
+): Feature<Polygon | MultiPolygon> | null {
+    try {
+        // 1. Try standard difference
+        return turf.difference(turf.featureCollection([p1, p2])) as Feature<Polygon | MultiPolygon>
+    } catch (e) {
+        // 2. Try buffering inputs
+        try {
+            const b1 = turf.buffer(p1, 0.0001)
+            const b2 = turf.buffer(p2, 0.0001)
+            if (b1 && b2) {
+                return turf.difference(turf.featureCollection([b1, b2])) as Feature<Polygon | MultiPolygon>
+            }
+        } catch (e2) { }
+
+        return null
+    }
+}
+
+/**
+ * Heal invalid geometry using multiple strategies
+ */
+export function healGeometry(feature: Feature<Polygon | MultiPolygon>): Feature<Polygon | MultiPolygon> | null {
     // First, validate the input
     if (!isValidFeature(feature)) return null
 
-    // Check if the geometry already has a reasonable area (sanity check)
+    // Check if the geometry already has a reasonable area
     try {
         const inputArea = turf.area(feature)
-        if (inputArea < 100000) { // Less than 0.1 sq km - too small, likely corrupted
-            console.warn('healGeometry: Input too small, likely corrupted')
-            return null
-        }
+        if (inputArea < 100000) return null // < 0.1 sq km
     } catch (e) {
-        // Can't calculate area - geometry is broken
         return null
     }
 
-    // Strategy 1: buffer(0) - the classic GIS healing trick
+    // Strategy 1: cleanCoords + truncate
     try {
-        const healed = turf.buffer(feature, 0, { units: 'meters' })
-        if (healed && healed.geometry && healed.geometry.coordinates) {
-            const healedArea = turf.area(healed)
-            if (healedArea > 100000) { // Valid result
-                return cleanAndValidate(healed, feature.properties)
-            }
+        const cleaned = turf.cleanCoords(turf.truncate(feature, { precision: 7 })) as Feature<Polygon | MultiPolygon>
+        // Only return if valid and simple
+        const kinks = turf.kinks(cleaned as any)
+        if (kinks.features.length === 0) {
+            return cleanAndValidate(cleaned, feature.properties)
         }
-    } catch (e) {
-        // buffer(0) failed, try next strategy
-    }
+    } catch (e) { }
 
-    // Strategy 2: Simplify first, then buffer - for complex self-intersecting cases
-    try {
-        const simplified = turf.simplify(feature, { tolerance: 0.001, highQuality: true })
-        const healed = turf.buffer(simplified, 0.001, { units: 'kilometers' })
-        if (healed && healed.geometry) {
-            const healedArea = turf.area(healed)
-            if (healedArea > 100000) {
-                return cleanAndValidate(healed, feature.properties)
-            }
-        }
-    } catch (e) {
-        // Strategy 2 failed
-    }
-
-    // Strategy 3: Try unkink + combine
+    // Strategy 2: unkinkPolygon (Non-destructive)
     try {
         const unkinked = turf.unkinkPolygon(feature as any)
-        if (unkinked && unkinked.features && unkinked.features.length > 0) {
-            // Filter valid pieces and combine
-            const validPieces = unkinked.features.filter(f => {
-                try {
-                    return turf.area(f) > 100000
-                } catch {
-                    return false
-                }
-            })
+        if (unkinked.features.length > 0) {
+            const validPieces = unkinked.features.filter(f => turf.area(f) > 10000)
+
             if (validPieces.length > 0) {
                 if (validPieces.length === 1) {
-                    const result = validPieces[0]
-                    result.properties = { ...feature.properties }
-                    return result as Feature<Polygon | MultiPolygon>
+                    const res = validPieces[0]
+                    res.properties = { ...feature.properties }
+                    return res as Feature<Polygon | MultiPolygon>
                 }
                 const combined = turf.combine(turf.featureCollection(validPieces))
-                if (combined && combined.features && combined.features.length > 0) {
-                    const result = combined.features[0]
-                        ; (result as any).properties = { ...feature.properties }
-                    return result as Feature<Polygon | MultiPolygon>
+                if (combined.features.length > 0) {
+                    const res = combined.features[0]
+                        ; (res as any).properties = { ...feature.properties }
+                    return res as Feature<Polygon | MultiPolygon>
                 }
             }
         }
-    } catch (e) {
-        // Strategy 3 failed
-    }
+    } catch (e) { }
 
-    console.warn('healGeometry: All strategies failed, returning null to prevent corruption')
+    // Strategy 3: buffer(0)
+    try {
+        const healed = turf.buffer(feature, 0, { units: 'kilometers' })
+        if (healed) return cleanAndValidate(healed as any, feature.properties)
+    } catch (e) { }
+
+    // Strategy 4: LAST RESORT - Simplify
+    try {
+        const simplified = turf.simplify(feature, { tolerance: 0.00001, highQuality: true })
+        const healed = turf.buffer(simplified, 0)
+        if (healed) return cleanAndValidate(healed as any, feature.properties)
+    } catch (e) { }
+
+    console.warn('healGeometry: All strategies failed')
     return null
 }
 
@@ -124,13 +208,11 @@ function healGeometry(feature: Feature<Polygon | MultiPolygon>): Feature<Polygon
  * Helper to clean a healed geometry and remove tiny fragments
  */
 function cleanAndValidate(healed: Feature<Polygon | MultiPolygon>, properties: any): Feature<Polygon | MultiPolygon> | null {
-    // Remove tiny polygon fragments (< 1 sq km) that accumulate over time
     if (healed.geometry.type === 'MultiPolygon') {
         const validPolys = healed.geometry.coordinates.filter(poly => {
             try {
                 const tempPoly = turf.polygon(poly)
-                const area = turf.area(tempPoly)
-                return area > 1000000 // > 1 sq km
+                return turf.area(tempPoly) > 1000000 // > 1 sq km
             } catch {
                 return false
             }
@@ -138,7 +220,6 @@ function cleanAndValidate(healed: Feature<Polygon | MultiPolygon>, properties: a
 
         if (validPolys.length === 0) return null
         if (validPolys.length === 1) {
-            // Convert to simple Polygon if only one remains
             const result = turf.polygon(validPolys[0])
             result.properties = { ...properties }
             return result
@@ -149,57 +230,21 @@ function cleanAndValidate(healed: Feature<Polygon | MultiPolygon>, properties: a
         return result
     }
 
-    // For simple polygons, just check minimum area
-    const area = turf.area(healed)
-    if (area < 1000000) return null // < 1 sq km is too small
+    if (turf.area(healed) < 1000000) return null
 
     healed.properties = { ...properties }
     return healed as Feature<Polygon | MultiPolygon>
 }
 
-/**
- * Helper to clean and truncate geometry to avoid floating point precision errors
- */
 export function normalizeGeometry(feature: Feature<Polygon | MultiPolygon>): Feature<Polygon | MultiPolygon> {
     try {
         const truncated = turf.truncate(feature, { precision: 6 })
-        const cleaned = turf.cleanCoords(truncated) as Feature<Polygon | MultiPolygon>
-
-        // Fix self-intersections (kinks)
-        try {
-            const unkinked = turf.unkinkPolygon(cleaned as any)
-            if (unkinked && unkinked.features && unkinked.features.length > 0) {
-                // Instead of unioning (which might recreate kinks), we convert to MultiPolygon
-                // This keeps all the pieces but treats them as distinct valid polygons
-                const polygons = unkinked.features
-                const allCoords: any[] = []
-
-                polygons.forEach(p => {
-                    if (p.geometry.type === 'Polygon') {
-                        allCoords.push(p.geometry.coordinates)
-                    }
-                })
-
-                if (allCoords.length > 0) {
-                    const multi = turf.multiPolygon(allCoords)
-                    // CRITICAL: Preserve properties during unkinking!
-                    multi.properties = { ...feature.properties }
-                    return multi
-                }
-            }
-        } catch (e) {
-            // If unkink fails, fallback to cleaned
-        }
-
-        return cleaned
+        return turf.cleanCoords(truncated) as Feature<Polygon | MultiPolygon>
     } catch (e) {
         return feature
     }
 }
 
-/**
- * Calculate the area conquered in a battle based on decisiveness
- */
 export function calculateConquest(
     attackerPoly: Feature<Polygon | MultiPolygon>,
     defenderPoly: Feature<Polygon | MultiPolygon>,
@@ -209,47 +254,33 @@ export function calculateConquest(
     battleLocation?: [number, number]
 ): Feature<Polygon | MultiPolygon> | null {
     try {
-        if (!isValidFeature(attackerPoly)) {
-            console.log('calculateConquest: Invalid Attacker Poly')
-            return null
-        }
-        if (!isValidFeature(defenderPoly)) {
-            console.log('calculateConquest: Invalid Defender Poly')
-            return null
-        }
+        if (!isValidFeature(attackerPoly) || !isValidFeature(defenderPoly)) return null
 
-        // Normalize inputs
         let cleanAttacker = normalizeGeometry(attackerPoly)
         let cleanDefender = normalizeGeometry(defenderPoly)
 
-        // 0. Use Battle Plan if available
         if (plan && plan.arrows.features.length > 0) {
             const planConquest = calculatePlanConquest(cleanAttacker, cleanDefender, plan, decisiveness)
             if (planConquest) return planConquest
         }
 
-        // 1. If there's a specific claim, we prioritize taking chunks of that
         if (claimPoly && isValidFeature(claimPoly)) {
-            // ... (omitted for brevity, assume claim checks pass or fail similarly)
-            // For now let's focus on logic
-            const claimable = turf.intersect(turf.featureCollection([normalizeGeometry(claimPoly), cleanDefender]))
-            if (!claimable) return null // Claim not overlapping defender
-            if (decisiveness > 0.8) return claimable as Feature<Polygon | MultiPolygon>
-            return calculateBufferConquest(cleanAttacker, claimable as Feature<Polygon | MultiPolygon>, decisiveness)
+            try {
+                const claimable = turf.intersect(turf.featureCollection([normalizeGeometry(claimPoly), cleanDefender]))
+                if (claimable) {
+                    if (decisiveness > 0.8) return claimable as Feature<Polygon | MultiPolygon>
+                    return calculateBufferConquest(cleanAttacker, claimable as Feature<Polygon | MultiPolygon>, decisiveness)
+                }
+            } catch (e) { }
         }
 
-        // 2. No specific claim (or claim fully taken), just general conquest
         return calculateBufferConquest(cleanAttacker, cleanDefender, decisiveness, battleLocation)
 
     } catch (error) {
-        console.warn('⚠️ Error calculating conquest geometry:', error)
         return null
     }
 }
 
-/**
- * Calculate a conquest using a buffer extending from the attacker into the target
- */
 export function calculateBufferConquest(
     attackerPoly: Feature<Polygon | MultiPolygon>,
     targetPoly: Feature<Polygon | MultiPolygon>,
@@ -261,120 +292,135 @@ export function calculateBufferConquest(
 
         const minDistance = 10
         const maxDistance = 100
-        // Ensure intensity is valid
         const safeIntensity = isNaN(intensity) ? 0.1 : Math.max(0, Math.min(1, intensity))
         const distance = minDistance + (maxDistance - minDistance) * safeIntensity
 
-        // Normalize and SIMPLIFY to ensure buffer doesn't crash on complex edges
-        let cleanAttacker = normalizeGeometry(attackerPoly)
-
-
-
-        // Use a smaller number of steps for performance and stability
-        // Buffer with fallback strategy
+        const cleanAttacker = normalizeGeometry(attackerPoly)
         let bufferedAttacker: Feature<Polygon | MultiPolygon> | undefined
 
         try {
-            bufferedAttacker = turf.buffer(cleanAttacker, distance, {
-                units: 'kilometers',
-                steps: 4
-            }) as Feature<Polygon | MultiPolygon>
-        } catch (bufferError) {
-            console.warn('⚠️ Buffer failed, trying aggressive simplification...')
+            bufferedAttacker = turf.buffer(cleanAttacker, distance, { units: 'kilometers', steps: 4 }) as Feature<Polygon | MultiPolygon>
+        } catch (e) {
             try {
-                // Fallback 1: Aggressive simplification
-                const verySimple = turf.simplify(cleanAttacker, { tolerance: 0.05, highQuality: false })
-                bufferedAttacker = turf.buffer(verySimple, distance, {
-                    units: 'kilometers',
-                    steps: 4
-                }) as Feature<Polygon | MultiPolygon>
-            } catch (fallbackError) {
-                console.warn('⚠️ Simplified buffer failed, trying convex hull fallback...')
-                try {
-                    // Fallback 2: Convex Hull (Guaranteed to be simple)
-                    const hull = turf.convex(cleanAttacker)
-                    if (hull) {
-                        bufferedAttacker = turf.buffer(hull, distance, {
-                            units: 'kilometers',
-                            steps: 4
-                        }) as Feature<Polygon | MultiPolygon>
-                    } else {
-                        throw new Error('Convex hull failed')
-                    }
-                } catch (finalError) {
-                    console.error('❌ All polygon buffer attempts failed')
-
-                    // Fallback 3: Point-based Point-Zero conquest (if battle location known)
-                    if (battleLocation &&
-                        typeof battleLocation[0] === 'number' && !isNaN(battleLocation[0]) &&
-                        typeof battleLocation[1] === 'number' && !isNaN(battleLocation[1])
-                    ) {
-                        console.log('📍 Attempting Point-Based Fallback at', battleLocation)
-                        try {
-                            const point = turf.point(battleLocation)
-                            // Create organic shape around the battle point
-                            bufferedAttacker = createOrganicInvasionShape(point, distance)
-                        } catch (pointError) {
-                            console.error('❌ Point fallback failed', pointError)
-                            return null
-                        }
-                    } else {
-                        return null
-                    }
-                }
-            }
+                const center = turf.centroid(cleanAttacker)
+                bufferedAttacker = turf.buffer(center, distance, { units: 'kilometers', steps: 4 })
+            } catch (e2) { }
         }
 
-        if (!bufferedAttacker) {
-            console.log('calculateBufferConquest: Buffer failed')
-            return null
-        }
+        if (!bufferedAttacker) return null
 
-        // Intersect with target to find the "conquered" zone
         let conquest = turf.intersect(turf.featureCollection([bufferedAttacker, normalizeGeometry(targetPoly)]))
 
         if (!conquest) {
-            // Buffer didn't reach target (e.g. Island Invasion or distant neighbors)
-            // Try to create a "Beachhead" using battleLocation with a MORE AGGRESSIVE radius
-            if (battleLocation &&
-                typeof battleLocation[0] === 'number' && !isNaN(battleLocation[0]) &&
-                typeof battleLocation[1] === 'number' && !isNaN(battleLocation[1])
-            ) {
+            if (battleLocation && !isNaN(battleLocation[0])) {
                 try {
                     const point = turf.point(battleLocation)
-                    // Use a larger minimum radius for beachheads (at least 30km to ensure visible conquest)
                     const beachheadRadius = Math.max(30, distance * 1.5)
-                    // Use organic shape helper
                     const beachheadPoly = createOrganicInvasionShape(point, beachheadRadius)
                     conquest = turf.intersect(turf.featureCollection([beachheadPoly, normalizeGeometry(targetPoly)]))
-                } catch (beachheadError) {
-                    console.warn('❌ Beachhead attempt failed', beachheadError)
-                }
-            }
-
-            if (!conquest) {
-                return null
+                } catch (e) { }
             }
         }
 
-        // Ensure result is big enough to matter (approx 1 sq km)
-        const area = turf.area(conquest)
-        if (area < 1000000) {
-            // console.log('calculateBufferConquest: Area too small', area)
-            return null
-        }
+        if (!conquest || turf.area(conquest) < 1000000) return null
 
-        return normalizeGeometry(conquest as Feature<Polygon | MultiPolygon>)
+        return healGeometry(conquest as Feature<Polygon | MultiPolygon>) || conquest as Feature<Polygon | MultiPolygon>
 
     } catch (e) {
-        console.warn('Failed to calculate buffer conquest', e)
         return null
     }
 }
 
 /**
- * Calculate conquest based on battle plan arrows
+ * Calculate conquest zone ANCHORED to the original defender's border.
+ * This prevents gap drift by always using the pristine defender geometry as the outer boundary.
+ * 
+ * The key insight: instead of calculating conquest as "buffer from attacker intersected with defender",
+ * we calculate it as "buffer from frontline intersected with ORIGINAL defender".
+ * The original defender geometry never changes, so the outer edge always perfectly aligns.
  */
+export function calculateAnchoredConquest(
+    attackerPoly: Feature<Polygon | MultiPolygon>,
+    originalDefenderPoly: Feature<Polygon | MultiPolygon>,  // PRISTINE geometry from countriesData
+    intensity: number,
+    existingContestedZone?: Feature<Polygon | MultiPolygon>
+): Feature<Polygon | MultiPolygon> | null {
+    try {
+        if (!isValidFeature(attackerPoly) || !isValidFeature(originalDefenderPoly)) return null
+
+        const minDistance = 10
+        const maxDistance = 100
+        const safeIntensity = isNaN(intensity) ? 0.1 : Math.max(0, Math.min(1, intensity))
+        const distance = minDistance + (maxDistance - minDistance) * safeIntensity
+
+        // Determine the "frontline" - either the attacker's edge or the existing contested zone's edge
+        let frontlinePoly = normalizeGeometry(attackerPoly)
+
+        if (existingContestedZone && isValidFeature(existingContestedZone)) {
+            // Merge attacker with existing contested zone to get combined frontline
+            const merged = safeUnion(frontlinePoly, existingContestedZone)
+            if (merged) {
+                frontlinePoly = merged
+            }
+        }
+
+        // Buffer from the frontline
+        let bufferedFrontline: Feature<Polygon | MultiPolygon> | undefined
+        try {
+            bufferedFrontline = turf.buffer(frontlinePoly, distance, { units: 'kilometers', steps: 4 }) as Feature<Polygon | MultiPolygon>
+        } catch (e) {
+            try {
+                const center = turf.centroid(frontlinePoly)
+                bufferedFrontline = turf.buffer(center, distance, { units: 'kilometers', steps: 4 })
+            } catch (e2) { }
+        }
+
+        if (!bufferedFrontline) return null
+
+        // CRITICAL: Intersect with ORIGINAL defender geometry (pristine, no drift)
+        const cleanOriginalDefender = normalizeGeometry(originalDefenderPoly)
+        let conquest = turf.intersect(turf.featureCollection([bufferedFrontline, cleanOriginalDefender]))
+
+        if (!conquest || turf.area(conquest) < 1000000) return null
+
+        // Heal and return
+        const healed = healGeometry(conquest as Feature<Polygon | MultiPolygon>)
+        return healed || conquest as Feature<Polygon | MultiPolygon>
+
+    } catch (e) {
+        console.warn('calculateAnchoredConquest failed:', e)
+        return null
+    }
+}
+
+/**
+ * Clip a geometry to stay within a boundary.
+ * Used to re-anchor contested zones to original defender borders after merge operations.
+ */
+export function clipToBoundary(
+    feature: Feature<Polygon | MultiPolygon>,
+    boundary: Feature<Polygon | MultiPolygon>
+): Feature<Polygon | MultiPolygon> | null {
+    try {
+        if (!isValidFeature(feature) || !isValidFeature(boundary)) return feature
+
+        const clipped = turf.intersect(turf.featureCollection([
+            normalizeGeometry(feature),
+            normalizeGeometry(boundary)
+        ]))
+
+        if (!clipped || turf.area(clipped) < 100000) return null
+
+        // Preserve properties
+        clipped.properties = { ...feature.properties }
+
+        return clipped as Feature<Polygon | MultiPolygon>
+    } catch (e) {
+        console.warn('clipToBoundary failed:', e)
+        return feature // Return original if clipping fails
+    }
+}
+
 export function calculatePlanConquest(
     attackerPoly: Feature<Polygon | MultiPolygon>,
     targetPoly: Feature<Polygon | MultiPolygon>,
@@ -382,88 +428,44 @@ export function calculatePlanConquest(
     intensity: number
 ): Feature<Polygon | MultiPolygon> | null {
     try {
-        const arrowFeatures = plan.arrows.features
-        if (arrowFeatures.length === 0) return null
+        const arrows = plan.arrows.features.filter(f => f.geometry.type === 'LineString')
+        if (arrows.length === 0) return null
 
-        // Buffer the arrows to create "attack corridors"
-        const bufferDistance = 15 + (intensity * 40) // 15km to 55km width
+        const bufferDistance = 15 + (intensity * 40)
+        let mergedCorridors: Feature<Polygon | MultiPolygon> | null = null
 
-        let corridors: Feature<Polygon | MultiPolygon>[] = []
-
-        arrowFeatures.forEach(arrow => {
+        for (const arrow of arrows) {
             try {
-                if (arrow.geometry.type === 'LineString') {
-                    // Normalize coords to avoid crazy precision issues
-                    const coords = (arrow.geometry as any).coordinates
-                    if (coords.length < 2) return
-
-                    // Check if line length is sufficient
-                    const lineLen = turf.length(arrow, { units: 'kilometers' })
-                    if (lineLen < 1) return // Ignore tiny arrows
-
-                    // Simplify cautiously
-                    // Removed high tolerance simplification to avoid collapsing valid paths
-
-                    // Buffer
-                    const buffered = turf.buffer(arrow, bufferDistance, { units: 'kilometers', steps: 8 }) // Increased steps for stability
-                    if (buffered) corridors.push(buffered as Feature<Polygon | MultiPolygon>)
+                const buff = turf.buffer(arrow, bufferDistance, { units: 'kilometers', steps: 6 })
+                if (buff) {
+                    if (!mergedCorridors) {
+                        mergedCorridors = buff as Feature<Polygon | MultiPolygon>
+                    } else {
+                        const newMerged = safeUnion(mergedCorridors, buff as any)
+                        if (newMerged) mergedCorridors = newMerged
+                    }
                 }
-            } catch (err) {
-                // Ignore individual arrow failure
-            }
-        })
-
-        if (corridors.length === 0) return null
-
-        // Union coords iteratively (safer than bulk union in some turf versions)
-        let corridorPoly = corridors[0]
-        if (corridors.length > 1) {
-            for (let i = 1; i < corridors.length; i++) {
-                try {
-                    const next = corridors[i]
-                    const merged = turf.union(turf.featureCollection([corridorPoly, next]))
-                    if (merged) corridorPoly = merged as Feature<Polygon | MultiPolygon>
-                } catch (e) {
-                    // If union fails, just keep the accumulated poly so far
-                }
-            }
+            } catch (e) { }
         }
 
-        if (!corridorPoly) return null
+        if (!mergedCorridors) return null
 
-        // Intersect corridors with target territory
-        try {
-            const corridorInTarget = turf.intersect(turf.featureCollection([corridorPoly, normalizeGeometry(targetPoly)]))
-            if (!corridorInTarget) return null
+        const inTarget = turf.intersect(turf.featureCollection([mergedCorridors, normalizeGeometry(targetPoly)]))
+        if (!inTarget) return null
 
-            // Also take some random buffer around the attacker (standard conquest) to represent general frontline changes
-            // But smaller than usual since force is concentrated
-            const baseConquest = calculateBufferConquest(attackerPoly, targetPoly, intensity * 0.5)
-
-            if (baseConquest) {
-                try {
-                    const combined = turf.union(turf.featureCollection([corridorInTarget, baseConquest]))
-                    return combined ? normalizeGeometry(combined as Feature<Polygon | MultiPolygon>) : corridorInTarget
-                } catch (e) {
-                    return corridorInTarget
-                }
-            }
-
-            return normalizeGeometry(corridorInTarget as Feature<Polygon | MultiPolygon>)
-        } catch (e) {
-            console.warn('Final intersection in PlanConquest failed', e)
-            return null
+        const base = calculateBufferConquest(attackerPoly, targetPoly, intensity * 0.5)
+        if (base) {
+            const combined = safeUnion(inTarget as any, base)
+            return combined || inTarget as Feature<Polygon | MultiPolygon>
         }
+
+        return inTarget as Feature<Polygon | MultiPolygon>
 
     } catch (e) {
-        console.warn('Failed to calculate plan conquest', e)
         return null
     }
 }
 
-/**
- * Subtract a territory from another (Loss)
- */
 export function subtractTerritory(
     original: Feature<Polygon | MultiPolygon>,
     toRemove: Feature<Polygon | MultiPolygon>
@@ -475,125 +477,84 @@ export function subtractTerritory(
         const cleanOriginal = normalizeGeometry(original)
         const cleanToRemove = normalizeGeometry(toRemove)
 
-        const result = turf.difference(turf.featureCollection([cleanOriginal as any, cleanToRemove as any]))
+        const result = safeDifference(cleanOriginal, cleanToRemove)
 
-        // If result is null, it means FULL erasure.
-        // However, user reports "turning to water" (bug).
-        // If it was INTENDED to be fully erased, worldStore should handle it.
-        // But if it's a bug with complex geometry, we should preserve the original.
-        // For now, let's assume partial conquest is the goal.
-        // If we get NULL, check if 'toRemove' covers 'original'.
         if (!result) {
             try {
                 const intersection = turf.intersect(turf.featureCollection([cleanOriginal as any, cleanToRemove as any]))
                 const areaOrig = turf.area(cleanOriginal)
                 const areaInter = intersection ? turf.area(intersection) : 0
-                // If intersection is close to original area (e.g. > 90%), then yes, it's a full conquest (erased).
-                if (areaInter > areaOrig * 0.9) {
-                    return null // Valid erasure
-                }
+
+                if (areaInter > areaOrig * 0.9) return null // Valid total erasure
             } catch (e) { }
 
-            console.warn('subtractTerritory: Unexpected NULL result (not full conquest), returning original')
+            // Ocean Glitch Prevention: If not confirmed total erasure, assume bug and revert
             return original
         }
 
-        // CRITICAL: Preserve properties!
-        result.properties = { ...original.properties }
+        if (turf.area(result) < turf.area(cleanOriginal) * 0.01) {
+            const intersection = turf.intersect(turf.featureCollection([cleanOriginal as any, cleanToRemove as any]))
+            const takenArea = intersection ? turf.area(intersection) : 0
 
-        // Sanity check: Ensure we didn't lose 99% of the country by accident due to bad diff
-        try {
-            const newArea = turf.area(result)
-            const oldArea = turf.area(cleanOriginal)
-            if (newArea < oldArea * 0.01) { // Left with < 1%
-                // Check if we INTENDED to take > 99%
-                const intersection = turf.intersect(turf.featureCollection([cleanOriginal as any, cleanToRemove as any]))
-                const takenArea = intersection ? turf.area(intersection) : 0
-
-                // If we only took a small chunk (e.g. 10%) but result is 1%, then BUG.
-                if (takenArea < oldArea * 0.8) {
-                    console.warn('subtractTerritory: Result implies accidental erasure (bug), returning original')
-                    return original
-                }
+            // If we took meaningful territory (>90%) and left <1%, treat as total conquest
+            if (takenArea > turf.area(cleanOriginal) * 0.9) {
+                return null
             }
-        } catch (areaError) { }
 
-        // Heal any geometry corruption from the difference operation
-        const healed = healGeometry(result as Feature<Polygon | MultiPolygon>)
-        if (!healed) {
-            // IMPORTANT: If healing fails, return ORIGINAL to prevent corruption
-            // This means the territory change didn't happen, but it's better than ocean
-            console.warn('subtractTerritory: Healing failed, returning original to prevent ocean bug')
-            return original
+            // Otherwise, if we took very little but result is tiny, it might be a glitch, revert to original
+            if (takenArea < turf.area(cleanOriginal) * 0.1) {
+                return original
+            }
         }
 
-        return healed
+        const healed = healGeometry(result)
+        return healed || original // Fallback to original if healing fails
+
     } catch (e) {
-        console.warn('Failed to subtract territory', e)
         return original
     }
 }
 
-/**
- * Merge two territories (Expansion)
- */
 export function mergeTerritory(
     original: Feature<Polygon | MultiPolygon>,
     toAdd: Feature<Polygon | MultiPolygon>
 ): Feature<Polygon | MultiPolygon> | null {
     try {
+        // If original is missing, we can just return toAdd (claiming empty land)
         if (!isValidFeature(original)) return toAdd
         if (!isValidFeature(toAdd)) return original
 
         const cleanOriginal = normalizeGeometry(original)
         const cleanToAdd = normalizeGeometry(toAdd)
 
-        let result = null
+        let toAddBuffered = cleanToAdd
+        // INCREASED SNAP BUFFER to 0.05km (50m) to force robust union overlap
         try {
-            result = turf.union(turf.featureCollection([cleanOriginal, cleanToAdd]))
-        } catch (unionError) {
-            console.warn('mergeTerritory: Union failed, trying fallback combine', unionError)
-        }
+            const buff = turf.buffer(cleanToAdd, 0.05, { units: 'kilometers' })
+            if (buff) toAddBuffered = buff as Feature<Polygon | MultiPolygon>
+        } catch (e) { }
+
+        // Robust Union
+        const result = safeUnion(cleanOriginal, toAddBuffered)
 
         if (!result) {
-            // Fallback: If union fails (common with complex borders), just combine them into a MultiPolygon
-            // This preserves the visual land even if the topology isn't perfectly dissolved
+            // This should be impossible with manualCombine, but safe fallback:
             try {
-                const combined = turf.combine(turf.featureCollection([cleanOriginal, cleanToAdd]))
-                if (combined && combined.features && combined.features.length > 0) {
-                    result = combined.features[0] as Feature<Polygon | MultiPolygon>
-                }
-            } catch (combineError) {
-                console.warn('mergeTerritory: Combine fallback failed', combineError)
-                return original // Worst case: lose the new piece, but usually combine works
-            }
-        }
-
-        if (!result) return original
-
-        // CRITICAL: Preserve properties!
-        result.properties = { ...original.properties }
-
-        // Heal any geometry corruption from the union operation
-        const healed = healGeometry(result as Feature<Polygon | MultiPolygon>)
-        if (!healed) {
-            console.warn('mergeTerritory: Healing failed, fallback to unhealed combine to save data')
-            // If healing kills it, try to return the simple combined version (might have kinks but better than water)
-            try {
-                const combined = turf.combine(turf.featureCollection([cleanOriginal, cleanToAdd]))
-                if (combined && combined.features && combined.features.length > 0) {
-                    const fallback = combined.features[0] as Feature<Polygon | MultiPolygon>
-                    fallback.properties = { ...original.properties }
-                    return fallback
-                }
+                const combined = manualCombine(cleanOriginal, cleanToAdd)
+                    ; (combined as any).properties = { ...original.properties }
+                return combined
             } catch (e) { }
 
+            // Absolute last resort: return toAdd if original failed? No, return original.
             return original
         }
 
-        return healed
+        result.properties = { ...original.properties }
+
+        // Final heal
+        const healed = healGeometry(result)
+        return healed || result
     } catch (e) {
-        console.warn('Failed to merge territory', e)
         return original
     }
 }

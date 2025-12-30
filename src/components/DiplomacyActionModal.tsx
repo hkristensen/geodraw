@@ -6,14 +6,18 @@ import { getGeopoliticalData, mapOrientationToNumber, mapGovType } from '../util
 import { getCountryData, getReligionDistribution, type Religion } from '../utils/countryData'
 import { WarGoalModal } from './WarGoalModal'
 
+import { useIsMobile } from './MobileNav'
+
 interface DiplomacyActionModalProps {
     countryCode: string
+    initialName?: string
     onClose: () => void
     onLaunchOffensive?: (code: string, name: string) => void
 }
 
-export function DiplomacyActionModal({ countryCode, onClose, onLaunchOffensive }: DiplomacyActionModalProps) {
+export function DiplomacyActionModal({ countryCode, initialName, onClose, onLaunchOffensive }: DiplomacyActionModalProps) {
     const { nation, addDiplomaticEvents, removeTerritory, playerTerritories, selectedCountry, executeWarPlan } = useGameStore()
+    const isMobile = useIsMobile()
     const {
         getCountry,
         declareWar,
@@ -32,15 +36,36 @@ export function DiplomacyActionModal({ countryCode, onClose, onLaunchOffensive }
     // Ensure country exists in store
     useEffect(() => {
         if (!getCountry(countryCode)) {
-            ensureCountryInitialized(countryCode)
+            ensureCountryInitialized(countryCode, undefined, initialName)
         }
-    }, [countryCode, getCountry, ensureCountryInitialized])
+    }, [countryCode, getCountry, ensureCountryInitialized, initialName])
 
     const country = getCountry(countryCode)
-    const geoData = getGeopoliticalData(countryCode)
+    const rawGeoData = getGeopoliticalData(countryCode)
+
+    // Fallback for dynamic countries (Separatists) that lack static json data
+    const geoData = rawGeoData || (country ? {
+        name: country.name || initialName || countryCode,
+        leader: typeof country.politicalState?.leader === 'string' ? country.politicalState.leader : country.politicalState?.leader?.name || 'Revolutionary Council',
+        orientation: 'Nationalist', // Default for separatists
+        gov_type: 'Transitional',
+        policies: [],
+        allies: country.allies || [],
+        enemies: country.enemies || [],
+        religions: [country.religion],
+        unrest: country.modifiers?.find(m => m.type === 'UNREST')?.intensity ? Math.ceil(country.modifiers.find(m => m.type === 'UNREST')!.intensity / 20) : 3,
+        leader_pop: country.politicalState?.leader_pop ?? 3,
+        freedom: Math.max(1, Math.floor((100 - (country.authority || 50)) / 20)),
+        military: Math.ceil((country.soldiers || 1000) / 10000), // Approx score
+        aggression: country.aggression || 4,
+        trade: []
+    } : null)
+
     const [activeTab, setActiveTab] = useState<'overview' | 'data' | 'relations' | 'treaties' | 'economic' | 'hostile'>('overview')
     const [message, setMessage] = useState<string | null>(null)
     const [showWarGoalModal, setShowWarGoalModal] = useState(false)
+
+    if (!country || !nation || !geoData) return null
 
     // Get ALL coalitions the player is in (not just the first one)
     const playerCoalitions = coalitions.filter(c => c.members.includes(selectedCountry || ''))
@@ -167,8 +192,8 @@ export function DiplomacyActionModal({ countryCode, onClose, onLaunchOffensive }
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-slate-900 border border-white/20 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden">
+        <div className={`fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm ${isMobile ? 'pt-0 items-start' : ''}`}>
+            <div className={`${isMobile ? 'w-full min-h-screen rounded-none border-0 overflow-y-auto pb-24' : 'w-full max-w-2xl rounded-xl border border-white/20 overflow-hidden'} bg-slate-900 shadow-2xl`}>
                 {/* Header */}
                 <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-6 border-b border-white/10 flex justify-between items-start">
                     <div>
@@ -1310,21 +1335,43 @@ function RelationsTab({ countryCode }: { countryCode: string }) {
     const relationsList = Array.from(aiCountries.values())
         .filter(c => c.code !== countryCode && !c.isAnnexed)
         .map(c => {
-            // Calculate relation score
+            // Calculate relation score based on affinity
             let score = 0
+
+            // Explicit Allies/Enemies
             if (country.allies.includes(c.code)) score += 50
             if (country.enemies.includes(c.code)) score -= 50
             if (c.allies.includes(countryCode)) score += 50
             if (c.enemies.includes(countryCode)) score -= 50
 
-            // Shared Government
-            if (c.politicalState?.govType && country.politicalState?.govType && c.politicalState.govType === country.politicalState.govType) score += 10
+            // Cultural Affinity
+            if (c.culture === country.culture) score += 20
+            if (c.religion === country.religion) score += 15
+            if (c.language === country.language) score += 10
 
-            // Random flux (stable per session)
-            const pseudoRandom = (c.code.charCodeAt(0) + countryCode.charCodeAt(0)) % 20
-            score += pseudoRandom
+            // Political Affinity
+            if (c.politicalState?.govType && country.politicalState?.govType) {
+                if (c.politicalState.govType === country.politicalState.govType) score += 10
 
-            return { code: c.code, name: c.name, score }
+                // Democracy loves Democracy
+                if (['DEMOCRACY', 'PARLIAMENTARY', 'PRESIDENTIAL'].includes(c.politicalState.govType) &&
+                    ['DEMOCRACY', 'PARLIAMENTARY', 'PRESIDENTIAL'].includes(country.politicalState.govType)) {
+                    score += 15
+                }
+
+                // Communists allow other Communists
+                if (c.politicalState.govType === 'COMMUNIST' && country.politicalState.govType === 'COMMUNIST') score += 20
+            }
+
+            // Random flux (stable per session using pair-wise hash)
+            const seed = (c.code.charCodeAt(0) * 31 + countryCode.charCodeAt(0) * 17) % 20
+            score -= 10 // Base hostility
+            score += seed
+
+            // Clamp
+            score = Math.max(-100, Math.min(100, score))
+
+            return { code: c.code, name: c.name || c.code, score }
         })
         .sort((a, b) => b.score - a.score)
 
@@ -1368,7 +1415,7 @@ function RelationsTab({ countryCode }: { countryCode: string }) {
                                         <div className={`w-2 h-2 rounded-full ${isAttacker ? 'bg-red-500' : 'bg-blue-500'}`} />
                                         <div>
                                             <div className="font-bold text-white text-sm">
-                                                {isAttacker ? 'Attacking' : 'Defending against'} {opponent?.name || opponentCode}
+                                                {isAttacker ? 'Attacking' : 'Defending against'} {opponent?.name || (opponentCode.startsWith('SEP') ? 'Separatist Forces' : opponentCode)}
                                             </div>
                                             <div className="text-xs text-red-300">
                                                 {(myGain || 0) > (theirGain || 0) + 5 ? 'Winning' : (theirGain || 0) > (myGain || 0) + 5 ? 'Losing' : 'Stalemate'}
