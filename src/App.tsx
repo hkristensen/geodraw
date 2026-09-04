@@ -352,6 +352,32 @@ function App() {
                     }
                 }
 
+                // Sync AI Territories (permanent border changes from wars/annexations).
+                // The host only sends countries whose borders diverged from the shared
+                // baseline (see useHostSync.ts), so this MERGES into our locally-built
+                // aiTerritories map rather than replacing it - our own baseline for
+                // untouched countries came from the same countries.json at startup and
+                // must be preserved. A null featureString means the host fully annexed
+                // that country; remove it from our local map too.
+                if (remoteGame.aiTerritories && Array.isArray(remoteGame.aiTerritories)) {
+                    const territoryUpdates = remoteGame.aiTerritories
+                    const mergedTerritories = new Map(useWorldStore.getState().aiTerritories)
+                    territoryUpdates.forEach((item) => {
+                        if (!item.featureString) {
+                            mergedTerritories.delete(item.code)
+                            return
+                        }
+                        try {
+                            const feature = JSON.parse(item.featureString)
+                            mergedTerritories.set(item.code, feature)
+                        } catch (e) {
+                            console.error('Failed to parse AI territory', item.code)
+                        }
+                    })
+                    useWorldStore.setState({ aiTerritories: mergedTerritories })
+                    console.log(`📥 SYNC [Client]: Merged ${territoryUpdates.length} AI territory updates from Host`)
+                }
+
                 // Sync Irradiated Zones (Nuclear Blasts)
                 if (remoteGame.irradiatedZones && Array.isArray(remoteGame.irradiatedZones)) {
                     const newMap = new Map()

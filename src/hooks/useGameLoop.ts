@@ -8,6 +8,15 @@ import { checkSeparatistRebellion } from '../utils/separatistSystem'
 
 export function useGameLoop() {
     const intervalRef = useRef<NodeJS.Timeout | null>(null)
+    // Re-entrancy guard: a tick does a lot of synchronous turf/geometry work across
+    // every active war, and setInterval can fire again while a previous tick's
+    // callback is still on the stack (e.g. a very slow tick, or a debugger pause).
+    // Without this, two ticks could interleave their reads/writes of aiTerritories /
+    // contestedZones / aiCountries and silently drop each other's updates - the same
+    // class of bug that used to come from unnecessary async boundaries inside the
+    // store itself. Skipping an overlapping tick is safe: the next scheduled tick
+    // picks up from current state.
+    const isProcessingRef = useRef(false)
     const {
         gameSpeed,
         triggerEvent,
@@ -46,6 +55,20 @@ export function useGameLoop() {
         const intervalDuration = baseInterval / gameSpeed
 
         intervalRef.current = setInterval(() => {
+            if (isProcessingRef.current) {
+                console.warn('⏭️ Game tick skipped - previous tick still processing')
+                return
+            }
+            isProcessingRef.current = true
+
+            try {
+                runTick()
+            } finally {
+                isProcessingRef.current = false
+            }
+        }, intervalDuration)
+
+        function runTick() {
             // Re-fetch latest state to avoid closures
             const currentState = useGameStore.getState()
             const currentNation = currentState.nation
@@ -270,8 +293,7 @@ export function useGameLoop() {
                     useWorldStore.getState().processDiplomacy()
                 }
             }
-
-        }, intervalDuration)
+        }
 
         return () => {
             if (intervalRef.current) clearInterval(intervalRef.current)
