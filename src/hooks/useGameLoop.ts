@@ -5,6 +5,9 @@ import { calculateEconomy, calculateResearchOutput, initEconomicCycle, updateEco
 import { checkVictoryConditions, checkAchievements } from '../utils/victorySystem'
 import { useMultiplayerStore } from '../store/multiplayerStore'
 import { checkSeparatistRebellion } from '../utils/separatistSystem'
+import { calculateUnrestChange } from '../utils/unrest'
+import { calculatePlayerPower } from '../utils/powerSystem'
+import { calculateCoalitionEconomicBonus } from '../utils/coalitionSystem'
 
 export function useGameLoop() {
     const intervalRef = useRef<NodeJS.Timeout | null>(null)
@@ -77,7 +80,18 @@ export function useGameLoop() {
             const currentWorldState = useWorldStore.getState()
             const currentAiCountries = currentWorldState.aiCountries
 
-            const { netIncome, soldierGrowth, stats } = calculateEconomy(currentNation, currentState.infrastructureStats, currentAiCountries)
+            // Coalition bonuses (getCoalitionBenefits() promises these to the player but
+            // they were never actually applied anywhere): TRADE -> +5% GDP/member,
+            // RESEARCH -> +10% Research Points/member, MILITARY -> +10% military score/member.
+            const playerCode = currentState.selectedCountry || 'PLAYER'
+            const coalitionBonus = calculateCoalitionEconomicBonus(playerCode, currentWorldState.coalitions)
+
+            const { netIncome, soldierGrowth, stats, totalGDP } = calculateEconomy(currentNation, currentState.infrastructureStats, currentAiCountries, coalitionBonus)
+
+            // Capture initial GDP once, for tracking GDP growth (economic_miracle achievement)
+            if (currentState.initialGDP === null && totalGDP > 0) {
+                useGameStore.setState({ initialGDP: totalGDP })
+            }
 
             // Update economic cycle
             if (currentState.economicCycle) {
@@ -91,8 +105,42 @@ export function useGameLoop() {
             // Apply income
             updateBudget(netIncome)
 
+            // Apply monthly unrest change (budget allocation, tax rate, active wars,
+            // active policies, and stability buildings like Temple/Hospital). This was
+            // previously computed by calculateUnrestChange but never called anywhere,
+            // so player unrest only ever moved via one-off policy-enactment deltas.
+            const unrestChange = calculateUnrestChange(currentState, currentWorldState)
+            if (unrestChange !== 0) {
+                useGameStore.getState().updateUnrest(unrestChange)
+            }
+
             // Advance time (1 month)
             advanceDate(30)
+
+            // Recalculate player power with real diplomatic/research context.
+            // calculatePlayerPower (accounts for allies, coalitions, agreements, and
+            // actual research) previously existed but was never called anywhere - the
+            // player's power score used to be frozen at allyCount/coalitionCount/
+            // agreementCount=0 and a flat researchLevel=20 regardless of actual
+            // diplomatic or scientific progress.
+            const newSoldiers = Math.min(currentNation.stats.manpower, currentNation.stats.soldiers + soldierGrowth)
+            const freshBudget = useGameStore.getState().nation?.stats.budget ?? currentNation.stats.budget
+            const allyCount = currentWorldState.allies.length
+            const coalitionMemberships = currentWorldState.coalitions.filter(c => c.members.includes(playerCode)).length
+            const agreementCount = Array.from(currentAiCountries.values())
+                .reduce((sum, c) => sum + (c.agreements?.length || 0), 0)
+            const buildingCount = currentNation.buildings?.length || 0
+            const powerStats = calculatePlayerPower(
+                newSoldiers,
+                freshBudget,
+                allyCount,
+                coalitionMemberships,
+                agreementCount,
+                currentState.unrest,
+                currentState.researchPoints,
+                buildingCount,
+                coalitionBonus.militaryBonus
+            )
 
             // Update stats
             setNation({
@@ -100,13 +148,14 @@ export function useGameLoop() {
                 stats: {
                     ...currentNation.stats,
                     ...stats,
-                    soldiers: Math.min(currentNation.stats.manpower, currentNation.stats.soldiers + soldierGrowth)
+                    soldiers: newSoldiers,
+                    power: powerStats.totalPower
                 }
             })
 
             // Generate research points
             const population = currentState.infrastructureStats?.totalPopulation || 1000000
-            const researchOutput = calculateResearchOutput(currentNation.stats, population, currentNation.buildings || [])
+            const researchOutput = calculateResearchOutput(currentNation.stats, population, currentNation.buildings || [], coalitionBonus.researchBonus)
             if (researchOutput > 0) {
                 useGameStore.getState().addResearchPoints(researchOutput)
             }
@@ -162,22 +211,36 @@ export function useGameLoop() {
             let positiveRelationsCount = 0
             currentAiCountries.forEach(ai => { if (ai.relations > 0) positiveRelationsCount++ })
 
+            const coalitionSize = currentWorldState.coalitions
+                .filter(c => c.leader === playerCode)
+                .reduce((max, c) => Math.max(max, c.members.length), 0)
+
+            const tradeAgreements = Array.from(currentAiCountries.values())
+                .reduce((sum, c) => sum + c.agreements.filter(a => a.type === 'TRADE_AGREEMENT' || a.type === 'FREE_TRADE').length, 0)
+
+            const gdpGrowthPercent = currentState.initialGDP
+                ? ((totalGDP - currentState.initialGDP) / currentState.initialGDP) * 100
+                : 0
+
+            // Real rank instead of a hardcoded true: fewer than 10 nations more powerful
+            const isTop10Power = allPowers.filter(p => p > playerPower).length < 10
+
             const newAchievements = checkAchievements({
-                warsWon: 0,
-                warAgainstStronger: false,
+                warsWon: currentState.warsWonCount,
+                warAgainstStronger: currentState.warAgainstStrongerWon,
                 territoryControlled: (playerLand / worldTotalLand) * 100,
                 monthsAtPeace: activeWarsList.length === 0 ? monthsPlayed : 0,
                 allianceCount: allyList.length,
-                coalitionSize: 0,
+                coalitionSize,
                 positiveRelations: positiveRelationsCount,
-                gdpGrowthPercent: 0,
-                tradeAgreements: 0,
+                gdpGrowthPercent,
+                tradeAgreements,
                 budgetReserves: currentNation.stats.budget,
                 lowUnrestMonths: currentState.unrest < 20 ? monthsPlayed : 0,
-                revolutionsTriggered: 0,
+                revolutionsTriggered: currentState.revolutionsTriggeredCount,
                 simultaneousWars: activeWarsList.length,
-                isTop10Power: true,
-                warsDeclared: 0
+                isTop10Power,
+                warsDeclared: currentState.warsDeclaredCount
             }, currentState.achievementsUnlocked)
 
             if (newAchievements.length > 0) {

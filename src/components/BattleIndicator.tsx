@@ -192,6 +192,16 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
         const newOccupation = (storeCountry?.territoryLost || 0) + gain
 
         if (newOccupation >= 100 || (result.decisiveness > 0.8 && !claimId)) {
+            // Achievement tracking: a full annexation is an unambiguous war win.
+            // Compare the defender's power (captured before annexation zeroes it out)
+            // against the player's current power to detect "won against a stronger foe".
+            const playerPowerNow = useGameStore.getState().nation?.stats.power || 0
+            const enemyWasStronger = (storeCountry?.power || 0) >= playerPowerNow * 1.5
+            useGameStore.setState(s => ({
+                warsWonCount: s.warsWonCount + 1,
+                warAgainstStrongerWon: s.warAgainstStrongerWon || enemyWasStronger
+            }))
+
             // Full Annexation
             annexCountry(defenderCode)
             annexAICountry(defenderCode, 'PLAYER')

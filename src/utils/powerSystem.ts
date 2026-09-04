@@ -45,6 +45,7 @@ export function calculatePowerExtended(params: {
     researchLevel?: number // 0-100
     buildingCount?: number
     qualityModifier?: number // 0.5-2.0, affects military effectiveness
+    militaryCoalitionBonus?: number // additive multiplier from MILITARY coalitions, e.g. 0.1 = +10%
 }): PowerComponents {
     const {
         soldiers,
@@ -56,14 +57,15 @@ export function calculatePowerExtended(params: {
         unrest = 50,
         researchLevel = 0,
         buildingCount = 0,
-        qualityModifier = 1.0
+        qualityModifier = 1.0,
+        militaryCoalitionBonus = 0
     } = params
 
     // 1. Military Score (0-200+)
     // Base: 10,000 soldiers = 10 points, 100,000 = 100 points
-    // Modified by quality (training, tech, equipment)
+    // Modified by quality (training, tech, equipment) and MILITARY coalition membership
     const baseMilitary = Math.min(200, Math.round(soldiers / 1000))
-    const militaryScore = Math.round(baseMilitary * qualityModifier)
+    const militaryScore = Math.round(baseMilitary * qualityModifier * (1 + militaryCoalitionBonus))
 
     // 2. Economy Score (0-200)
     let economyScore = 0
@@ -160,7 +162,8 @@ export function calculatePlayerPower(
     agreements: number,
     unrest: number,
     researchPoints: number,
-    buildingCount: number
+    buildingCount: number,
+    militaryCoalitionBonus: number = 0
 ): PowerComponents {
     return calculatePowerExtended({
         soldiers,
@@ -171,7 +174,8 @@ export function calculatePlayerPower(
         agreementCount: agreements,
         unrest,
         researchLevel: Math.min(100, researchPoints / 10), // Convert RP to level
-        buildingCount
+        buildingCount,
+        militaryCoalitionBonus
     })
 }
 

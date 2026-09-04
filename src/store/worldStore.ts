@@ -64,6 +64,14 @@ import countriesData from '../data/countries.json'
 // race on aiTerritories/contestedZones/aiCountries within the same game tick.
 
 
+// Government types electionSystem.ts's calculateElectionChance treats as democratic
+// (regular election cycles). Kept in sync with that function's own isDemocratic check.
+const DEMOCRATIC_GOV_TYPES = ['PRESIDENTIAL', 'PARLIAMENTARY', 'SEMI_PRESIDENTIAL', 'CONSTITUTIONAL_MONARCHY']
+function isDemocraticGovType(govType: string): boolean {
+    return DEMOCRATIC_GOV_TYPES.includes(govType)
+}
+const FOUR_YEARS = 4 * 365 * 24 * 60 * 60 * 1000 // ms
+
 // Calculate initial disposition based on territory lost
 function calculateDisposition(territoryLost: number, hasRevanchism: boolean): Disposition {
     if (hasRevanchism || territoryLost > 50) return 'hostile'
@@ -478,6 +486,9 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             activeWars: [...activeWars, countryCode],
             aiWars: [...aiWars, war]
         })
+
+        // Achievement tracking: this is the player's own formal declaration of war
+        useGameStore.setState(s => ({ warsDeclaredCount: s.warsDeclaredCount + 1 }))
     },
 
     makePeace: (countryCode) => {
@@ -1165,14 +1176,53 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             newModifiers.push(createModifier('DESTABILIZED', { code: countryCode, name: country.name }))
         }
 
-        aiCountries.set(countryCode, {
+        let updatedCountry = {
             ...country,
             power: newPower,
             relations: newRelations,
             modifiers: newModifiers,
             disposition: newRelations < -20 ? 'hostile' : country.disposition
-        })
+        }
 
+        // A successful destabilization campaign can tip an already-unstable regime
+        // into open revolution - reuses the same revolution mechanics AI countries
+        // roll for monthly (electionSystem.ts), just triggered by the player's action
+        // instead of a random monthly check.
+        if (updatedCountry.politicalState) {
+            const revolutionChance = calculateRevolutionChance(updatedCountry)
+            if (Math.random() < revolutionChance) {
+                const result = triggerRevolution(updatedCountry)
+                updatedCountry = {
+                    ...updatedCountry,
+                    politicalState: {
+                        ...updatedCountry.politicalState,
+                        leader: result.newLeader,
+                        orientation: result.newOrientation as any,
+                        govType: result.newGovType,
+                        unrest: Math.max(1, Math.min(5, updatedCountry.politicalState.unrest + result.unrestChange)),
+                        leader_pop: 3,
+                        // See processElections' revolution/coup branches: a democratic
+                        // government type needs nextElection scheduled or it gets stuck.
+                        nextElection: isDemocraticGovType(result.newGovType)
+                            ? useGameStore.getState().gameDate + FOUR_YEARS
+                            : updatedCountry.politicalState.nextElection
+                    }
+                }
+
+                useGameStore.setState(s => ({ revolutionsTriggeredCount: s.revolutionsTriggeredCount + 1 }))
+                useGameStore.getState().addDiplomaticEvents([{
+                    id: `revolution-incited-${countryCode}-${Date.now()}`,
+                    type: 'REGIME_CHANGE' as any,
+                    severity: 3,
+                    title: `🔥 REVOLUTION in ${country.name}!`,
+                    description: `Your destabilization campaign has toppled the government. ${result.newLeader} has seized power.${result.civilWar ? ' Civil war has erupted!' : ''}`,
+                    affectedNations: [countryCode],
+                    timestamp: Date.now()
+                }])
+            }
+        }
+
+        aiCountries.set(countryCode, updatedCountry)
         set({ aiCountries: new Map(aiCountries) })
         return true
     },
@@ -1839,7 +1889,6 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         const { aiCountries } = get()
         const { addDiplomaticEvents, gameDate } = useGameStore.getState()
         const events: any[] = []
-        const FOUR_YEARS = 4 * 365 * 24 * 60 * 60 * 1000 // 4 years in ms
 
         {
             aiCountries.forEach((country, code) => {
@@ -1856,6 +1905,14 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     country.politicalState.govType = result.newGovType
                     country.politicalState.unrest = Math.max(1, Math.min(5, country.politicalState.unrest + result.unrestChange))
                     country.politicalState.leader_pop = 3 // Reset to neutral
+                    // A revolution can install a democratic government type. Without scheduling
+                    // nextElection here, calculateElectionChance would either fall through to the
+                    // (wrong) non-democratic sham-election branch, or - if nextElection was left
+                    // over from before the regime change and already in the past - re-trigger a
+                    // "real" election every single month indefinitely.
+                    if (isDemocraticGovType(result.newGovType)) {
+                        country.politicalState.nextElection = gameDate + FOUR_YEARS
+                    }
 
                     // Generate event
                     events.push({
@@ -1881,6 +1938,12 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     country.politicalState.govType = result.newGovType
                     country.politicalState.unrest = Math.max(1, Math.min(5, country.politicalState.unrest + result.unrestIncrease))
                     country.politicalState.leader_pop = 2 // Low initial popularity
+                    // See the revolution branch above: schedule nextElection when a coup
+                    // installs a democratic government type, so it doesn't get stuck in the
+                    // non-democratic election branch or re-elect every month.
+                    if (isDemocraticGovType(result.newGovType)) {
+                        country.politicalState.nextElection = gameDate + FOUR_YEARS
+                    }
 
                     // Generate event
                     events.push({

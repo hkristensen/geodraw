@@ -24,7 +24,11 @@ type Tab = 'OVERVIEW' | 'RECRUIT' | 'ORGANIZE'
 
 export function MilitaryPanel({ onOpenDefensivePlanning, isMobile, onClose }: MilitaryPanelProps) {
     const { nation, createUnit, updateBudget, deleteUnit, transferSoldiers, recallUnit } = useGameStore()
-    const [isOpen, setIsOpen] = useState(false)
+    // On mobile this component is only mounted because the user just navigated to
+    // the "Army" tab in MobileNav - that tap IS the open action, so start open
+    // instead of showing a redundant floating trigger button that needs a second
+    // tap. On desktop it's mounted permanently, so the floating trigger is correct.
+    const [isOpen, setIsOpen] = useState(!!isMobile)
     const [activeTab, setActiveTab] = useState<Tab>('OVERVIEW')
 
     // Recruitment State

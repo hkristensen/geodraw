@@ -142,6 +142,49 @@ export function calculateJoinChance(
     return Math.max(0, Math.min(100, score))
 }
 
+export interface CoalitionEconomicBonus {
+    gdpBonus: number       // Additive multiplier, e.g. 0.05 = +5% GDP
+    researchBonus: number  // Additive multiplier, e.g. 0.10 = +10% Research Points
+    militaryBonus: number  // Additive multiplier, e.g. 0.10 = +10% Military score
+}
+
+/**
+ * Compute the real economic/military bonuses a member's coalitions grant,
+ * matching what getCoalitionBenefits() describes to the player:
+ * MILITARY: +10% Military Power per (other) member
+ * TRADE: +5% GDP Growth per (other) member
+ * RESEARCH: +10% Research Points per (other) member
+ */
+export function calculateCoalitionEconomicBonus(
+    memberCode: string,
+    coalitions: Coalition[]
+): CoalitionEconomicBonus {
+    let gdpBonus = 0
+    let researchBonus = 0
+    let militaryBonus = 0
+
+    for (const coalition of coalitions) {
+        if (!coalition.members.includes(memberCode)) continue
+
+        const otherMembers = coalition.members.filter(m => m !== memberCode).length
+        if (otherMembers === 0) continue
+
+        switch (coalition.type) {
+            case 'TRADE':
+                gdpBonus += otherMembers * 0.05
+                break
+            case 'RESEARCH':
+                researchBonus += otherMembers * 0.10
+                break
+            case 'MILITARY':
+                militaryBonus += otherMembers * 0.10
+                break
+        }
+    }
+
+    return { gdpBonus, researchBonus, militaryBonus }
+}
+
 /**
  * Get benefits description
  */

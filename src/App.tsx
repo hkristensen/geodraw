@@ -714,7 +714,11 @@ function App() {
 
             {/* UI overlays - Mobile: show active panel only, Desktop: show all */}
             {(!isMobile || activePanel === 'nation') && <NationInfoPanel isMobile={isMobile} onClose={() => setActivePanel('map')} />}
-            {(!isMobile || activePanel === 'diplomacy') && <DiplomacyPanel isMobile={isMobile} onClose={() => setActivePanel('map')} />}
+            {/* Mobile only: desktop already has its own DiplomacyPanel instance below,
+                toggled by the 🌐 button in the floating action bar and properly
+                positioned/sized by its wrapper. Rendering it here unconditionally on
+                desktop too used to mount a second, unpositioned copy of the same panel. */}
+            {isMobile && activePanel === 'diplomacy' && <DiplomacyPanel isMobile={isMobile} onClose={() => setActivePanel('map')} />}
             {(!isMobile || activePanel === 'military') && (
                 <MilitaryPanel
                     isMobile={isMobile}
@@ -917,7 +921,7 @@ function App() {
             {/* Right Panel - Diplomacy/Stats */}
             {showDiplomacyPanel && (phase === 'RESULTS' || phase === 'EXPANSION') && (
                 <div className="absolute top-20 right-4 w-80 h-[calc(100vh-6rem)] z-10">
-                    <DiplomacyPanel />
+                    <DiplomacyPanel onClose={() => setShowDiplomacyPanel(false)} />
                 </div>
             )}
 
