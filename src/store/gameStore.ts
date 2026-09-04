@@ -11,6 +11,7 @@ import { useWorldStore } from './worldStore'
 import { calculatePower } from '../utils/powerSystem'
 import { simulateWar } from '../utils/warSystem'
 import { calculateIncome, calculateExpenses, calculateTotalGDP, calculateInflation } from '../utils/economy'
+import { BUILDINGS } from '../data/buildings'
 import countriesData from '../data/countries.json'
 
 export const useGameStore = create<GameState>((set) => ({
@@ -58,6 +59,13 @@ export const useGameStore = create<GameState>((set) => ({
     consecutiveMonthsAsTopPower: 0,
     consecutiveMonthsAsTopGDP: 0,
     achievementsUnlocked: [],
+
+    // Achievement Tracking
+    warsWonCount: 0,
+    warsDeclaredCount: 0,
+    warAgainstStrongerWon: false,
+    revolutionsTriggeredCount: 0,
+    initialGDP: null,
 
     // War Exhaustion Tracking
     totalWarCasualties: 0,
@@ -479,13 +487,8 @@ export const useGameStore = create<GameState>((set) => ({
     addBuilding: (building) => set((state) => {
         if (!state.nation) return { nation: null }
 
-        // Calculate cost
-        let cost = 0
-        switch (building.type) {
-            case 'FORT': cost = 10000000; break
-            case 'TRAINING_CAMP': cost = 5000000; break
-            case 'UNIVERSITY': cost = 20000000; break
-        }
+        // Cost comes from the single canonical building definition (data/buildings.ts)
+        const cost = BUILDINGS[building.type].cost
 
         if (state.nation.stats.budget < cost) {
             console.warn('❌ Not enough funds for building')
@@ -565,8 +568,16 @@ export const useGameStore = create<GameState>((set) => ({
     }),
 
     startBattle: (attackerCode, attackerName, defenderCode, defenderName, attackerSoldiers, defenderSoldiers, intensity, isPlayerAttacker, isPlayerDefender, claimId, location, defenseBonus = 0, plan) => set((state) => {
+        // FORT bonus: every startBattle() call site historically passed defenseBonus=0,
+        // making nation.stats.defence and the Fortress building purely cosmetic. Grant a
+        // real defense bonus whenever the player is defending and has at least one FORT -
+        // warSystem.ts only checks defenseBonus > 0 (it's effectively on/off), so building
+        // count doesn't need to scale it further.
+        const hasFort = isPlayerDefender && (state.nation?.buildings?.some(b => b.type === 'FORT') ?? false)
+        const effectiveDefenseBonus = hasFort ? Math.max(defenseBonus, 1) : defenseBonus
+
         // Run simulation immediately
-        const result = simulateWar(attackerSoldiers, defenderSoldiers, intensity, defenseBonus)
+        const result = simulateWar(attackerSoldiers, defenderSoldiers, intensity, effectiveDefenseBonus)
 
         const battle: ActiveBattle = {
             id: `battle - ${Date.now()} -${Math.random()} `,
@@ -586,7 +597,7 @@ export const useGameStore = create<GameState>((set) => ({
             plan
         }
 
-        console.log('⚔️ Starting new battle:', battle, 'Defense Bonus:', defenseBonus, 'Plan:', plan)
+        console.log('⚔️ Starting new battle:', battle, 'Defense Bonus:', effectiveDefenseBonus, 'Plan:', plan)
 
         return {
             activeBattles: [...state.activeBattles, battle]
