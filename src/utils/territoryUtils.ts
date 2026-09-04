@@ -117,27 +117,62 @@ function safeUnion(
 }
 
 /**
- * Safely Subtract p2 from p1
+ * Result of a difference computation. This distinguishes two very different
+ * outcomes that the old boolean-ish (`Feature | null`) return type conflated:
+ *  - success: true, feature: null   -> turf genuinely computed an EMPTY result
+ *    (p2 fully covers p1). This is a trustworthy, real answer - not a failure.
+ *  - success: false                 -> the underlying polygon-clipping call
+ *    threw (self-intersecting rings, degenerate coordinates, etc.) and no
+ *    result could be computed at all. The caller has to guess what to do,
+ *    and should say so loudly instead of silently discarding the change.
+ */
+type DifferenceResult =
+    | { success: true; feature: Feature<Polygon | MultiPolygon> | null }
+    | { success: false }
+
+/**
+ * Safely Subtract p2 from p1.
+ *
+ * turf.difference (polyclip-ts under the hood) returns `null` without
+ * throwing when the result is legitimately empty - that must be trusted as
+ * the real answer, not second-guessed. It only throws on genuinely malformed
+ * input (self-intersections, degenerate rings), which real country polygons
+ * accumulate after repeated buffer/union/intersect operations across a long
+ * war. When that happens, heal the geometry first (the same multi-strategy
+ * approach as healGeometry) rather than a near-zero epsilon buffer, since a
+ * buffer of a fraction of a meter almost never fixes real topology problems.
  */
 function safeDifference(
     p1: Feature<Polygon | MultiPolygon>,
     p2: Feature<Polygon | MultiPolygon>
-): Feature<Polygon | MultiPolygon> | null {
+): DifferenceResult {
+    // 1. Try standard difference
     try {
-        // 1. Try standard difference
-        return turf.difference(turf.featureCollection([p1, p2])) as Feature<Polygon | MultiPolygon>
-    } catch (e) {
-        // 2. Try buffering inputs
-        try {
-            const b1 = turf.buffer(p1, 0.0001)
-            const b2 = turf.buffer(p2, 0.0001)
-            if (b1 && b2) {
-                return turf.difference(turf.featureCollection([b1, b2])) as Feature<Polygon | MultiPolygon>
-            }
-        } catch (e2) { }
+        const result = turf.difference(turf.featureCollection([p1, p2])) as Feature<Polygon | MultiPolygon> | null
+        return { success: true, feature: result }
+    } catch (e) { }
 
-        return null
-    }
+    // 2. Heal both inputs (fixes self-intersections/precision drift left over
+    // from prior geometry operations), then retry
+    try {
+        const healedP1 = healGeometry(p1) || p1
+        const healedP2 = healGeometry(p2) || p2
+        const result = turf.difference(turf.featureCollection([healedP1, healedP2])) as Feature<Polygon | MultiPolygon> | null
+        return { success: true, feature: result }
+    } catch (e) { }
+
+    // 3. Buffer both inputs by a real distance (50m, matching safeUnion) to
+    // close small topology gaps, then retry
+    try {
+        const b1 = turf.buffer(p1, 0.05, { units: 'kilometers' })
+        const b2 = turf.buffer(p2, 0.05, { units: 'kilometers' })
+        if (b1 && b2) {
+            const result = turf.difference(turf.featureCollection([b1, b2])) as Feature<Polygon | MultiPolygon> | null
+            return { success: true, feature: result }
+        }
+    } catch (e) { }
+
+    return { success: false }
 }
 
 /**
@@ -477,19 +512,42 @@ export function subtractTerritory(
         const cleanOriginal = normalizeGeometry(original)
         const cleanToRemove = normalizeGeometry(toRemove)
 
-        const result = safeDifference(cleanOriginal, cleanToRemove)
+        const diff = safeDifference(cleanOriginal, cleanToRemove)
 
-        if (!result) {
+        if (!diff.success) {
+            // The clip computation genuinely failed (not a clean "nothing
+            // left" answer) even after healing/buffering retries in
+            // safeDifference. Estimate what SHOULD have happened from area
+            // overlap so a confirmed near-total conquest still resolves
+            // correctly, but otherwise make the failure loud: silently
+            // reverting means this battle's territory change is dropped on
+            // the floor with nothing in the game state to show for it.
+            let areaOrig = 0
+            let takenRatio = 0
             try {
                 const intersection = turf.intersect(turf.featureCollection([cleanOriginal as any, cleanToRemove as any]))
-                const areaOrig = turf.area(cleanOriginal)
+                areaOrig = turf.area(cleanOriginal)
                 const areaInter = intersection ? turf.area(intersection) : 0
-
-                if (areaInter > areaOrig * 0.9) return null // Valid total erasure
+                takenRatio = areaOrig > 0 ? areaInter / areaOrig : 0
             } catch (e) { }
 
-            // Ocean Glitch Prevention: If not confirmed total erasure, assume bug and revert
+            if (takenRatio > 0.9) return null // Confirmed near-total erasure
+
+            console.error(
+                `subtractTerritory: difference computation failed after all healing/buffer retries ` +
+                `(estimated ${(takenRatio * 100).toFixed(1)}% of ${areaOrig ? (areaOrig / 1e6).toFixed(0) + 'km²' : 'territory'} overlapped the removed area). ` +
+                `Reverting to the original, unmodified geometry - this territory change was NOT applied.`
+            )
             return original
+        }
+
+        const result = diff.feature
+
+        if (!result) {
+            // safeDifference cleanly computed an empty result: toRemove
+            // genuinely covers all of original. Trust it - no need to
+            // second-guess a result turf didn't have to throw to produce.
+            return null
         }
 
         if (turf.area(result) < turf.area(cleanOriginal) * 0.01) {
@@ -503,6 +561,7 @@ export function subtractTerritory(
 
             // Otherwise, if we took very little but result is tiny, it might be a glitch, revert to original
             if (takenArea < turf.area(cleanOriginal) * 0.1) {
+                console.warn('subtractTerritory: result left a near-zero remainder despite taking <10% of the area - reverting as a likely precision glitch')
                 return original
             }
         }
