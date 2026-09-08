@@ -1,4 +1,3 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
 import { useGameStore } from '../store/gameStore'
 import type { NuclearProgram } from '../types/game'
 
@@ -6,21 +5,22 @@ import type { NuclearProgram } from '../types/game'
 const REACTOR_COST = 25_000_000_000 // 25B
 const ENRICHMENT_FACILITY_COST = 50_000_000_000 // 50B
 const WARHEAD_COST = 10_000_000_000 // 10B per warhead
-const ENRICHMENT_TIME = 300_000 // 5 minutes in ms
+
+const EMPTY_NUCLEAR_PROGRAM: NuclearProgram = {
+    enrichmentProgress: 0,
+    warheads: 0,
+    reactors: 0,
+    enrichmentFacilities: 0
+}
 
 export function NuclearPanel({ onClose }: { onClose: () => void }) {
     const { nation, unlockedTechs, updateBudget } = useGameStore()
-    const [nuclearProgram, setNuclearProgram] = useState<NuclearProgram>(
-        nation?.stats?.nuclearProgram || {
-            enrichmentProgress: 0,
-            warheads: 0,
-            reactors: 0,
-            enrichmentFacilities: 0
-        }
-    )
-
-    // Track if we need to sync to store
-    const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+    // Read straight from the store rather than keeping a local copy - enrichment
+    // now advances in useGameLoop's persistent tick (see the comment there),
+    // so this panel only needs to reflect that state, not own a duplicate of
+    // it with its own setInterval that used to stop the moment this component
+    // unmounted (closing the panel silently froze enrichment progress).
+    const nuclearProgram = nation?.stats?.nuclearProgram || EMPTY_NUCLEAR_PROGRAM
 
     // Check what's unlocked
     const hasEnrichment = unlockedTechs.includes('nuke_3')
@@ -29,78 +29,41 @@ export function NuclearPanel({ onClose }: { onClose: () => void }) {
 
     const budget = nation?.stats?.budget || 0
 
-    // Sync to store (debounced to prevent loops)
-    const syncToStore = useCallback((program: NuclearProgram) => {
+    const updateProgram = (update: Partial<NuclearProgram>) => {
         useGameStore.setState(state => ({
             nation: state.nation ? {
                 ...state.nation,
                 stats: {
                     ...state.nation.stats,
-                    nuclearProgram: program
+                    nuclearProgram: {
+                        ...(state.nation.stats.nuclearProgram || EMPTY_NUCLEAR_PROGRAM),
+                        ...update
+                    }
                 }
             } : null
         }))
-    }, [])
-
-    // Enrichment progress ticker
-    useEffect(() => {
-        if (!hasEnrichment || nuclearProgram.enrichmentFacilities === 0) return
-
-        const interval = setInterval(() => {
-            setNuclearProgram(prev => {
-                if (prev.enrichmentProgress >= 100) return prev
-                // Progress based on number of facilities
-                const progressPerTick = (100 / (ENRICHMENT_TIME / 1000)) * prev.enrichmentFacilities
-                const newProgress = Math.min(100, prev.enrichmentProgress + progressPerTick)
-                const updatedProgram = { ...prev, enrichmentProgress: newProgress }
-
-                // Debounced sync to store (don't sync every tick, just every 5 seconds)
-                if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current)
-                syncTimeoutRef.current = setTimeout(() => syncToStore(updatedProgram), 5000)
-
-                return updatedProgram
-            })
-        }, 1000)
-
-        return () => {
-            clearInterval(interval)
-            if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current)
-        }
-    }, [hasEnrichment, nuclearProgram.enrichmentFacilities, syncToStore])
+    }
 
     const buildReactor = () => {
         if (budget >= REACTOR_COST && hasPower) {
             updateBudget(-REACTOR_COST)
-            setNuclearProgram(prev => {
-                const updated = { ...prev, reactors: prev.reactors + 1 }
-                syncToStore(updated)
-                return updated
-            })
+            updateProgram({ reactors: nuclearProgram.reactors + 1 })
         }
     }
 
     const buildEnrichmentFacility = () => {
         if (budget >= ENRICHMENT_FACILITY_COST && hasEnrichment) {
             updateBudget(-ENRICHMENT_FACILITY_COST)
-            setNuclearProgram(prev => {
-                const updated = { ...prev, enrichmentFacilities: prev.enrichmentFacilities + 1 }
-                syncToStore(updated)
-                return updated
-            })
+            updateProgram({ enrichmentFacilities: nuclearProgram.enrichmentFacilities + 1 })
         }
     }
 
     const buildWarhead = () => {
         if (budget >= WARHEAD_COST && hasWeapons && nuclearProgram.enrichmentProgress >= 100) {
             updateBudget(-WARHEAD_COST)
-            setNuclearProgram(prev => {
-                const updated = {
-                    ...prev,
-                    warheads: prev.warheads + 1,
-                    enrichmentProgress: 0 // Reset enrichment for next warhead
-                }
-                syncToStore(updated)
-                return updated
+            updateProgram({
+                warheads: nuclearProgram.warheads + 1,
+                enrichmentProgress: 0 // Reset enrichment for next warhead
             })
         }
     }

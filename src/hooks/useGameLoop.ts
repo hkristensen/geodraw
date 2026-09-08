@@ -160,6 +160,32 @@ export function useGameLoop() {
                 coalitionBonus.militaryBonus
             )
 
+            // Advance nuclear enrichment progress. This used to live entirely
+            // inside NuclearPanel's own setInterval, which only ran while that
+            // panel was mounted on screen - closing it silently froze
+            // enrichment until it was reopened. It has to live in the
+            // persistent tick instead, and be merged into the same setNation
+            // call below rather than written separately, or a later tick's
+            // stats update (which still spreads the stale currentNation.stats
+            // captured at the top of this tick) would clobber it back to the
+            // pre-tick value.
+            // 60 ticks at base (1x) speed = 5 minutes, matching the
+            // ENRICHMENT_TIME the panel used to advance against with its own
+            // 1-second interval - same real-time rate at 1x speed, and it
+            // naturally speeds up at higher game speeds like everything else
+            // driven by this tick, since ticks simply fire more often.
+            const ENRICHMENT_TICKS_AT_BASE_SPEED = 60
+            const nuclearProgram = currentNation.stats.nuclearProgram
+            const updatedNuclearProgram = nuclearProgram && nuclearProgram.enrichmentFacilities > 0 && nuclearProgram.enrichmentProgress < 100
+                ? {
+                    ...nuclearProgram,
+                    enrichmentProgress: Math.min(
+                        100,
+                        nuclearProgram.enrichmentProgress + (100 / ENRICHMENT_TICKS_AT_BASE_SPEED) * nuclearProgram.enrichmentFacilities
+                    )
+                }
+                : nuclearProgram
+
             // Update stats
             setNation({
                 ...currentNation,
@@ -167,7 +193,8 @@ export function useGameLoop() {
                     ...currentNation.stats,
                     ...stats,
                     soldiers: newSoldiers,
-                    power: powerStats.totalPower
+                    power: powerStats.totalPower,
+                    nuclearProgram: updatedNuclearProgram
                 }
             })
 

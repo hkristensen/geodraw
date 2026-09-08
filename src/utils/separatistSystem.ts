@@ -267,12 +267,22 @@ export function createRebellion(
         // 3. Determine Attributes & Alignment
         let alignment = 'GEOGRAPHIC'
         let backername = null
-        let relations = -100
+        // Starting relations with the player. A brand-new breakaway state
+        // hasn't done anything to the player yet, so it should start
+        // roughly neutral by default - this used to be initialized to -100
+        // and only ever raised (to a sentinel of 100, later mapped to 50)
+        // when the player specifically backed the rebellion. Since a
+        // player-funded rebellion is rare, that meant almost every
+        // separatist state - geographic ones, AI-backed ones, chaos events -
+        // fell through to the -100 floor, reading as "instantly hates you"
+        // regardless of the player having any involvement at all.
+        let relations = 0
 
         if (forcedAlignment) {
             alignment = forcedAlignment
-            // Chaos event: Opposing alignment usually implies rival backing implicitly or just ideology
-            relations = -100
+            // Chaos event: no ideological backer, just internal instability -
+            // mildly wary rather than outright hostile.
+            relations = -20
         } else {
             const interference = parentCountry.foreignInterference || {}
             const res = determineAlignment(interference, gameStore)
@@ -280,9 +290,14 @@ export function createRebellion(
             backername = res.backername
 
             // Relations
-            if (backername) {
+            if (backername === 'PLAYER') {
+                relations = 50
+            } else if (backername) {
                 const backer = worldStore.getState().aiCountries.get(backername)
-                if (backer || backername === 'PLAYER') relations = 100
+                // Backed by some other country, not the player - inherit a
+                // hint of that backer's own stance toward the player rather
+                // than treating "not player-backed" as automatically hostile.
+                relations = backer ? Math.round((backer.relations || 0) * 0.3) : 0
             }
         }
 
@@ -319,8 +334,8 @@ export function createRebellion(
             code: newCode,
             name: name,
             units: [],
-            disposition: relations > 0 ? 'friendly' : 'hostile',
-            relations: relations === 100 ? 50 : -100,
+            disposition: relations > 20 ? 'friendly' : relations < -20 ? 'hostile' : 'neutral',
+            relations,
             territoryLost: 0,
             claimedPercentage: 0,
             population: finalPop,
