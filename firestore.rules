@@ -1,18 +1,112 @@
-rules_version='2'
+rules_version = '2';
+
+// GeoDraw uses Firebase Anonymous Auth only (see src/firebase/auth.ts).
+// Every authenticated request therefore comes from *some* browser session,
+// but request.auth.uid is the only identity we can trust.
+//
+// Data model summary (see src/firebase/*.ts):
+// - players/{uid}            : profile doc, doc id == owner's uid
+// - lobbies/{code}            : created/joined/started via Cloud Functions
+//                               (Admin SDK, bypasses these rules). Only
+//                               leave/ready/color/country/allowLateJoin are
+//                               written directly by clients.
+// - games/{gameId}            : players is a map keyed by uid. Single-player
+//                               "cloud games" are created directly by the
+//                               client (src/firebase/persistence.ts); real
+//                               multiplayer games are created by the
+//                               startGame Cloud Function. The host client
+//                               owns the authoritative simulation state;
+//                               other members only sync their own entry in
+//                               `players`, so non-host writes are restricted
+//                               to that top-level field.
+// - games/{gameId}/actions/{id}: any current member of the game can enqueue
+//                               a pending action; only the host can flip it
+//                               to processed/failed.
+//
+// Firestore rules can't diff *inside* a map field (no key enumeration), so
+// a non-host member could in principle overwrite another member's entry in
+// `players` in the same game they already belong to - that's a griefing
+// risk bounded to players you already invited into your own private lobby,
+// not a data-exposure risk. Restructuring lobbies.players/spectators from
+// arrays to uid-keyed maps (like games.players already is) would let a
+// future revision tighten this further.
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isGameMember(gameData) {
+      return request.auth.uid in gameData.players || request.auth.uid == gameData.hostId;
+    }
+
+    match /players/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /lobbies/{code} {
+      // players/spectators are arrays of objects, and Firestore rules can't
+      // check "does this array contain an object whose id field equals X"
+      // (hasAny() only matches an exact, fully-equal object). So real
+      // membership can't be verified structurally here - fall back to "any
+      // signed-in user" for reads and for the specific fields clients
+      // legitimately mutate directly; Cloud Functions still gate creation,
+      // joining, and starting the game.
+      allow read: if signedIn();
+
+      allow create: if false; // always created via the createLobby Cloud Function
+
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['players', 'spectators', 'allowLateJoin'])
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['allowLateJoin'])
+            || request.auth.uid == resource.data.hostId);
+
+      allow delete: if signedIn() && request.auth.uid == resource.data.hostId;
+    }
+
+    match /games/{gameId} {
+      allow read: if signedIn() && isGameMember(resource.data);
+
+      // Only the single-player "cloud game" path creates a game doc directly;
+      // real multiplayer games are created by the startGame Cloud Function.
+      allow create: if signedIn()
+        && request.resource.data.hostId == request.auth.uid
+        && request.auth.uid in request.resource.data.players;
+
+      allow update: if signedIn() && isGameMember(resource.data) && (
+        request.auth.uid == resource.data.hostId
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['players'])
+      );
+
+      allow delete: if false;
+
+      match /actions/{actionId} {
+        function game() {
+          return get(/databases/$(database)/documents/games/$(gameId)).data;
+        }
+
+        allow read: if signedIn() && isGameMember(game());
+
+        allow create: if signedIn()
+          && isGameMember(game())
+          && request.resource.data.playerId == request.auth.uid
+          && request.resource.data.status == 'pending';
+
+        allow update: if signedIn()
+          && request.auth.uid == game().hostId
+          && resource.data.status == 'pending'
+          && request.resource.data.status in ['processed', 'failed']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'processedAt']);
+
+        allow delete: if false;
+      }
+    }
+
     match /{document=**} {
-      // This rule allows anyone with your database reference to view, edit,
-      // and delete all data in your database. It is useful for getting
-      // started, but it is configured to expire after 30 days because it
-      // leaves your app open to attackers. At that time, all client
-      // requests to your database will be denied.
-      //
-      // Make sure to write security rules for your app before that time, or
-      // else all client requests to your database will be denied until you
-      // update your rules.
-      allow read, write: if request.time < timestamp.date(2026, 1, 28);
+      allow read, write: if false;
     }
   }
 }

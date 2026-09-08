@@ -18,18 +18,14 @@ jobs:
       - run: npm ci
 
       - run: npm run build
-        env:
-          # Vite bakes these into the built bundle - the app's Firebase config,
-          # not sensitive server-side secrets (Firebase's own docs: client web
-          # config is safe to expose; access control lives in firestore.rules).
-          # Add them as repo secrets with these exact names before this workflow
-          # can build successfully - see .env.example for what each one is.
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+        # Firebase web config (VITE_FIREBASE_*) is committed in .env.production -
+        # it's not a server-side secret (Firebase's own docs: client web config
+        # is safe to expose; access control lives in firestore.rules), and Vite
+        # loads it automatically for a production build. Do NOT reintroduce
+        # these as GitHub Actions secrets/env vars here: an unset secret
+        # resolves to an empty string, and process.env overrides .env file
+        # values, so a missing secret would silently blank out the working
+        # config committed below.
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
