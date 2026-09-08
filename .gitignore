@@ -5,3 +5,5 @@ dist
 .gemini
 .firebase
 *.tsbuildinfo
+firebase-debug.log
+firebase-debug.*.log
