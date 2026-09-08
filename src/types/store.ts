@@ -125,6 +125,14 @@ export interface GameState {
     consecutiveMonthsAsTopGDP: number
     achievementsUnlocked: string[]
 
+    // Achievement tracking (previously hardcoded to 0/false/true at the call site,
+    // making several achievements permanently unreachable and one fire immediately)
+    warsWonCount: number
+    warsDeclaredCount: number
+    warAgainstStrongerWon: boolean
+    revolutionsTriggeredCount: number
+    initialGDP: number | null
+
     // War Exhaustion Tracking
     totalWarCasualties: number
     monthsAtWar: number

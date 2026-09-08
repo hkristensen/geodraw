@@ -18,6 +18,8 @@ import { getAllAirportsGeoJSON, getAllPortsGeoJSON, calculateInfrastructure } fr
 import { clipToLand } from '../utils/geometry'
 import countriesData from '../data/countries.json'
 import citiesData from '../data/cities.json'
+import { BUILDINGS } from '../data/buildings'
+import { formatMoney } from '../utils/economy'
 
 function BattleMarker({ battle, map }: { battle: ActiveBattle, map: maplibregl.Map }) {
     const el = useMemo(() => {
@@ -1234,26 +1236,6 @@ export function GameMap({
                 }
             }
 
-            // 3. Buildings
-            if (state.nation?.buildings) {
-                const source = map.current.getSource('buildings') as maplibregl.GeoJSONSource
-                if (source) {
-                    const features = state.nation.buildings.map(b => ({
-                        type: 'Feature',
-                        geometry: { type: 'Point', coordinates: b.location },
-                        properties: {
-                            id: b.id,
-                            type: b.type,
-                            icon: b.type === 'FORT' ? '🏰' : b.type === 'TRAINING_CAMP' ? '⚔️' : b.type === 'UNIVERSITY' ? '🎓' : b.type === 'RESEARCH_LAB' ? '🔬' : b.type === 'TEMPLE' ? '⛩️' : b.type === 'FACTORY' ? '🏭' : b.type === 'MARKET' ? '🏪' : '🏥'
-                        }
-                    }))
-                    source.setData({
-                        type: 'FeatureCollection',
-                        features: features as Feature[]
-                    })
-                }
-            }
-
             // 4. Factions
             if (state.factions.length > 0) {
                 const source = map.current.getSource('factions') as maplibregl.GeoJSONSource
@@ -1444,10 +1426,10 @@ export function GameMap({
                 el.className = 'building-marker'
                 el.style.fontSize = '24px'
                 el.style.cursor = 'pointer'
-                el.innerText = b.type === 'FORT' ? '🏰' : b.type === 'TRAINING_CAMP' ? '⚔️' : '🎓'
+                el.innerText = BUILDINGS[b.type].icon
 
                 // Add tooltip
-                el.title = `${b.type.replace('_', ' ')}\nUpkeep: $${b.type === 'FORT' ? '50k' : b.type === 'TRAINING_CAMP' ? '20k' : '100k'}`
+                el.title = `${BUILDINGS[b.type].name}\nUpkeep: ${formatMoney(BUILDINGS[b.type].upkeep)}/mo`
 
                 // Create and add marker
                 const marker = new maplibregl.Marker({

@@ -1,41 +1,11 @@
 import { useGameStore } from '../store/gameStore'
 import { BuildingType } from '../types/game'
 import { formatMoney } from '../utils/economy'
+import { BUILDINGS, BUILDING_EFFECTS } from '../data/buildings'
 
-interface BuildingOption {
-    type: BuildingType
-    name: string
-    icon: string
-    cost: number
-    description: string
-    effect: string
-}
-
-const BUILDINGS: BuildingOption[] = [
-    {
-        type: 'FORT',
-        name: 'Fortification',
-        icon: '🏰',
-        cost: 10_000_000,
-        description: 'Defensive structure that increases local defence rating.',
-        effect: '+500 Defence'
-    },
-    {
-        type: 'TRAINING_CAMP',
-        name: 'Training Camp',
-        icon: '⚔️',
-        cost: 5_000_000,
-        description: 'Military facility to train soldiers faster and better.',
-        effect: '+10% Recruitment'
-    },
-    {
-        type: 'UNIVERSITY',
-        name: 'University',
-        icon: '🎓',
-        cost: 20_000_000,
-        description: 'Center of learning that boosts research and efficiency.',
-        effect: '+5% Tech Efficiency'
-    }
+// Display order (roughly cheapest/most-general first)
+const BUILDING_ORDER: BuildingType[] = [
+    'TRAINING_CAMP', 'TEMPLE', 'MARKET', 'HOSPITAL', 'RESEARCH_LAB', 'FORT', 'UNIVERSITY', 'FACTORY'
 ]
 
 export function BuildingPanel() {
@@ -66,14 +36,15 @@ export function BuildingPanel() {
             )}
 
             <div className="grid gap-3">
-                {BUILDINGS.map((building) => {
+                {BUILDING_ORDER.map((type) => {
+                    const building = BUILDINGS[type]
                     const canAfford = nation.stats.budget >= building.cost
-                    const isSelected = buildingMode === building.type
+                    const isSelected = buildingMode === type
 
                     return (
                         <button
-                            key={building.type}
-                            onClick={() => handleSelectBuilding(building.type)}
+                            key={type}
+                            onClick={() => handleSelectBuilding(type)}
                             disabled={!canAfford && !isSelected}
                             className={`
                                 relative flex items-center gap-3 p-3 rounded-lg border transition-all text-left
@@ -94,7 +65,10 @@ export function BuildingPanel() {
                                     </span>
                                 </div>
                                 <p className="text-xs text-slate-400 line-clamp-1">{building.description}</p>
-                                <p className="text-xs text-green-400 mt-1 font-medium">{building.effect}</p>
+                                <div className="flex justify-between items-center mt-1">
+                                    <p className="text-xs text-green-400 font-medium">{BUILDING_EFFECTS[type]}</p>
+                                    <p className="text-[10px] text-slate-500">Upkeep {formatMoney(building.upkeep)}/mo</p>
+                                </div>
                             </div>
                         </button>
                     )

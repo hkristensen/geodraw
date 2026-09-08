@@ -1,6 +1,7 @@
 import { GameState, WorldState } from '../types/store'
 import { Faction } from '../types/game'
 import * as turf from '@turf/turf'
+import { POLICIES } from '../data/policies'
 
 /**
  * Calculate monthly unrest change based on policies, budget, and events
@@ -23,9 +24,10 @@ export function calculateUnrestChange(
     }
 
     // 2. Policy Impact
-    // This would need to look up active policies and their monthlyUnrestChange
-    // For now, simplified
-    // TODO: Lookup policies from ID
+    for (const policyId of gameState.activePolicies) {
+        const policy = POLICIES.find(p => p.id === policyId)
+        if (policy) change += policy.monthlyUnrestChange
+    }
 
     // 3. War Exhaustion
     if (worldState.activeWars.length > 0) {
@@ -34,7 +36,9 @@ export function calculateUnrestChange(
 
     // 4. Buildings
     const temples = gameState.nation?.buildings.filter(b => b.type === 'TEMPLE').length || 0
+    const hospitals = gameState.nation?.buildings.filter(b => b.type === 'HOSPITAL').length || 0
     change -= temples * 0.2
+    change -= hospitals * 0.15
 
     return change
 }

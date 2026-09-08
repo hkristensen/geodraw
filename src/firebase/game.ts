@@ -16,6 +16,7 @@ export interface RemoteGameState {
     wars?: any[]
     events?: any[]
     contestedZones?: { id: string, featureString: string }[]
+    aiTerritories?: { code: string, featureString: string | null }[]
     irradiatedZones?: { id: string, zoneString: string }[]
     activeBattles?: any[]
 }

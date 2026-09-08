@@ -28,39 +28,48 @@ function getSeverityColor(severity: 1 | 2 | 3): string {
     }
 }
 
+interface Headline {
+    text: string
+    severity: 1 | 2 | 3
+}
+
 export function NewsTicker() {
     const { diplomaticEvents, consequences } = useGameStore()
-    const [displayedHeadlines, setDisplayedHeadlines] = useState<string[]>([])
+    const [displayedHeadlines, setDisplayedHeadlines] = useState<Headline[]>([])
 
-    // Generate headlines from events and consequences
+    // Generate headlines from events and consequences. Each headline carries its
+    // own severity so coloring never depends on lining up two differently-shaped,
+    // differently-ordered arrays by index.
     useEffect(() => {
-        const headlines: string[] = []
+        const headlines: Headline[] = []
 
         // Add diplomatic event headlines
         for (const event of diplomaticEvents) {
-            headlines.push(generateNewsHeadline(event))
+            headlines.push({ text: generateNewsHeadline(event), severity: event.severity })
         }
 
         // Add consequence-based headlines
         for (const consequence of consequences.slice(0, 3)) {
             if (consequence.lostPercentage > 30) {
-                headlines.push(
-                    `📢 ${consequence.countryName} CONDEMNS annexation of ${consequence.lostPercentage.toFixed(0)}% of their territory!`
-                )
+                headlines.push({
+                    text: `📢 ${consequence.countryName} CONDEMNS annexation of ${consequence.lostPercentage.toFixed(0)}% of their territory!`,
+                    severity: 2
+                })
             } else if (consequence.lostPercentage > 10) {
-                headlines.push(
-                    `📰 ${consequence.countryName} issues formal protest over territorial claims`
-                )
+                headlines.push({
+                    text: `📰 ${consequence.countryName} issues formal protest over territorial claims`,
+                    severity: 1
+                })
             }
         }
 
         // Add rival country reactions
         const affectedCountryCodes = new Set(consequences.map(c => c.countryCode))
         if (affectedCountryCodes.has('FRA') && !affectedCountryCodes.has('DEU')) {
-            headlines.push(`🇩🇪 Germany maintains "neutral stance" on French territorial losses`)
+            headlines.push({ text: `🇩🇪 Germany maintains "neutral stance" on French territorial losses`, severity: 1 })
         }
         if (affectedCountryCodes.has('RUS')) {
-            headlines.push(`⚠️ URGENT: Moscow warns of "severe consequences" for territorial violations`)
+            headlines.push({ text: `⚠️ URGENT: Moscow warns of "severe consequences" for territorial violations`, severity: 2 })
         }
 
         setDisplayedHeadlines(headlines)
@@ -86,20 +95,16 @@ export function NewsTicker() {
                     <div className="animate-marquee whitespace-nowrap flex items-center h-full">
                         {displayedHeadlines.map((headline, index) => (
                             <span key={index} className="mx-8 text-sm">
-                                <span className={getSeverityColor(
-                                    diplomaticEvents[index]?.severity || 1
-                                )}>
-                                    {headline}
+                                <span className={getSeverityColor(headline.severity)}>
+                                    {headline.text}
                                 </span>
                             </span>
                         ))}
                         {/* Duplicate for seamless loop */}
                         {displayedHeadlines.map((headline, index) => (
                             <span key={`dup-${index}`} className="mx-8 text-sm">
-                                <span className={getSeverityColor(
-                                    diplomaticEvents[index]?.severity || 1
-                                )}>
-                                    {headline}
+                                <span className={getSeverityColor(headline.severity)}>
+                                    {headline.text}
                                 </span>
                             </span>
                         ))}

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { useWorldStore } from '../store/worldStore'
 import { calculateEconomy, formatMoney } from '../utils/economy'
+import { calculateCoalitionEconomicBonus } from '../utils/coalitionSystem'
 import { Flag } from './Flag'
 import { BudgetPanel } from './BudgetPanel'
 import { BuildingPanel } from './BuildingPanel'
@@ -21,8 +22,8 @@ interface NationInfoPanelProps {
 }
 
 export function NationInfoPanel({ isMobile, onClose }: NationInfoPanelProps) {
-    const { nation, consequences, annexedCountries, infrastructureStats, gameDate } = useGameStore()
-    const { activeWars, allies, aiCountries } = useWorldStore()
+    const { nation, consequences, annexedCountries, infrastructureStats, gameDate, selectedCountry } = useGameStore()
+    const { activeWars, allies, aiCountries, coalitions } = useWorldStore()
     const [activeTab, setActiveTab] = useState<'overview' | 'economy' | 'build' | 'stats'>('overview')
     const [economyData, setEconomyData] = useState<ReturnType<typeof calculateEconomy> | null>(null)
     const [showResearch, setShowResearch] = useState(false)
@@ -34,10 +35,11 @@ export function NationInfoPanel({ isMobile, onClose }: NationInfoPanelProps) {
     // Update economy data periodically or when stats change
     useEffect(() => {
         if (nation) {
-            const data = calculateEconomy(nation, infrastructureStats, aiCountries)
+            const coalitionBonus = calculateCoalitionEconomicBonus(selectedCountry || 'PLAYER', coalitions)
+            const data = calculateEconomy(nation, infrastructureStats, aiCountries, coalitionBonus)
             setEconomyData(data)
         }
-    }, [nation, infrastructureStats, aiCountries])
+    }, [nation, infrastructureStats, aiCountries, coalitions, selectedCountry])
 
     if (!nation) {
         return (

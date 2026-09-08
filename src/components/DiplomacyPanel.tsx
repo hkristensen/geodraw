@@ -130,8 +130,8 @@ export function DiplomacyPanel({ onStartWar, isMobile, onClose }: DiplomacyPanel
     const { phase, nation, addDiplomaticEvents, annexedCountries, removeTerritory, addTerritory, removeActiveClaim, setCurrentClaim, currentClaim } = useGameStore()
     const { aiCountries, updateRelations, declareWar, makePeace, formAlliance } = useWorldStore()
     const { isMultiplayer, isHost, gameId, user } = useMultiplayerStore()
-    // Note: async import in render body is bad practice, usually. 
-    // Ideally we assume static import or hook. 
+    // Note: async import in render body is bad practice, usually.
+    // Ideally we assume static import or hook.
     // Let's use the hook properly by importing it at top level.
 
     // Only show after nation is formed
@@ -320,7 +320,9 @@ export function DiplomacyPanel({ onStartWar, isMobile, onClose }: DiplomacyPanel
     const atWarCount = countries.filter(c => c.isAtWar).length
     const hostileCount = countries.filter(c => c.disposition === 'hostile').length
 
-    // Mobile: full-width drawer from bottom; Desktop: fills parent container
+    // Mobile: full-width drawer from bottom. Desktop: fills whatever container the
+    // caller positions it in - the only desktop caller (App.tsx's floating-action-
+    // button-toggled panel) wraps this in an absolutely-positioned, sized div.
     const containerClasses = isMobile
         ? 'mobile-panel animate-slideUp bg-slate-900/98 backdrop-blur-md border-t border-orange-500/30 shadow-2xl overflow-hidden flex flex-col'
         : 'w-full h-full bg-slate-900/90 backdrop-blur-md rounded-xl border border-orange-500/30 shadow-2xl overflow-hidden flex flex-col'
@@ -357,6 +359,9 @@ export function DiplomacyPanel({ onStartWar, isMobile, onClose }: DiplomacyPanel
                             )}
                         </div>
                     </div>
+                    {!isMobile && onClose && (
+                        <button onClick={onClose} className="text-gray-400 hover:text-white text-xl">✕</button>
+                    )}
                 </div>
 
                 {/* Country List */}

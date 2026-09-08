@@ -90,6 +90,38 @@ export function useHostSync() {
                     })
                 }
 
+                // Sync AI Territories (permanent border changes from wars/annexations).
+                // Clients build an identical baseline locally from the same bundled
+                // countries.json, so we only need to send countries whose borders have
+                // actually diverged from that baseline (currently at war, holding lost
+                // territory, or annexed) - not the full ~190-country world every tick.
+                // Without this, clients only ever saw the transient contestedZones
+                // overlay and never the permanent border change it resolves into.
+                const territoriesMap = useWorldStore.getState().aiTerritories
+                const affectedCountries = useWorldStore.getState().aiCountries
+                const territoryUpdates: { code: string, featureString: string | null }[] = []
+                affectedCountries.forEach((country, code) => {
+                    if (country.isAnnexed) {
+                        // Signal clients to remove this country's territory entirely
+                        territoryUpdates.push({ code, featureString: null })
+                        return
+                    }
+                    if (country.isAtWar || (country.territoryLost || 0) > 0) {
+                        const poly = territoriesMap.get(code)
+                        if (poly) {
+                            try {
+                                const simple = turf.simplify(poly as any, { tolerance: 0.01, highQuality: false })
+                                territoryUpdates.push({ code, featureString: JSON.stringify(simple) })
+                            } catch {
+                                territoryUpdates.push({ code, featureString: JSON.stringify(poly) })
+                            }
+                        }
+                    }
+                })
+                if (territoryUpdates.length > 0) {
+                    updates.aiTerritories = territoryUpdates
+                }
+
                 // Sync Irradiated Zones
                 const irradiatedMap = useWorldStore.getState().irradiatedZones
                 if (irradiatedMap.size > 0) {
@@ -153,6 +185,7 @@ export function useHostSync() {
                     aiCount: updates.aiCountries?.length,
                     warCount: updates.wars?.length,
                     contestedCount: updates.contestedZones?.length,
+                    territoriesCount: updates.aiTerritories?.length,
                     gameDate: updates.gameDate
                 })
 

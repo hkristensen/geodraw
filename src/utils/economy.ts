@@ -182,17 +182,19 @@ export function getCycleDescription(cycle: EconomicCycleState): string {
 export function calculateTotalGDP(
     stats: NationStats,
     population: number,
-    buildings: Building[] = []
+    buildings: Building[] = [],
+    coalitionGdpBonus: number = 0
 ): number {
     const factories = buildings.filter(b => b.type === 'FACTORY').length
     const baseGDP = stats.gdpPerCapita || 20000
 
     const infraMult = 0.5 + (stats.budgetAllocation.infrastructure / 100) * 1.5
     const stabilityMult = 0.8 + (stats.budgetAllocation.social / 100) * 0.4
-    const factoryBonus = factories * 0.1
+    // Capped at 10 factories (+100% GDP) so factory spam can't scale income unboundedly
+    const factoryBonus = Math.min(10, factories) * 0.1
 
     // Real GDP per capita
-    const realGDP = baseGDP * infraMult * stabilityMult * (1 + factoryBonus)
+    const realGDP = baseGDP * infraMult * stabilityMult * (1 + factoryBonus + coalitionGdpBonus)
     return realGDP * population
 }
 
@@ -217,7 +219,8 @@ export function calculateIncome(
     buildings: Building[] = [],
     aiCountries: Map<string, any> = new Map(),
     economicCycle?: EconomicCycleState,
-    countryCharacteristics?: { isOilExporter?: boolean, isOilImporter?: boolean, tradeDependency?: number, economicDiversity?: number }
+    countryCharacteristics?: { isOilExporter?: boolean, isOilImporter?: boolean, tradeDependency?: number, economicDiversity?: number },
+    coalitionGdpBonus: number = 0
 ): {
     total: number
     taxIncome: number
@@ -241,9 +244,9 @@ export function calculateIncome(
     // Social stability multiplier (0.8 to 1.2)
     const stabilityMult = 0.8 + (stats.budgetAllocation.social / 100) * 0.4
 
-    // Factory Bonus (GDP)
-    const factoryBonus = factories * 0.1 // +10% GDP per factory
-    const realGDP = baseGDP * infraMult * stabilityMult * (1 + factoryBonus)
+    // Factory Bonus (GDP) - capped at 10 factories (+100% GDP), matching calculateTotalGDP
+    const factoryBonus = Math.min(10, factories) * 0.1
+    const realGDP = baseGDP * infraMult * stabilityMult * (1 + factoryBonus + coalitionGdpBonus)
     const totalGDP = realGDP * population
 
     // Tax revenue = GDP * Tax Rate
@@ -286,8 +289,12 @@ export function calculateIncome(
 
     // 3. Resource Income
     // Simplified: Based on land area and research
-    // $100 per km2 per month base
-    const areaIncome = (stats.wealth * 1000) // wealth is approx area in km2
+    // $100 per km2 per month base. Uses the actual measured land area (infra.totalAreaKm2)
+    // rather than stats.wealth - wealth is a separate, compressed composite score
+    // (area*0.01 + city bonuses, see calculateNationStats.ts) used for power/GDP-victory
+    // comparisons, not a km2 figure. Reusing it here previously realized ~$10/km2/month,
+    // 10x below what this comment always said it should be.
+    const areaIncome = infra.totalAreaKm2 * 100
     const resourceEfficiency = 1.0 + (stats.budgetAllocation.research / 100) * 1.0 + universityBonus
     const resourceIncome = areaIncome * resourceEfficiency
 
@@ -414,7 +421,8 @@ export function calculateExpenses(
 export function calculateEconomy(
     nation: { stats: NationStats, buildings?: Building[] },
     infra: InfrastructureStats | null,
-    aiCountries: Map<string, any>
+    aiCountries: Map<string, any>,
+    coalitionBonus: { gdpBonus: number, researchBonus: number } = { gdpBonus: 0, researchBonus: 0 }
 ): {
     netIncome: number
     totalIncome: number
@@ -423,6 +431,7 @@ export function calculateEconomy(
     taxIncome: number
     soldierGrowth: number
     stats: Partial<NationStats>
+    totalGDP: number
 } {
     const stats = nation.stats
     const buildings = nation.buildings || []
@@ -443,22 +452,25 @@ export function calculateEconomy(
     const population = safeInfra.totalPopulation || 1000000
 
     // Calculate Inflation
-    const totalGDP = calculateTotalGDP(stats, population, buildings)
+    const totalGDP = calculateTotalGDP(stats, population, buildings, coalitionBonus.gdpBonus)
     const inflation = calculateInflation(stats.budget, totalGDP)
 
-    const income = calculateIncome(stats, safeInfra, population, buildings, aiCountries)
+    const income = calculateIncome(stats, safeInfra, population, buildings, aiCountries, undefined, undefined, coalitionBonus.gdpBonus)
     const expense = calculateExpenses(stats, population, buildings, inflation, totalGDP)
 
     const netIncome = income.total - expense.total
 
-    // Calculate soldier recruitment
-    // Base growth + military budget influence
-    // Training camps boost recruitment (+10% per camp)
+    // Calculate soldier recruitment as a share of manpower (not a flat number),
+    // so a nation's sustainable recruitment scales with its actual population -
+    // otherwise a nation of 50M and a nation of 2M replace war losses at the same
+    // flat rate, which turns any sustained war into a population-independent
+    // attrition clock. 2% of manpower/month at 0% military budget, up to 6% at 100%.
+    // Training camps boost recruitment (+10% per camp) on top of that.
     const trainingCamps = buildings.filter(b => b.type === 'TRAINING_CAMP').length
     const campBonus = trainingCamps * 0.1
 
-    const baseRecruitment = 100
-    const recruitment = baseRecruitment * (1 + (stats.budgetAllocation.military / 100) * 2 + campBonus)
+    const recruitmentRate = 0.02 + (stats.budgetAllocation.military / 100) * 0.04
+    const recruitment = stats.manpower * recruitmentRate * (1 + campBonus)
 
     return {
         netIncome,
@@ -472,7 +484,8 @@ export function calculateEconomy(
             tradeIncome: income.tradeIncome,
             expenses: expense.total,
             inflation: inflation
-        }
+        },
+        totalGDP
     }
 }
 
@@ -495,7 +508,8 @@ export function formatMoney(amount: number): string {
 export function calculateResearchOutput(
     stats: NationStats,
     population: number,
-    buildings: Building[] = []
+    buildings: Building[] = [],
+    coalitionResearchBonus: number = 0
 ): number {
     // 1. Base RP from Budget
     // Scales with population and research budget
@@ -509,5 +523,5 @@ export function calculateResearchOutput(
     const labBonus = researchLabs * 10 // +10 RP per lab
     const uniBonus = universities * 5  // +5 RP per university
 
-    return Math.floor(baseRP + labBonus + uniBonus)
+    return Math.floor((baseRP + labBonus + uniBonus) * (1 + coalitionResearchBonus))
 }
