@@ -502,6 +502,24 @@ export function formatMoney(amount: number): string {
     return `$${amount.toLocaleString()}`
 }
 
+// Same B/M/K abbreviation as formatMoney but without the currency prefix -
+// used for population, area, power, soldier counts, etc. Was previously
+// reimplemented slightly differently in ConsequencesPanel.tsx and
+// NationInfoPanel.tsx (one handled billions, the other didn't; only one had
+// the toLocaleString() comma fallback) - this is the union of both.
+export function formatNumber(num: number): string {
+    if (Math.abs(num) >= 1_000_000_000) {
+        return (num / 1_000_000_000).toFixed(1) + 'B'
+    }
+    if (Math.abs(num) >= 1_000_000) {
+        return (num / 1_000_000).toFixed(1) + 'M'
+    }
+    if (Math.abs(num) >= 1_000) {
+        return (num / 1_000).toFixed(1) + 'K'
+    }
+    return num.toLocaleString()
+}
+
 /**
  * Calculate monthly Research Points generation
  */

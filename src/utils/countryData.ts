@@ -145,13 +145,6 @@ export function getCountryData(iso3: string): CountryData | undefined {
 }
 
 /**
- * Get all country data
- */
-export function getAllCountryData(): Map<string, CountryData> {
-    return countryDataCache || new Map()
-}
-
-/**
  * Get primary religion for a country
  */
 export function getPrimaryReligion(iso3: string): Religion {

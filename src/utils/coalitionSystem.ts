@@ -190,12 +190,14 @@ export function calculateCoalitionEconomicBonus(
  */
 export function getCoalitionBenefits(type: CoalitionType, requirements?: Coalition['requirements']): string {
     switch (type) {
-        case 'MILITARY':
+        case 'MILITARY': {
             const defensePercent = requirements?.defenseContributionPercent ?? 25
             return `Mutual defense pact. Members contribute ${defensePercent}% of their army to collective defense. +10% Military Power per member.`
-        case 'TRADE':
+        }
+        case 'TRADE': {
             const tariff = requirements?.fixedTariffLevel ?? 'FREE'
             return `Trade agreement with ${tariff} tariffs between members. +5% GDP Growth per member.`
+        }
         case 'RESEARCH':
             return `Research cooperation. +10% Research Points per member. Shared technology benefits.`
         default:

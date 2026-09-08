@@ -312,7 +312,7 @@ export const useGameStore = create<GameState>((set) => ({
         }
 
         // Initialize Arrays & Migrate
-        let units = nation.units || []
+        const units = nation.units || []
         const warPlans = nation.warPlans || []
         const buildings = nation.buildings || []
 

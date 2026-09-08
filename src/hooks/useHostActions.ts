@@ -20,15 +20,16 @@ export function useHostActions() {
                     console.log('⚡ Processing Action:', action.type, action.payload)
 
                     switch (action.type) {
-                        case 'DECLARE_WAR':
+                        case 'DECLARE_WAR': {
                             const { targetCountry } = action.payload
                             if (targetCountry) {
                                 useWorldStore.getState().declareWar(targetCountry)
                                 console.log('✅ Action Processed: War Declared on', targetCountry)
                             }
                             break
+                        }
 
-                        case 'LAUNCH_OFFENSIVE':
+                        case 'LAUNCH_OFFENSIVE': {
                             const { targetCountry: defCode, amount, intensity, plan } = action.payload
                             const defender = useWorldStore.getState().aiCountries.get(defCode)
                             const playerNation = useGameStore.getState().nation
@@ -56,8 +57,9 @@ export function useHostActions() {
                                 console.log('✅ Action Processed: Offensive Launched against', defender.name)
                             }
                             break
+                        }
 
-                        case 'LAUNCH_NUCLEAR_STRIKE':
+                        case 'LAUNCH_NUCLEAR_STRIKE': {
                             const { location, countryCode } = action.payload
                             if (location && countryCode) {
                                 useWorldStore.getState().launchNuclearStrike(
@@ -67,6 +69,7 @@ export function useHostActions() {
                                 console.log('☢️ Action Processed: Nuclear Strike on', countryCode, 'at', location)
                             }
                             break
+                        }
                     }
 
                     await markActionProcessed(multiplayerGameId, action.id, 'processed')

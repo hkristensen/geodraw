@@ -5,6 +5,7 @@ import { ActiveBattle } from '../types/game'
 import countriesData from '../data/countries.json'
 import type { FeatureCollection } from 'geojson'
 import { calculateConquest } from '../utils/territoryUtils'
+import { subtractFromAITerritory, addToAITerritory } from '../utils/aiTerritoryTransfer'
 
 interface BattleIndicatorProps {
     battle: ActiveBattle
@@ -237,6 +238,7 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
                     // If decisive victory (>0.8), add the entire claim
                     if (result.decisiveness > 0.8) {
                         addTerritory(claim.polygon)
+                        subtractFromAITerritory(defenderCode, claim.polygon as any)
                     } else {
                         // Partial victory - add portion of claim based on decisiveness
                         const conquest = calculateConquest(
@@ -249,11 +251,13 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
                         )
                         if (conquest) {
                             addTerritory(conquest)
+                            subtractFromAITerritory(defenderCode, conquest as any)
                         } else {
                             // Fallback: if conquest calc fails, add the claim scaled by decisiveness
                             // For now, just add the whole claim on any victory
                             console.log('⚠️ Conquest calc failed, adding full claim')
                             addTerritory(claim.polygon)
+                            subtractFromAITerritory(defenderCode, claim.polygon as any)
                         }
                     }
 
@@ -263,16 +267,24 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
                     if (currentClaim?.id === claimId) setCurrentClaim(null)
                 }
             } else if (countryFeature && playerPoly) {
-                // No claim - general conquest, buffer from player territory
+                // No claim - general conquest, buffer from player territory.
+                // Use the AI's ACTUAL current territory (not the pristine country
+                // shape) as the conquest target - they may have already lost land
+                // elsewhere, and conquering land they no longer hold would
+                // double-award it.
+                const enemyPoly = useWorldStore.getState().aiTerritories.get(defenderCode) || countryFeature
                 const conquest = calculateConquest(
                     playerPoly as any,
-                    countryFeature as any,
+                    enemyPoly as any,
                     result.decisiveness,
                     undefined,
                     battle.plan,
                     battle.location
                 )
-                if (conquest) addTerritory(conquest)
+                if (conquest) {
+                    addTerritory(conquest)
+                    subtractFromAITerritory(defenderCode, conquest as any)
+                }
             }
 
             addDiplomaticEvents([{
@@ -311,6 +323,10 @@ export function BattleIndicator({ battle }: BattleIndicatorProps) {
                 )
                 if (lostArea) {
                     removeTerritory(lostArea)
+                    // Give the enemy the same land - otherwise it's removed from
+                    // the player and never added anywhere (the "ocean" appearing
+                    // where a border used to be).
+                    addToAITerritory(enemyCode, lostArea as any)
                     updateOccupation(enemyCode, -10) // Rough estimate
                 }
             }

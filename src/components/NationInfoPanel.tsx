@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useGameStore } from '../store/gameStore'
 import { useWorldStore } from '../store/worldStore'
-import { calculateEconomy, formatMoney } from '../utils/economy'
+import { calculateEconomy, formatMoney, formatNumber } from '../utils/economy'
 import { calculateCoalitionEconomicBonus } from '../utils/coalitionSystem'
 import { Flag } from './Flag'
 import { BudgetPanel } from './BudgetPanel'
@@ -9,12 +9,6 @@ import { BuildingPanel } from './BuildingPanel'
 import { ResearchPanel } from './ResearchPanel'
 import { PolicyPanel } from './PolicyPanel'
 import { NuclearPanel } from './NuclearPanel'
-
-function formatNumber(num: number): string {
-    if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M'
-    if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K'
-    return num.toLocaleString()
-}
 
 interface NationInfoPanelProps {
     isMobile?: boolean

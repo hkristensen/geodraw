@@ -5,14 +5,16 @@ import { DiplomaticEvent } from '../types/game'
 export function GameLog() {
     const events = useGameStore(state => state.diplomaticEvents)
     const [recentEvents, setRecentEvents] = useState<DiplomaticEvent[]>([])
-    // const [, setTick] = useState(0) // Unused now
 
     useEffect(() => {
         const updateEvents = () => {
             const now = Date.now()
-            // Show events from last 10 seconds, max 5, newest on top
+            // Show events from last 10 seconds, max 5, newest on top.
+            // Skip ambient world-flavor events (foreign elections, AI-vs-AI
+            // wars, separatist uprisings elsewhere) - this feed is meant to
+            // surface things relevant to the player, not the whole world's news.
             const recent = events
-                .filter(e => now - e.timestamp < 10000)
+                .filter(e => !e.isGlobalEvent && now - e.timestamp < 10000)
                 .slice(-5)
                 .reverse()
             setRecentEvents(recent)

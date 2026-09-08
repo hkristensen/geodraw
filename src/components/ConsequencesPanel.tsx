@@ -3,19 +3,7 @@ import { useGameStore } from '../store/gameStore'
 import type { Consequence } from '../types/store'
 import { getConsequenceStats } from '../utils/calculateConsequences'
 import { getCityCaptureStats } from '../utils/calculateCityCapture'
-
-function formatNumber(num: number): string {
-    if (num >= 1_000_000_000) {
-        return (num / 1_000_000_000).toFixed(1) + 'B'
-    }
-    if (num >= 1_000_000) {
-        return (num / 1_000_000).toFixed(1) + 'M'
-    }
-    if (num >= 1_000) {
-        return (num / 1_000).toFixed(1) + 'K'
-    }
-    return num.toString()
-}
+import { formatNumber } from '../utils/economy'
 
 function CountryCard({ consequence }: { consequence: Consequence }) {
     const percentColor =

@@ -28,6 +28,13 @@ export interface DiplomaticEvent {
     description: string
     affectedNations: string[]
     timestamp: number
+    // World-flavor events (AI-vs-AI wars, foreign elections/coups/revolutions,
+    // separatist uprisings in AI countries) that don't involve the player at
+    // all. affectedNations can't distinguish these from genuinely player-
+    // relevant events - it just lists whichever AI country codes are
+    // involved either way - so this is set explicitly at the handful of call
+    // sites that generate pure ambient noise. Omitted/false means relevant.
+    isGlobalEvent?: boolean
 }
 
 // City data from Natural Earth

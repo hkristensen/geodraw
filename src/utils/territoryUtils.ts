@@ -291,8 +291,8 @@ export function calculateConquest(
     try {
         if (!isValidFeature(attackerPoly) || !isValidFeature(defenderPoly)) return null
 
-        let cleanAttacker = normalizeGeometry(attackerPoly)
-        let cleanDefender = normalizeGeometry(defenderPoly)
+        const cleanAttacker = normalizeGeometry(attackerPoly)
+        const cleanDefender = normalizeGeometry(defenderPoly)
 
         if (plan && plan.arrows.features.length > 0) {
             const planConquest = calculatePlanConquest(cleanAttacker, cleanDefender, plan, decisiveness)
@@ -414,7 +414,7 @@ export function calculateAnchoredConquest(
 
         // CRITICAL: Intersect with ORIGINAL defender geometry (pristine, no drift)
         const cleanOriginalDefender = normalizeGeometry(originalDefenderPoly)
-        let conquest = turf.intersect(turf.featureCollection([bufferedFrontline, cleanOriginalDefender]))
+        const conquest = turf.intersect(turf.featureCollection([bufferedFrontline, cleanOriginalDefender]))
 
         if (!conquest || turf.area(conquest) < 1000000) return null
 

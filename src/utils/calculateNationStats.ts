@@ -60,22 +60,3 @@ export function calculateNationStats(
         }
     }
 }
-
-/**
- * Calculate stats for an AI country based on remaining territory
- */
-export function calculateAICountryStats(
-    originalPopulation: number,
-    territoryLostPercent: number
-): { soldiers: number, power: number } {
-    const remainingPercent = (100 - territoryLostPercent) / 100
-    const effectivePopulation = originalPopulation * remainingPercent
-
-    // Soldiers: 2% of remaining population
-    const soldiers = Math.round(effectivePopulation * 0.02)
-
-    // Power: log scale based on soldiers
-    const power = Math.round(Math.log10(soldiers + 1) * 10)
-
-    return { soldiers, power }
-}

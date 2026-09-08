@@ -63,20 +63,38 @@ export function useGameLoop() {
                 return
             }
             isProcessingRef.current = true
-
-            try {
-                runTick()
-            } finally {
-                isProcessingRef.current = false
-            }
+            runTick()
         }, intervalDuration)
 
+        // The tick used to be one long synchronous function - stats/economy work,
+        // then (host only) elections/unrest/separatist rebellions, then AI wars and
+        // diplomacy, all back-to-back on the same call stack. That's a lot of
+        // synchronous turf/geometry work in one continuous stretch, during which the
+        // browser can't process a pending click - it just looks like the game froze.
+        // Splitting it into stages connected by setTimeout(fn, 0) lets the browser
+        // handle queued input between stages instead of only after the whole tick.
+        // isProcessingRef.current can no longer be reset by a single try/finally
+        // around one synchronous call - each stage (including every early-return and
+        // error path) is responsible for resetting it once nothing further is
+        // scheduled, or the guard would stay stuck "processing" forever.
         function runTick() {
-            // Re-fetch latest state to avoid closures
-            const currentState = useGameStore.getState()
-            const currentNation = currentState.nation
-            if (!currentNation) return
+            try {
+                // Re-fetch latest state to avoid closures
+                const currentState = useGameStore.getState()
+                const currentNation = currentState.nation
+                if (!currentNation) {
+                    isProcessingRef.current = false
+                    return
+                }
 
+                runTickStats(currentState, currentNation)
+            } catch (e) {
+                isProcessingRef.current = false
+                console.error('Game tick failed:', e)
+            }
+        }
+
+        function runTickStats(currentState: ReturnType<typeof useGameStore.getState>, currentNation: NonNullable<ReturnType<typeof useGameStore.getState>['nation']>) {
             const currentWorldState = useWorldStore.getState()
             const currentAiCountries = currentWorldState.aiCountries
 
@@ -250,8 +268,18 @@ export function useGameLoop() {
                 })
             }
 
-            // HOST ONLY LOGIC (AI & Events)
+            // HOST ONLY LOGIC (AI & Events) - deferred one macrotask so the
+            // (potentially heavy) world simulation below doesn't run back-to-back
+            // with the stats work above on the same continuous stretch.
             if (!isMultiplayer || isHost) {
+                setTimeout(() => runTickHostStage1(currentState, currentNation), 0)
+            } else {
+                isProcessingRef.current = false
+            }
+        }
+
+        function runTickHostStage1(currentState: ReturnType<typeof useGameStore.getState>, currentNation: NonNullable<ReturnType<typeof useGameStore.getState>['nation']>) {
+            try {
                 // Random Event Trigger (3% chance per month)
                 if (!currentState.currentEvent && Math.random() < 0.03) {
                     import('../data/events').then(({ RANDOM_EVENTS }) => {
@@ -281,80 +309,98 @@ export function useGameLoop() {
                     // Check for Separatist Rebellions
                     checkSeparatistRebellion(useWorldStore, useGameStore)
 
-                    const currentWorldState = useWorldStore.getState()
-                    const currentAiCountries = currentWorldState.aiCountries
-
-                    // 1. Process AI Turn (Military movements/Attacks on Player)
-                    const { offensives, wars } = currentWorldState.processAITurn()
-
-                    // Handle new wars on player
-                    if (wars.length > 0) {
-                        wars.forEach(warCountryCode => {
-                            const attacker = currentAiCountries.get(warCountryCode)
-                            if (attacker) {
-                                useGameStore.getState().addDiplomaticEvents([{
-                                    id: `war-decl-${Date.now()}-${warCountryCode}`,
-                                    type: 'WAR_DECLARED',
-                                    severity: 3,
-                                    title: 'WAR DECLARED!',
-                                    description: `${attacker.name} has declared war on us!`,
-                                    affectedNations: [warCountryCode],
-                                    timestamp: Date.now()
-                                }])
-                            }
-                        })
-                    }
-
-                    // Handle Offensives against Player
-                    if (offensives.length > 0) {
-                        console.log(`⚠️ AI launching ${offensives.length} offensives!`)
-                        offensives.forEach(offensive => {
-                            const attacker = currentAiCountries.get(offensive.countryCode)
-                            if (!attacker || !currentNation) return
-
-                            useGameStore.getState().startBattle(
-                                offensive.countryCode,
-                                attacker.name,
-                                'PLAYER',
-                                currentNation.name,
-                                offensive.strength,
-                                currentNation.stats.soldiers || 1000,
-                                'BATTLE',
-                                false, // isPlayerAttacker
-                                true,  // isPlayerDefender
-                                undefined,
-                                undefined,
-                                0
-                            )
-                        })
-                    }
-
-                    // 2. Process AI vs AI Wars
-                    const aiVsAiResult = currentWorldState.processAIvsAI()
-
-                    if (aiVsAiResult.events.length > 0) {
-                        aiVsAiResult.events.forEach(event => {
-                            const attacker = currentAiCountries.get(event.attackerCode)
-                            const defender = currentAiCountries.get(event.defenderCode)
-                            if (!attacker || !defender) return
-
-                            if (event.type === 'WAR_DECLARED') {
-                                useGameStore.getState().addDiplomaticEvents([{
-                                    id: `ai-war-${Date.now()}-${event.attackerCode}-${event.defenderCode}-${Math.random()}`,
-                                    type: 'WAR_DECLARED',
-                                    severity: 2,
-                                    title: 'WAR BREAKS OUT',
-                                    description: `${attacker.name} has declared war on ${defender.name}!`,
-                                    affectedNations: [event.attackerCode, event.defenderCode],
-                                    timestamp: Date.now()
-                                }])
-                            }
-                        })
-                    }
-
-                    // Process Advanced Diplomacy
-                    useWorldStore.getState().processDiplomacy()
+                    // Yield again before AI wars/diplomacy (the other heavy chunk of
+                    // this tick) instead of running everything in one stretch.
+                    setTimeout(() => runTickHostStage2(currentNation), 0)
+                } else {
+                    isProcessingRef.current = false
                 }
+            } catch (e) {
+                isProcessingRef.current = false
+                console.error('Game tick (elections/unrest/separatists) failed:', e)
+            }
+        }
+
+        function runTickHostStage2(currentNation: NonNullable<ReturnType<typeof useGameStore.getState>['nation']>) {
+            try {
+                const currentWorldState = useWorldStore.getState()
+                const currentAiCountries = currentWorldState.aiCountries
+
+                // 1. Process AI Turn (Military movements/Attacks on Player)
+                const { offensives, wars } = currentWorldState.processAITurn()
+
+                // Handle new wars on player
+                if (wars.length > 0) {
+                    wars.forEach(warCountryCode => {
+                        const attacker = currentAiCountries.get(warCountryCode)
+                        if (attacker) {
+                            useGameStore.getState().addDiplomaticEvents([{
+                                id: `war-decl-${Date.now()}-${warCountryCode}`,
+                                type: 'WAR_DECLARED',
+                                severity: 3,
+                                title: 'WAR DECLARED!',
+                                description: `${attacker.name} has declared war on us!`,
+                                affectedNations: [warCountryCode],
+                                timestamp: Date.now()
+                            }])
+                        }
+                    })
+                }
+
+                // Handle Offensives against Player
+                if (offensives.length > 0) {
+                    console.log(`⚠️ AI launching ${offensives.length} offensives!`)
+                    offensives.forEach(offensive => {
+                        const attacker = currentAiCountries.get(offensive.countryCode)
+                        if (!attacker || !currentNation) return
+
+                        useGameStore.getState().startBattle(
+                            offensive.countryCode,
+                            attacker.name,
+                            'PLAYER',
+                            currentNation.name,
+                            offensive.strength,
+                            currentNation.stats.soldiers || 1000,
+                            'BATTLE',
+                            false, // isPlayerAttacker
+                            true,  // isPlayerDefender
+                            undefined,
+                            undefined,
+                            0
+                        )
+                    })
+                }
+
+                // 2. Process AI vs AI Wars
+                const aiVsAiResult = currentWorldState.processAIvsAI()
+
+                if (aiVsAiResult.events.length > 0) {
+                    aiVsAiResult.events.forEach(event => {
+                        const attacker = currentAiCountries.get(event.attackerCode)
+                        const defender = currentAiCountries.get(event.defenderCode)
+                        if (!attacker || !defender) return
+
+                        if (event.type === 'WAR_DECLARED') {
+                            useGameStore.getState().addDiplomaticEvents([{
+                                id: `ai-war-${Date.now()}-${event.attackerCode}-${event.defenderCode}-${Math.random()}`,
+                                type: 'WAR_DECLARED',
+                                severity: 2,
+                                title: 'WAR BREAKS OUT',
+                                description: `${attacker.name} has declared war on ${defender.name}!`,
+                                affectedNations: [event.attackerCode, event.defenderCode],
+                                isGlobalEvent: true,
+                                timestamp: Date.now()
+                            }])
+                        }
+                    })
+                }
+
+                // Process Advanced Diplomacy
+                useWorldStore.getState().processDiplomacy()
+            } catch (e) {
+                console.error('Game tick (AI wars/diplomacy) failed:', e)
+            } finally {
+                isProcessingRef.current = false
             }
         }
 

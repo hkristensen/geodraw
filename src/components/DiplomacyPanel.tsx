@@ -3,6 +3,10 @@ import { useGameStore } from '../store/gameStore'
 import { useWorldStore } from '../store/worldStore'
 import { useMultiplayerStore } from '../store/multiplayerStore'
 import type { AICountry, DiplomaticAction } from '../types/game'
+import { addToAITerritory } from '../utils/aiTerritoryTransfer'
+import * as turf from '@turf/turf'
+import countriesData from '../data/countries.json'
+import type { FeatureCollection } from 'geojson'
 
 function getDispositionColor(disposition: AICountry['disposition']): string {
     switch (disposition) {
@@ -130,9 +134,6 @@ export function DiplomacyPanel({ onStartWar, isMobile, onClose }: DiplomacyPanel
     const { phase, nation, addDiplomaticEvents, annexedCountries, removeTerritory, addTerritory, removeActiveClaim, setCurrentClaim, currentClaim } = useGameStore()
     const { aiCountries, updateRelations, declareWar, makePeace, formAlliance } = useWorldStore()
     const { isMultiplayer, isHost, gameId, user } = useMultiplayerStore()
-    // Note: async import in render body is bad practice, usually.
-    // Ideally we assume static import or hook.
-    // Let's use the hook properly by importing it at top level.
 
     // Only show after nation is formed
     if (phase !== 'RESULTS' || !nation) {
@@ -178,7 +179,7 @@ export function DiplomacyPanel({ onStartWar, isMobile, onClose }: DiplomacyPanel
                 }])
                 break
 
-            case 'DEMAND_TERRITORY':
+            case 'DEMAND_TERRITORY': {
                 // Check if we have a claim
                 // If we have a claim, and we are stronger, they might accept
                 // Otherwise they refuse and relations worsen
@@ -222,6 +223,7 @@ export function DiplomacyPanel({ onStartWar, isMobile, onClose }: DiplomacyPanel
                     }])
                 }
                 break
+            }
 
             case 'DECLARE_WAR':
                 if (isMultiplayer && !isHost && gameId && user) {
@@ -276,44 +278,40 @@ export function DiplomacyPanel({ onStartWar, isMobile, onClose }: DiplomacyPanel
                 }
                 break
 
-            case 'RETURN_TERRITORY':
-                // 1. Calculate geometry to return
-                // We need to find the intersection of player territory and the original country shape
-                import('../data/countries.json').then((data) => {
-                    const countriesData = data as any
-                    const originalFeature = countriesData.features.find((f: any) => f.properties?.iso_a3 === countryCode)
-                    const playerPoly = useGameStore.getState().playerTerritories[0]
+            case 'RETURN_TERRITORY': {
+                // We want to give back the part of OUR territory that overlaps with
+                // THEIR original territory - effectively an intersection.
+                const originalFeature = (countriesData as FeatureCollection).features.find(
+                    f => f.properties?.iso_a3 === countryCode
+                )
+                const playerPoly = useGameStore.getState().playerTerritories[0]
 
-                    if (originalFeature && playerPoly) {
-                        import('../utils/territoryUtils').then(() => {
-                            // We want to give back the part of OUR territory that overlaps with THEIR original territory
-                            // This is effectively an intersection
-                            const importTurf = import('@turf/turf')
-                            importTurf.then((turf) => {
-                                const intersection = turf.intersect(turf.featureCollection([playerPoly as any, originalFeature as any]))
+                if (originalFeature && playerPoly) {
+                    const intersection = turf.intersect(turf.featureCollection([playerPoly as any, originalFeature as any]))
 
-                                if (intersection) {
-                                    // Remove from player
-                                    removeTerritory(intersection as any)
+                    if (intersection) {
+                        // Remove from player
+                        removeTerritory(intersection as any)
 
-                                    // Update AI state
-                                    // returnTerritory(countryCode) // Feature temporarily disabled
+                        // Give the same land back to the AI country - otherwise it's
+                        // deleted from the player and never appears anywhere (the
+                        // "ocean" bug fixed elsewhere in WarModal/BattleIndicator/
+                        // worldStore this session; this call site had the same gap).
+                        addToAITerritory(countryCode, intersection as any)
 
-                                    addDiplomaticEvents([{
-                                        id: `return-${Date.now()}`,
-                                        type: 'PEACE_TREATY',
-                                        severity: 1,
-                                        title: `Territory Returned to ${country.name}`,
-                                        description: `${nation.name} has returned occupied lands to ${country.name}. Relations have improved significantly.`,
-                                        affectedNations: [countryCode],
-                                        timestamp: Date.now(),
-                                    }])
-                                }
-                            })
-                        })
+                        addDiplomaticEvents([{
+                            id: `return-${Date.now()}`,
+                            type: 'PEACE_TREATY',
+                            severity: 1,
+                            title: `Territory Returned to ${country.name}`,
+                            description: `${nation.name} has returned occupied lands to ${country.name}. Relations have improved significantly.`,
+                            affectedNations: [countryCode],
+                            timestamp: Date.now(),
+                        }])
                     }
-                })
+                }
                 break
+            }
         }
     }
 

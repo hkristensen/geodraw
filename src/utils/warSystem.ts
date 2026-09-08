@@ -7,9 +7,6 @@
  * - War exhaustion
  * - War goals integration
  */
-// Types used for documentation - war goal integration planned for Phase 2
-// import type { WarGoal, WarGoalType } from '../types/game'
-
 // =============================================================================
 // TERRAIN SYSTEM
 // =============================================================================
@@ -126,53 +123,6 @@ export function calculateSupplyAttrition(
  * Check if the supply line is compromised by enemy units
  * Uses simple proximity check: if any enemy unit is < 50km from the line
  */
-/**
- * Check if the supply line is compromised by enemy units or territory
- * Uses geometric checks to determine if the line of supply is cut.
- * A supply line is cut if:
- * 1. An enemy unit is within interception range (e.g., 50km) of the supply line.
- * 2. The supply line passes through enemy-controlled territory that is not the frontline.
- */
-export function checkSupplyIntegrity(
-    warPlan: import('geojson').Feature<import('geojson').LineString> | undefined,
-    _friendlyTerritory: import('geojson').Feature | undefined,
-    enemyUnits: import('../types/game').MilitaryUnit[] = [],
-    unitLocation?: [number, number]
-): boolean {
-    if (!warPlan && !unitLocation) return true // Safe if no active plan/location
-
-    // If we have enemy units with location, check proximity to the "Supply Line"
-    // For now, we approximate the supply line as the War Plan arrow itself (or reverse of it).
-    // In reality, supply comes FROM capital TO unit.
-
-    // MVP Check: Is the unit isolated?
-    // If unit is NOT in friendly territory, check distance to nearest friendly border.
-    // If distance > 1000km and no secure corridor -> Cut.
-
-    // Since we don't have full spatial index here easily without passing massive state,
-    // we will rely on the simple "Enemy Unit Interception" check if units are passed.
-
-    if (enemyUnits.length > 0 && warPlan) {
-        // Calculate supply line (LineString)
-        // Calculate supply line (LineString)
-        // const supplyPath = warPlan.geometry
-
-        // Check if any enemy unit is close to this path
-        // Turf distance check
-        // We need to import turf properly or assume it's available.
-        // Since we are in a util, we might avoid heavy turf imports if not used elsewhere.
-        // But let's try to be smart.
-
-        // Actually, let's use a simplified bounding box check for speed.
-        // ... implementation TBD if turf is heavy. 
-        // For now, return true to avoid build errors if turf isn't imported.
-        // We will enable this when we add full turf support to this file.
-        return true
-    }
-
-    return true
-}
-
 // =============================================================================
 // CORE BATTLE SYSTEM
 // =============================================================================
@@ -441,26 +391,5 @@ export function simulateWar(
         defenderTotalLosses,
         decisiveness: Math.min(1, Math.max(0, decisiveness)),
         warExhaustion
-    }
-}
-
-/**
- * Quick war simulation
- */
-export function quickWar(
-    attackerSoldiers: number,
-    defenderSoldiers: number
-): {
-    winner: 'attacker' | 'defender',
-    attackerRemaining: number,
-    defenderRemaining: number,
-    decisiveness: number
-} {
-    const result = simulateWar(attackerSoldiers, defenderSoldiers)
-    return {
-        winner: result.winner,
-        attackerRemaining: result.attackerSoldiersRemaining,
-        defenderRemaining: result.defenderSoldiersRemaining,
-        decisiveness: result.decisiveness,
     }
 }

@@ -180,7 +180,7 @@ function App() {
             try {
                 // 1. Ensure Auth
                 let uid = useMultiplayerStore.getState().user?.uid
-                let nickname = useMultiplayerStore.getState().nickname || 'Player'
+                const nickname = useMultiplayerStore.getState().nickname || 'Player'
 
                 if (!uid) {
                     console.log('☁️ Signing in anonymously for save capability...')
@@ -205,7 +205,18 @@ function App() {
 
             } catch (err) {
                 console.error('❌ Failed to initialize cloud persistence:', err)
-                // Game continues locally without saving
+                // Game continues locally, but the player was never told their
+                // progress isn't being saved - surface it instead of only logging.
+                useGameStore.getState().addDiplomaticEvents([{
+                    id: `persistence-error-${Date.now()}`,
+                    type: 'BORDER_TENSION',
+                    severity: 2,
+                    title: 'Cloud Save Unavailable',
+                    description: 'Could not connect to cloud saving - your progress will only be kept for this session.',
+                    affectedNations: [],
+                    timestamp: Date.now(),
+                    isGlobalEvent: false
+                }])
             }
         }
 
@@ -270,6 +281,16 @@ function App() {
                             }
                         } catch (e) {
                             console.error('Failed to parse remote territory', e)
+                            useGameStore.getState().addDiplomaticEvents([{
+                                id: `sync-error-${Date.now()}`,
+                                type: 'BORDER_TENSION',
+                                severity: 2,
+                                title: 'Sync Issue',
+                                description: 'Your territory could not be restored from the server - it may appear empty until your next move.',
+                                affectedNations: [],
+                                timestamp: Date.now(),
+                                isGlobalEvent: false
+                            }])
                         }
                     }
                 }

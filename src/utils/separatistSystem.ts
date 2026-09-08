@@ -286,8 +286,8 @@ export function createRebellion(
             }
         }
 
-        let newCulture = parentCountry.culture
-        let newReligion = parentCountry.religion
+        const newCulture = parentCountry.culture
+        const newReligion = parentCountry.religion
 
         // Apply alignment flavor
         if (alignment === 'COMMUNIST') {
@@ -380,6 +380,20 @@ export function checkSeparatistRebellion(_worldStore: any, gameStore: any) {
     const takenNames = new Set<string>()
     countries.forEach(c => takenNames.add(c.name))
 
+    // BLACK SWAN / CHAOS EVENT: roll ONCE per tick globally, not once per
+    // country. The old per-country 0.5% roll meant ~175 candidates rolling
+    // independently every tick, which averaged out to nearly one
+    // spontaneous rebellion EVERY tick regardless of any country's actual
+    // stability - not the rare "black swan" it was meant to be. At most one
+    // country can be chosen by chaos per tick now.
+    let chaosTargetCode: string | null = null
+    if (Math.random() < 0.02) {
+        const candidates = countries.filter(c => !(c as any).isAnnexed)
+        if (candidates.length > 0) {
+            chaosTargetCode = candidates[Math.floor(Math.random() * candidates.length)].code
+        }
+    }
+
     countries.forEach((country) => {
         if ((country as any).isAnnexed) return
 
@@ -403,14 +417,10 @@ export function checkSeparatistRebellion(_worldStore: any, gameStore: any) {
         if (unrestMod && unrestMod.intensity >= 50) {
             chance = unrestMod.intensity > 90 ? 0.30 :
                 unrestMod.intensity > 70 ? 0.20 : 0.10
-        } else {
-            // BLACK SWAN / CHAOS EVENT
-            // 0.5% chance for a random stable country to fracture
-            if (Math.random() < 0.005) {
-                console.log(`🎲 CHAOS: Unlikely rebellion triggering in ${country.name}`)
-                chance = 1.0 // Force trigger if roll passed
-                forcedAlignment = 'NATIONALIST' // Or random opposite
-            }
+        } else if (country.code === chaosTargetCode) {
+            console.log(`🎲 CHAOS: Unlikely rebellion triggering in ${country.name}`)
+            chance = 1.0 // Force trigger - this country won the global chaos roll above
+            forcedAlignment = 'NATIONALIST' // Or random opposite
         }
 
         if (chance > 0 && Math.random() < chance) {
@@ -457,6 +467,7 @@ export function checkSeparatistRebellion(_worldStore: any, gameStore: any) {
                     title: title,
                     description: `${name} has declared independence from ${country.name}!`,
                     affectedNations: [country.code, newCountry.code],
+                    isGlobalEvent: true,
                     timestamp: Date.now()
                 }])
 

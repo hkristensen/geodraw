@@ -85,6 +85,19 @@ const PLAYER_COLORS = [
     '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'
 ]
 
+// ============================================
+// CONSTANTS
+// ============================================
+
+const NICKNAME_MIN_LENGTH = 2
+const NICKNAME_MAX_LENGTH = 20
+const MAX_PLAYERS_PER_LOBBY = 8
+const STALE_LOBBY_MS = 24 * 60 * 60 * 1000 // 24 hours
+const LOBBY_CREATE_COOLDOWN_MS = 10_000 // 10s between lobby creations per user
+const MAX_ACTION_PAYLOAD_BYTES = 10_000 // 10KB
+const VALID_ACTION_TYPES = ['CLAIM_TERRITORY', 'DECLARE_WAR', 'DRAW_ARROW'] as const
+const INITIAL_RESOURCES = { budget: 1_000_000, soldiers: 10_000, power: 100 }
+
 // Generate random lobby code
 function generateLobbyCode(): string {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
@@ -93,6 +106,41 @@ function generateLobbyCode(): string {
         code += chars.charAt(Math.floor(Math.random() * chars.length))
     }
     return code
+}
+
+function isValidNickname(nickname: unknown): nickname is string {
+    return typeof nickname === 'string'
+        && nickname.trim().length >= NICKNAME_MIN_LENGTH
+        && nickname.length <= NICKNAME_MAX_LENGTH
+}
+
+function isValidLobbyCode(code: unknown): code is string {
+    return typeof code === 'string' && /^[A-Z0-9]{6}$/.test(code.toUpperCase())
+}
+
+// Any error that isn't already an HttpsError (a Firestore internal error, a
+// thrown TypeError, etc.) used to propagate to the client as a raw,
+// unstructured error message. Normalize it into a generic HttpsError instead
+// so callers always get a predictable shape, and log the real cause server-side.
+function rethrowAsHttpsError(e: unknown): never {
+    if (e instanceof functions.https.HttpsError) throw e
+    console.error('Unexpected error:', e)
+    throw new functions.https.HttpsError('internal', 'An unexpected error occurred')
+}
+
+// Simple per-user cooldown to stop a single anonymous session from spamming
+// an expensive action (e.g. createLobby, which also does a code-collision
+// read) in a tight loop. Stored outside firestore.rules' reach since this
+// collection is only ever touched by Admin SDK code here, never the client.
+async function checkAndUpdateRateLimit(uid: string, action: string, cooldownMs: number): Promise<void> {
+    const rateLimitRef = db.collection('rateLimits').doc(`${uid}_${action}`)
+    const rateLimitDoc = await rateLimitRef.get()
+    const now = Date.now()
+    const lastAt = rateLimitDoc.data()?.lastAt as number | undefined
+    if (lastAt && now - lastAt < cooldownMs) {
+        throw new functions.https.HttpsError('resource-exhausted', 'Please wait a moment before trying again')
+    }
+    await rateLimitRef.set({ lastAt: now })
 }
 
 // ============================================
@@ -111,21 +159,12 @@ export const createLobby = functions
         }
 
         const { nickname } = data
-        if (!nickname || typeof nickname !== 'string' || nickname.length < 2) {
-            throw new functions.https.HttpsError('invalid-argument', 'Valid nickname required')
+        if (!isValidNickname(nickname)) {
+            throw new functions.https.HttpsError('invalid-argument', `Nickname must be ${NICKNAME_MIN_LENGTH}-${NICKNAME_MAX_LENGTH} characters`)
         }
 
         const hostId = context.auth.uid
-
-        // Generate unique code
-        let code = generateLobbyCode()
-        let attempts = 0
-        while (attempts < 10) {
-            const existing = await db.collection('lobbies').doc(code).get()
-            if (!existing.exists) break
-            code = generateLobbyCode()
-            attempts++
-        }
+        await checkAndUpdateRateLimit(hostId, 'createLobby', LOBBY_CREATE_COOLDOWN_MS)
 
         const hostPlayer: LobbyPlayer = {
             id: hostId,
@@ -136,26 +175,46 @@ export const createLobby = functions
             joinedAt: Date.now()
         }
 
-        const lobby: Omit<Lobby, 'createdAt'> & { createdAt: admin.firestore.FieldValue } = {
-            code,
-            hostId,
-            hostNickname: nickname.trim(),
-            createdAt: admin.firestore.FieldValue.serverTimestamp(),
-            status: 'waiting',
-            maxPlayers: 8,
-            players: [hostPlayer],
-            spectators: [],
-            gameSettings: {
-                aiCountries: true,
-                startingResources: 'medium',
-                mapRegion: 'world'
-            }
+        try {
+            // Generate a unique code and create the lobby atomically. A plain
+            // get-then-set here would let two concurrent calls both pass the
+            // exists-check for the same code, and one .set() would silently
+            // clobber the other. transaction.create() fails (and the whole
+            // transaction auto-retries) if the doc already exists by commit
+            // time, closing that race.
+            const code = await db.runTransaction(async (transaction) => {
+                for (let attempts = 0; attempts < 10; attempts++) {
+                    const candidate = generateLobbyCode()
+                    const candidateRef = db.collection('lobbies').doc(candidate)
+                    const existing = await transaction.get(candidateRef)
+                    if (existing.exists) continue
+
+                    const lobby: Omit<Lobby, 'createdAt'> & { createdAt: admin.firestore.FieldValue } = {
+                        code: candidate,
+                        hostId,
+                        hostNickname: nickname.trim(),
+                        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                        status: 'waiting',
+                        maxPlayers: MAX_PLAYERS_PER_LOBBY,
+                        players: [hostPlayer],
+                        spectators: [],
+                        gameSettings: {
+                            aiCountries: true,
+                            startingResources: 'medium',
+                            mapRegion: 'world'
+                        }
+                    }
+                    transaction.create(candidateRef, lobby)
+                    return candidate
+                }
+                throw new functions.https.HttpsError('resource-exhausted', 'Could not generate a unique lobby code, please try again')
+            })
+
+            console.log(`🎮 Lobby created: ${code} by ${nickname}`)
+            return { code }
+        } catch (e) {
+            rethrowAsHttpsError(e)
         }
-
-        await db.collection('lobbies').doc(code).set(lobby)
-
-        console.log(`🎮 Lobby created: ${code} by ${nickname}`)
-        return { code }
     })
 
 /**
@@ -168,18 +227,20 @@ export const joinLobby = functions
             throw new functions.https.HttpsError('unauthenticated', 'Must be logged in')
         }
 
-        const { code, nickname, asSpectator } = data
-        if (!code || typeof code !== 'string' || code.length !== 6) {
+        const { code, nickname } = data
+        const asSpectator = data.asSpectator === true
+        if (!isValidLobbyCode(code)) {
             throw new functions.https.HttpsError('invalid-argument', 'Valid 6-character code required')
         }
-        if (!nickname || typeof nickname !== 'string' || nickname.length < 2) {
-            throw new functions.https.HttpsError('invalid-argument', 'Valid nickname required')
+        if (!isValidNickname(nickname)) {
+            throw new functions.https.HttpsError('invalid-argument', `Nickname must be ${NICKNAME_MIN_LENGTH}-${NICKNAME_MAX_LENGTH} characters`)
         }
 
         const playerId = context.auth.uid
         const lobbyRef = db.collection('lobbies').doc(code.toUpperCase())
 
-        return db.runTransaction(async (transaction) => {
+        try {
+            return await db.runTransaction(async (transaction) => {
             const lobbyDoc = await transaction.get(lobbyRef)
 
             if (!lobbyDoc.exists) {
@@ -242,11 +303,7 @@ export const joinLobby = functions
                             id: playerId,
                             nickname: nickname.trim(),
                             color: availableColor,
-                            resources: {
-                                budget: 1000000,
-                                soldiers: 10000,
-                                power: 100
-                            },
+                            resources: { ...INITIAL_RESOURCES },
                             isAlive: true
                         }
 
@@ -258,9 +315,12 @@ export const joinLobby = functions
                 }
             }
 
-            console.log(`👤 Player joined lobby ${code}: ${nickname}`)
-            return { success: true }
-        })
+                console.log(`👤 Player joined lobby ${code}: ${nickname}`)
+                return { success: true }
+            })
+        } catch (e) {
+            rethrowAsHttpsError(e)
+        }
     })
 
 /**
@@ -274,14 +334,15 @@ export const startGame = functions
         }
 
         const { lobbyCode } = data
-        if (!lobbyCode) {
-            throw new functions.https.HttpsError('invalid-argument', 'Lobby code required')
+        if (!isValidLobbyCode(lobbyCode)) {
+            throw new functions.https.HttpsError('invalid-argument', 'Valid 6-character lobby code required')
         }
 
         const hostId = context.auth.uid
         const lobbyRef = db.collection('lobbies').doc(lobbyCode)
 
-        return db.runTransaction(async (transaction) => {
+        try {
+            return await db.runTransaction(async (transaction) => {
             const lobbyDoc = await transaction.get(lobbyRef)
 
             if (!lobbyDoc.exists) {
@@ -315,11 +376,7 @@ export const startGame = functions
                     nickname: p.nickname,
                     color: p.color,
                     countryCode: p.countryCode,
-                    resources: {
-                        budget: 1000000,
-                        soldiers: 10000,
-                        power: 100
-                    },
+                    resources: { ...INITIAL_RESOURCES },
                     isAlive: true
                 }
             })
@@ -352,9 +409,12 @@ export const startGame = functions
                 gameId
             })
 
-            console.log(`🎮 Game started: ${gameId} with ${lobby.players.length} players`)
-            return { gameId }
-        })
+                console.log(`🎮 Game started: ${gameId} with ${lobby.players.length} players`)
+                return { gameId }
+            })
+        } catch (e) {
+            rethrowAsHttpsError(e)
+        }
     })
 
 // ============================================
@@ -363,6 +423,15 @@ export const startGame = functions
 
 /**
  * Submit a player action (territory claim, war declaration, etc.)
+ *
+ * NOT CURRENTLY CALLED FROM THE CLIENT. src/firebase/actions.ts's sendAction()
+ * writes directly to Firestore instead, with a DIFFERENT, incompatible shape:
+ * {type, playerId, payload, createdAt, status: 'pending'|'processed'|'failed'}
+ * vs. this function's {playerId, actionType, payload, timestamp, processed:
+ * boolean}. The client-side host loop (useHostActions.ts) only ever queries
+ * status == 'pending', so an action submitted through THIS function would be
+ * invisible to it. If this is ever wired up client-side, unify the schema
+ * with src/firebase/actions.ts first.
  */
 export const submitAction = functions
     .region('europe-west1')
@@ -372,116 +441,134 @@ export const submitAction = functions
         }
 
         const { gameId, actionType, payload } = data
-        if (!gameId || !actionType) {
-            throw new functions.https.HttpsError('invalid-argument', 'Game ID and action type required')
+        if (!gameId || typeof gameId !== 'string') {
+            throw new functions.https.HttpsError('invalid-argument', 'Game ID required')
+        }
+        if (!VALID_ACTION_TYPES.includes(actionType)) {
+            throw new functions.https.HttpsError('invalid-argument', `actionType must be one of: ${VALID_ACTION_TYPES.join(', ')}`)
+        }
+        if (payload !== undefined) {
+            if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+                throw new functions.https.HttpsError('invalid-argument', 'payload must be a plain object')
+            }
+            const payloadSize = Buffer.byteLength(JSON.stringify(payload), 'utf8')
+            if (payloadSize > MAX_ACTION_PAYLOAD_BYTES) {
+                throw new functions.https.HttpsError('invalid-argument', `payload too large (max ${MAX_ACTION_PAYLOAD_BYTES} bytes)`)
+            }
         }
 
         const playerId = context.auth.uid
         const gameRef = db.collection('games').doc(gameId)
         const actionsRef = db.collection('games').doc(gameId).collection('actions')
 
-        // Validate game exists and player is in it
-        const gameDoc = await gameRef.get()
-        if (!gameDoc.exists) {
-            throw new functions.https.HttpsError('not-found', 'Game not found')
+        try {
+            // Validate game exists and player is in it
+            const gameDoc = await gameRef.get()
+            if (!gameDoc.exists) {
+                throw new functions.https.HttpsError('not-found', 'Game not found')
+            }
+
+            const game = gameDoc.data() as GameState
+            if (!game.players[playerId]) {
+                throw new functions.https.HttpsError('permission-denied', 'Not a player in this game')
+            }
+
+            if (game.status !== 'active') {
+                throw new functions.https.HttpsError('failed-precondition', 'Game is not active')
+            }
+
+            // Store action (will be processed by game tick)
+            const action = {
+                playerId,
+                actionType,
+                payload,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                processed: false
+            }
+
+            const actionDoc = await actionsRef.add(action)
+            console.log(`📤 Action submitted: ${actionType} by ${playerId}`)
+
+            return { actionId: actionDoc.id }
+        } catch (e) {
+            rethrowAsHttpsError(e)
         }
-
-        const game = gameDoc.data() as GameState
-        if (!game.players[playerId]) {
-            throw new functions.https.HttpsError('permission-denied', 'Not a player in this game')
-        }
-
-        if (game.status !== 'active') {
-            throw new functions.https.HttpsError('failed-precondition', 'Game is not active')
-        }
-
-        // Store action (will be processed by game tick)
-        const action = {
-            playerId,
-            actionType,
-            payload,
-            timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            processed: false
-        }
-
-        const actionDoc = await actionsRef.add(action)
-        console.log(`📤 Action submitted: ${actionType} by ${playerId}`)
-
-        return { actionId: actionDoc.id }
     })
 
 /**
- * Game tick processor - scheduled to run every 5 seconds
- * Processes all pending actions and updates game state
+ * DISABLED - this scheduled function ran every minute, querying every active
+ * game plus its actions subcollection, for functionally zero effect: the
+ * CLAIM_TERRITORY and DECLARE_WAR cases were empty // TODO stubs, and the
+ * tickNumber/gameDate it advanced here are never read by the client (the
+ * client's own useGameLoop.ts is the actual authoritative tick, running
+ * locally on the host's browser). That's real Firestore read/write quota
+ * spent every minute, for every active game, for no simulation value.
+ *
+ * It also processes actions via the {actionType, processed: boolean} schema,
+ * which - see the note on submitAction above - nothing client-side ever
+ * writes, so even the "mark processed" bookkeeping had nothing to do.
+ *
+ * Re-enable only once there's a real reason for server-authoritative
+ * simulation, and only after reconciling this schema with the client's
+ * {type, status} one in src/firebase/actions.ts.
+ *
+ * export const processGameTick = functions
+ *     .region('europe-west1')
+ *     .pubsub.schedule('every 1 minutes')
+ *     .onRun(async () => {
+ *         const activeGames = await db.collection('games')
+ *             .where('status', '==', 'active')
+ *             .get()
+ *
+ *         if (activeGames.empty) {
+ *             return null
+ *         }
+ *
+ *         const batch = db.batch()
+ *         const now = admin.firestore.Timestamp.now()
+ *
+ *         for (const gameDoc of activeGames.docs) {
+ *             const game = gameDoc.data() as GameState
+ *             const gameRef = gameDoc.ref
+ *
+ *             const actionsSnapshot = await gameRef.collection('actions')
+ *                 .where('processed', '==', false)
+ *                 .orderBy('timestamp')
+ *                 .limit(100)
+ *                 .get()
+ *
+ *             for (const actionDoc of actionsSnapshot.docs) {
+ *                 const action = actionDoc.data()
+ *
+ *                 switch (action.actionType) {
+ *                     case 'CLAIM_TERRITORY':
+ *                         // TODO: Validate territory, check overlaps, update player territory
+ *                         break
+ *                     case 'DECLARE_WAR':
+ *                         break
+ *                     case 'DRAW_ARROW':
+ *                         break
+ *                     default:
+ *                         console.log(`Unknown action type: ${action.actionType}`)
+ *                 }
+ *
+ *                 batch.update(actionDoc.ref, { processed: true })
+ *             }
+ *
+ *             const newTickNumber = game.tickNumber + 1
+ *             const newGameDate = game.gameDate + (24 * 60 * 60 * 1000)
+ *
+ *             batch.update(gameRef, {
+ *                 tickNumber: newTickNumber,
+ *                 gameDate: newGameDate,
+ *                 lastTick: now
+ *             })
+ *         }
+ *
+ *         await batch.commit()
+ *         return null
+ *     })
  */
-export const processGameTick = functions
-    .region('europe-west1')
-    .pubsub.schedule('every 1 minutes')
-    .onRun(async () => {
-        // Find all active games
-        const activeGames = await db.collection('games')
-            .where('status', '==', 'active')
-            .get()
-
-        if (activeGames.empty) {
-            return null
-        }
-
-        const batch = db.batch()
-        const now = admin.firestore.Timestamp.now()
-
-        for (const gameDoc of activeGames.docs) {
-            const game = gameDoc.data() as GameState
-            const gameRef = gameDoc.ref
-
-            // Get pending actions
-            const actionsSnapshot = await gameRef.collection('actions')
-                .where('processed', '==', false)
-                .orderBy('timestamp')
-                .limit(100)
-                .get()
-
-            // Process actions
-            for (const actionDoc of actionsSnapshot.docs) {
-                const action = actionDoc.data()
-
-                // Process based on action type
-                switch (action.actionType) {
-                    case 'CLAIM_TERRITORY':
-                        // Handle territory claim
-                        // TODO: Validate territory, check overlaps, update player territory
-                        break
-
-                    case 'DECLARE_WAR':
-                        // Handle war declaration
-                        break
-
-                    case 'DRAW_ARROW':
-                        // Handle battle plan
-                        break
-
-                    default:
-                        console.log(`Unknown action type: ${action.actionType}`)
-                }
-
-                // Mark action as processed
-                batch.update(actionDoc.ref, { processed: true })
-            }
-
-            // Advance game date (1 tick = 1 in-game day)
-            const newTickNumber = game.tickNumber + 1
-            const newGameDate = game.gameDate + (24 * 60 * 60 * 1000) // +1 day in ms
-
-            batch.update(gameRef, {
-                tickNumber: newTickNumber,
-                gameDate: newGameDate,
-                lastTick: now
-            })
-        }
-
-        await batch.commit()
-        return null
-    })
 
 // ============================================
 // CLEANUP FUNCTIONS
@@ -494,55 +581,34 @@ export const cleanupLobbies = functions
     .region('europe-west1')
     .pubsub.schedule('every 1 hours')
     .onRun(async () => {
-        const oneDayAgo = admin.firestore.Timestamp.fromMillis(Date.now() - 24 * 60 * 60 * 1000)
+        const staleThreshold = admin.firestore.Timestamp.fromMillis(Date.now() - STALE_LOBBY_MS)
 
-        const staleLobbies = await db.collection('lobbies')
-            .where('createdAt', '<', oneDayAgo)
-            .where('status', '==', 'waiting')
-            .get()
+        try {
+            const staleLobbies = await db.collection('lobbies')
+                .where('createdAt', '<', staleThreshold)
+                .where('status', '==', 'waiting')
+                .get()
 
-        const batch = db.batch()
-        staleLobbies.docs.forEach(doc => {
-            batch.delete(doc.ref)
-        })
+            const batch = db.batch()
+            staleLobbies.docs.forEach(doc => {
+                batch.delete(doc.ref)
+            })
 
-        if (!staleLobbies.empty) {
-            await batch.commit()
-            console.log(`🧹 Cleaned up ${staleLobbies.size} stale lobbies`)
+            if (!staleLobbies.empty) {
+                await batch.commit()
+                console.log(`🧹 Cleaned up ${staleLobbies.size} stale lobbies`)
+            }
+        } catch (e) {
+            console.error('cleanupLobbies failed:', e)
         }
 
         return null
     })
 
-/**
- * Handle player disconnect - leave lobby if in one
- */
-export const onPlayerLeave = functions
-    .region('europe-west1')
-    .firestore.document('players/{playerId}')
-    .onDelete(async (snapshot, context) => {
-        const playerId = context.params.playerId
-
-        // Find lobbies this player is in
-        const lobbiesWithPlayer = await db.collection('lobbies')
-            .where('status', '==', 'waiting')
-            .get()
-
-        for (const lobbyDoc of lobbiesWithPlayer.docs) {
-            const lobby = lobbyDoc.data() as Lobby
-
-            // Check if player is in this lobby
-            if (lobby.players.some(p => p.id === playerId)) {
-                if (lobby.hostId === playerId) {
-                    // Host left - delete lobby
-                    await lobbyDoc.ref.delete()
-                    console.log(`🗑️ Deleted lobby ${lobby.code} - host left`)
-                } else {
-                    // Remove player from lobby
-                    const updatedPlayers = lobby.players.filter(p => p.id !== playerId)
-                    await lobbyDoc.ref.update({ players: updatedPlayers })
-                    console.log(`👋 Removed ${playerId} from lobby ${lobby.code}`)
-                }
-            }
-        }
-    })
+// onPlayerLeave (a Firestore trigger on players/{playerId} delete) was
+// removed: nothing client-side ever deletes a players/{id} doc (that doc is
+// the player's persistent profile/nickname, only ever setDoc'd in
+// src/firebase/auth.ts - deleting it just because someone left one lobby
+// would have been wrong anyway). Leaving a lobby is already handled directly
+// by src/firebase/lobby.ts's leaveLobby(), which this trigger duplicated
+// with no caller of its own.

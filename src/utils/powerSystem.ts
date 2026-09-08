@@ -204,34 +204,3 @@ export function calculateAIPower(
         buildingCount: 0
     })
 }
-
-/**
- * Compare powers and get advantage description
- */
-export function comparePower(
-    attackerPower: number,
-    defenderPower: number
-): { ratio: number, advantage: string } {
-    const ratio = attackerPower / Math.max(defenderPower, 1)
-
-    let advantage: string
-    if (ratio >= 3.0) {
-        advantage = 'Overwhelming advantage'
-    } else if (ratio >= 2.0) {
-        advantage = 'Strong advantage'
-    } else if (ratio >= 1.5) {
-        advantage = 'Moderate advantage'
-    } else if (ratio >= 1.1) {
-        advantage = 'Slight advantage'
-    } else if (ratio >= 0.9) {
-        advantage = 'Evenly matched'
-    } else if (ratio >= 0.66) {
-        advantage = 'Slight disadvantage'
-    } else if (ratio >= 0.5) {
-        advantage = 'Moderate disadvantage'
-    } else {
-        advantage = 'Severe disadvantage'
-    }
-
-    return { ratio, advantage }
-}

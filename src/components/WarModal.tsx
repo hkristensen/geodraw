@@ -4,6 +4,8 @@ import { useWorldStore } from '../store/worldStore'
 import { simulateWar, WarResult, BattleIntensity } from '../utils/warSystem'
 import countriesData from '../data/countries.json'
 import type { FeatureCollection } from 'geojson'
+import { subtractFromAITerritory, addToAITerritory } from '../utils/aiTerritoryTransfer'
+import { calculateConquest } from '../utils/territoryUtils'
 
 interface WarModalProps {
     countryCode: string
@@ -190,18 +192,14 @@ export function WarModal({ countryCode, countryName, territory, onClose, isDefen
                     const newOccupation = (storeCountry?.territoryLost || 0) + gain
 
                     if (newOccupation >= 100) {
-                        // Full annexation!
+                        // Full annexation! Pass 'PLAYER' as the annexer so
+                        // annexAICountry transfers the AI's ACTUAL remaining
+                        // territory (it may have already lost land elsewhere)
+                        // and clears their aiTerritories entry - re-adding the
+                        // pristine countryFeature here would double-award any
+                        // land already ceded to someone else.
                         annexCountry(countryCode)
-                        annexAICountry(countryCode)
-
-                        // Find geometry to merge
-                        const countryFeature = (countriesData as FeatureCollection).features.find(
-                            f => f.properties?.iso_a3 === countryCode
-                        )
-
-                        if (countryFeature) {
-                            addTerritory(countryFeature)
-                        }
+                        annexAICountry(countryCode, 'PLAYER')
 
                         addDiplomaticEvents([{
                             id: `annex-${Date.now()}`,
@@ -215,29 +213,33 @@ export function WarModal({ countryCode, countryName, territory, onClose, isDefen
                         makePeace(countryCode)
                     } else {
                         // DYNAMIC BORDER SHIFT: Gain territory based on decisiveness
-                        // Only if we have a valid enemy geometry to take from
-                        const countryFeature = (countriesData as FeatureCollection).features.find(
-                            f => f.properties?.iso_a3 === countryCode
-                        )
+                        // Only if we have a valid enemy geometry to take from.
+                        // Use the AI's ACTUAL current territory (not the pristine
+                        // country shape) - they may have already lost land to
+                        // someone else, and conquering land they no longer hold
+                        // would double-award it.
+                        const enemyPoly = useWorldStore.getState().aiTerritories.get(countryCode)
+                            || (countriesData as FeatureCollection).features.find(
+                                f => f.properties?.iso_a3 === countryCode
+                            )
 
                         // And we need our own geometry (attacker)
                         const playerPoly = useGameStore.getState().playerTerritories[0]
 
-                        if (countryFeature && playerPoly) {
+                        if (enemyPoly && playerPoly) {
                             // Calculate conquest
-                            import('../utils/territoryUtils').then(({ calculateConquest }) => {
-                                const conquest = calculateConquest(
-                                    playerPoly as any,
-                                    countryFeature as any,
-                                    result.decisiveness,
-                                    currentClaim?.polygon as any
-                                )
+                            const conquest = calculateConquest(
+                                playerPoly as any,
+                                enemyPoly as any,
+                                result.decisiveness,
+                                currentClaim?.polygon as any
+                            )
 
-                                if (conquest) {
-                                    console.log('⚔️ Dynamic Conquest Successful!', conquest)
-                                    addTerritory(conquest)
-                                }
-                            })
+                            if (conquest) {
+                                console.log('⚔️ Dynamic Conquest Successful!', conquest)
+                                addTerritory(conquest)
+                                subtractFromAITerritory(countryCode, conquest as any)
+                            }
                         }
 
                         // Just occupation gain
@@ -252,18 +254,11 @@ export function WarModal({ countryCode, countryName, territory, onClose, isDefen
                         }])
                     }
                 } else if (result.decisiveness > 0.8 && !currentClaim) {
-                    // Legacy: Full annexation if super decisive in initial invasion AND no specific claim
+                    // Legacy: Full annexation if super decisive in initial invasion AND no specific claim.
+                    // Pass 'PLAYER' as annexer so annexAICountry transfers the AI's
+                    // actual remaining territory and clears their aiTerritories entry.
                     annexCountry(countryCode)
-                    annexAICountry(countryCode)
-
-                    // Find geometry to merge
-                    const countryFeature = (countriesData as FeatureCollection).features.find(
-                        f => f.properties?.iso_a3 === countryCode
-                    )
-
-                    if (countryFeature) {
-                        addTerritory(countryFeature)
-                    }
+                    annexAICountry(countryCode, 'PLAYER')
 
                     addDiplomaticEvents([{
                         id: `annex-${Date.now()}`,
@@ -299,32 +294,37 @@ export function WarModal({ countryCode, countryName, territory, onClose, isDefen
 
                         if (result.decisiveness > 0.6) {
                             addTerritory(currentClaim.polygon)
+                            subtractFromAITerritory(countryCode, currentClaim.polygon as any)
                         } else {
                             // Partial claim conquest?
-                            // Let's use the utility
+                            // Let's use the utility. Use the AI's ACTUAL current
+                            // territory (not the pristine country shape) - see the
+                            // same reasoning in the DYNAMIC BORDER SHIFT branch above.
                             const playerPoly = useGameStore.getState().playerTerritories[0]
-                            const countryFeature = (countriesData as FeatureCollection).features.find(
-                                f => f.properties?.iso_a3 === countryCode
-                            )
+                            const enemyPoly = useWorldStore.getState().aiTerritories.get(countryCode)
+                                || (countriesData as FeatureCollection).features.find(
+                                    f => f.properties?.iso_a3 === countryCode
+                                )
 
-                            if (playerPoly && countryFeature) {
-                                import('../utils/territoryUtils').then(({ calculateConquest }) => {
-                                    const conquest = calculateConquest(
-                                        playerPoly as any,
-                                        countryFeature as any,
-                                        result.decisiveness,
-                                        currentClaim.polygon as any
-                                    )
+                            if (playerPoly && enemyPoly) {
+                                const conquest = calculateConquest(
+                                    playerPoly as any,
+                                    enemyPoly as any,
+                                    result.decisiveness,
+                                    currentClaim.polygon as any
+                                )
 
-                                    if (conquest) {
-                                        addTerritory(conquest)
-                                    } else {
-                                        // Fallback
-                                        addTerritory(currentClaim.polygon)
-                                    }
-                                })
+                                if (conquest) {
+                                    addTerritory(conquest)
+                                    subtractFromAITerritory(countryCode, conquest as any)
+                                } else {
+                                    // Fallback
+                                    addTerritory(currentClaim.polygon)
+                                    subtractFromAITerritory(countryCode, currentClaim.polygon as any)
+                                }
                             } else {
                                 addTerritory(currentClaim.polygon)
+                                subtractFromAITerritory(countryCode, currentClaim.polygon as any)
                             }
                         }
 
@@ -378,39 +378,41 @@ export function WarModal({ countryCode, countryName, territory, onClose, isDefen
                 )
 
                 if (playerPoly && enemyFeature) {
-                    import('../utils/territoryUtils').then(({ calculateConquest }) => {
-                        // Calculate what the enemy takes
-                        // Enemy is attacker, Player is defender
-                        const lostArea = calculateConquest(
-                            enemyFeature as any,
-                            playerPoly as any,
-                            result.decisiveness
-                        )
+                    // Calculate what the enemy takes
+                    // Enemy is attacker, Player is defender
+                    const lostArea = calculateConquest(
+                        enemyFeature as any,
+                        playerPoly as any,
+                        result.decisiveness
+                    )
 
-                        if (lostArea) {
-                            console.log('😱 Lost territory to enemy!', lostArea)
-                            removeTerritory(lostArea)
+                    if (lostArea) {
+                        console.log('😱 Lost territory to enemy!', lostArea)
+                        removeTerritory(lostArea)
+                        // Give the enemy the same land - otherwise it's removed
+                        // from the player and never added anywhere (the "ocean"
+                        // appearing where a border used to be).
+                        addToAITerritory(countryCode, lostArea as any)
 
-                            // Update AI occupation (they gained land)
-                            // Calculate percentage of player land lost
-                            // This is tricky as we don't track "Player Territory Lost" metric usually
-                            // But we should track it for the AI's "territoryLost" metric (which is negative if they gain?)
-                            // Actually, AI gaining land means their territoryLost decreases (or goes negative)
-                            // Let's assume 10% gain for now as a rough estimate based on decisiveness
-                            const gainPercent = 5 + Math.round(result.decisiveness * 10)
-                            updateOccupation(countryCode, -gainPercent)
+                        // Update AI occupation (they gained land)
+                        // Calculate percentage of player land lost
+                        // This is tricky as we don't track "Player Territory Lost" metric usually
+                        // But we should track it for the AI's "territoryLost" metric (which is negative if they gain?)
+                        // Actually, AI gaining land means their territoryLost decreases (or goes negative)
+                        // Let's assume 10% gain for now as a rough estimate based on decisiveness
+                        const gainPercent = 5 + Math.round(result.decisiveness * 10)
+                        updateOccupation(countryCode, -gainPercent)
 
-                            addDiplomaticEvents([{
-                                id: `lost-land-${Date.now()}`,
-                                type: 'WAR_DECLARED',
-                                severity: 3,
-                                title: 'Territory Lost!',
-                                description: `The enemy has pushed their borders into your land!`,
-                                affectedNations: [countryCode],
-                                timestamp: Date.now()
-                            }])
-                        }
-                    })
+                        addDiplomaticEvents([{
+                            id: `lost-land-${Date.now()}`,
+                            type: 'WAR_DECLARED',
+                            severity: 3,
+                            title: 'Territory Lost!',
+                            description: `The enemy has pushed their borders into your land!`,
+                            affectedNations: [countryCode],
+                            timestamp: Date.now()
+                        }])
+                    }
                 }
 
                 // If we have a claim and we attacked and lost, we should lose some claim progress

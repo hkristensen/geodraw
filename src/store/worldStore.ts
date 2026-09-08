@@ -3,6 +3,7 @@ import * as turf from '@turf/turf'
 import { createModifier, hasModifier } from '../utils/modifierUtils'
 import type { AICountry, Disposition, Constitution, Agreement, PoliticalState } from '../types/game'
 import type { WorldState, Consequence } from '../types/store'
+import type { Feature, Polygon, MultiPolygon } from 'geojson'
 import { getCountryData, getPrimaryReligion, getPrimaryLanguage, getPrimaryCulture } from '../utils/countryData'
 import { getGeopoliticalData, mapOrientationToNumber, mapGovType, isDemocracy, getISO3FromName } from '../utils/geopoliticalData'
 import { getTitleForGovType } from '../data/leaderNames'
@@ -109,6 +110,49 @@ function calculateCulturalCompatibility(
     if (score === 0) score = -20
 
     return score
+}
+
+/**
+ * Apply a resolved contested-zone transfer to whichever side actually owns
+ * this code. 'PLAYER' territory lives in useGameStore.playerTerritories, not
+ * in this store's aiTerritories map - looking it up with
+ * `territoryMap.get('PLAYER')` silently returns undefined, so treating
+ * PLAYER like any other AI code no-ops that half of the transfer while the
+ * other side (a real AI country) still goes through. That's how contested
+ * land was disappearing into "ocean" (subtracted from the AI loser, never
+ * merged anywhere because the winner was PLAYER) or getting duplicated
+ * (merged into the AI winner, never subtracted from PLAYER because the
+ * loser was PLAYER).
+ */
+function transferContestedZone(
+    feature: Feature<Polygon | MultiPolygon>,
+    winnerCode: string,
+    loserCode: string,
+    territoryMap: Map<string, Feature<Polygon | MultiPolygon>>
+): void {
+    if (winnerCode === 'PLAYER') {
+        useGameStore.getState().addTerritory(feature as any)
+    } else {
+        const winnerPoly = territoryMap.get(winnerCode)
+        if (winnerPoly) {
+            const merged = mergeTerritory(winnerPoly, feature)
+            if (merged) territoryMap.set(winnerCode, merged)
+        }
+    }
+
+    if (loserCode === 'PLAYER') {
+        useGameStore.getState().removeTerritory(feature as any)
+    } else {
+        const loserPoly = territoryMap.get(loserCode)
+        if (loserPoly) {
+            const newLoser = subtractTerritory(loserPoly, feature)
+            if (newLoser) {
+                territoryMap.set(loserCode, newLoser)
+            } else {
+                territoryMap.delete(loserCode)
+            }
+        }
+    }
 }
 
 export const useWorldStore = create<WorldState>((set, get) => ({
@@ -600,8 +644,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             }
 
             const newAgreements = [...country.agreements, agreement]
-            let newModifiers = [...country.modifiers]
-            let newAllies = [...allies]
+            const newModifiers = [...country.modifiers]
+            const newAllies = [...allies]
 
             if (type === 'MILITARY_ALLIANCE') {
                 newModifiers.push(createModifier('ALLIED', { code: country.code, name: country.name }))
@@ -711,24 +755,42 @@ export const useWorldStore = create<WorldState>((set, get) => ({
             // Skip if annexed
             if (country.isAnnexed) return
 
-            // FORCE ANNEXATION CHECK: Use ACTUAL GEOMETRY AREA, not just the loss counter
-            // This prevents "False Collapse" where the counter says 100% but they still have land.
+            // FORCE ANNEXATION CHECK: only once the loss counter says 100%, sanity-check
+            // it against actual geometry to catch a genuine "False Collapse" (the counter
+            // hit 100% from a tracking desync while the country still visibly holds most
+            // of its land). This used to gate on a flat 10 km² floor instead, but
+            // buffer/heal operations routinely leave slivers - islands, exclaves - far
+            // above 10 km² on a large country that the player's frontline-adjacent
+            // conquest mechanic can never reach, which permanently blocked annexation and
+            // left territoryLost clamped at 99% forever even though the country was, for
+            // all practical purposes, defeated. The floor now scales with the country's
+            // own original size instead of a fixed km² cutoff.
             let shouldAnnex = false
             const currentPoly = get().aiTerritories.get(code)
 
-            if (currentPoly) {
-                const area = turf.area(currentPoly)
-                // If area is less than ~10 sq km, they are gone
-                if (area < 10000000) {
+            if (country.territoryLost >= 100) {
+                if (currentPoly) {
+                    const area = turf.area(currentPoly)
+                    const originalFeature = (countriesData as any).features.find(
+                        (f: any) => f.properties?.iso_a3 === code
+                    )
+                    const originalArea = originalFeature ? turf.area(originalFeature) : 0
+
+                    if (originalArea > 0 && area > originalArea * 0.15) {
+                        // Genuine desync: most of the country is still intact. Clamp
+                        // the displayed percentage rather than annex, but only set it
+                        // once so this doesn't re-trigger a state update every tick.
+                        if (country.territoryLost !== 99) {
+                            country.territoryLost = 99
+                            aiCountries.set(code, { ...country, territoryLost: 99 })
+                        }
+                    } else {
+                        shouldAnnex = true
+                    }
+                } else {
+                    // No geometry tracked at all - trust the counter.
                     shouldAnnex = true
-                } else if (country.territoryLost >= 100) {
-                    // Safety Valve: If they have land but counter says 100%, clamp it to 99%
-                    country.territoryLost = 99
-                    aiCountries.set(code, { ...country, territoryLost: 99 })
                 }
-            } else if (country.territoryLost >= 100) {
-                // No geometry found? Then rely on counter
-                shouldAnnex = true
             }
 
             if (shouldAnnex) {
@@ -770,27 +832,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                                 const loserCode = feature.properties?.loserCode
 
                                 if (winnerCode && loserCode) {
-                                    // Merge into winner's territory
-                                    const winnerPoly = newTerritoryMap.get(winnerCode)
-                                    if (winnerPoly) {
-                                        const merged = mergeTerritory(winnerPoly as any, feature as any)
-                                        if (merged) {
-                                            newTerritoryMap.set(winnerCode, merged as any)
-                                            console.log(`🏳️ Merged contested zone into ${winnerCode} territory (annexation)`)
-                                        }
-                                    }
-
-                                    // Subtract from loser (may already be gone)
-                                    const loserPoly = newTerritoryMap.get(loserCode)
-                                    if (loserPoly) {
-                                        const newLoser = subtractTerritory(loserPoly as any, feature as any)
-                                        if (newLoser) {
-                                            newTerritoryMap.set(loserCode, newLoser as any)
-                                        } else {
-                                            // Country fully conquered - remove from territory map
-                                            newTerritoryMap.delete(loserCode)
-                                        }
-                                    }
+                                    transferContestedZone(feature as any, winnerCode, loserCode, newTerritoryMap as any)
                                 }
                                 keysToRemove.push(key)
                             }
@@ -1016,12 +1058,13 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     case 'ISOLATIONIST':
                         relationDelta = 0 // No drift
                         break
-                    case 'IDEOLOGICAL':
+                    case 'IDEOLOGICAL': {
                         // Same orientation = positive, different = negative
                         const playerOrientation = 0 // Assume center for now
                         const theirOrientation = country.politicalState?.orientation || 0
                         relationDelta = Math.abs(theirOrientation - playerOrientation) > 50 ? -2 : 1
                         break
+                    }
                 }
 
                 if (relationDelta !== 0) {
@@ -1867,6 +1910,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     title: 'Global Alliances Formed',
                     description: 'Major powers have formalized their alliances into official coalitions.',
                     affectedNations: seeded.map(c => c.leader),
+                    isGlobalEvent: true,
                     timestamp: Date.now()
                 }])
             }
@@ -1922,6 +1966,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         title: `🔥 REVOLUTION in ${country.name}!`,
                         description: `${result.newLeader} has seized power after massive uprising. The government has been completely overthrown.${result.civilWar ? ' Civil war has erupted!' : ''}`,
                         affectedNations: [code],
+                        isGlobalEvent: true,
                         timestamp: Date.now()
                     })
                     return
@@ -1953,6 +1998,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         title: `⚠️ COUP in ${country.name}!`,
                         description: `${result.newLeader} has seized power in a military coup. Unrest is rising.${result.civilWarRisk > 0.5 ? ' Risk of civil war!' : ''}`,
                         affectedNations: [code],
+                        isGlobalEvent: true,
                         timestamp: Date.now()
                     })
                     return
@@ -1992,6 +2038,7 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         title: `${incumbent ? '📊' : '🗳️'} Election in ${country.name}`,
                         description: `${result.winner} ${incumbent ? 're-elected' : 'elected'}. Political orientation: ${orientationLabel}.${result.governmentTypeChange ? ` Government changed to ${result.governmentTypeChange}.` : ''}`,
                         affectedNations: [code],
+                        isGlobalEvent: true,
                         timestamp: Date.now()
                     })
                 }
@@ -2085,8 +2132,33 @@ export const useWorldStore = create<WorldState>((set, get) => ({
         const events: Array<{ type: string, attackerCode: string, defenderCode: string }> = []
         const newWars: typeof aiWars = [...aiWars]
 
+        // Centroid cache for this tick only: the rival-finding and war-chance
+        // distance checks below recompute turf.centroid for the same
+        // countries over and over (once per candidate pair), which is real
+        // work on actual country polygons. Memoizing per country for the
+        // duration of this single call removes that redundancy without any
+        // cross-tick staleness risk - it's recomputed fresh every tick, just
+        // not once per pair within a tick.
+        const centroidCache = new Map<string, ReturnType<typeof turf.centroid> | null>()
+        const getCentroid = (code: string) => {
+            if (!centroidCache.has(code)) {
+                const poly = get().aiTerritories.get(code)
+                centroidCache.set(code, poly ? turf.centroid(poly as any) : null)
+            }
+            return centroidCache.get(code) ?? null
+        }
+
+        // Rate limit: each AI country independently rolls its own war chance
+        // every tick with no global brake, so a busy tick could spawn a wave
+        // of simultaneous wars. Capping new declarations per tick spreads
+        // them out instead, and also skips the (expensive) remaining
+        // rival-finding/war-chance work below once the cap is hit.
+        const MAX_NEW_WARS_PER_TICK = 3
+        let newWarsDeclaredThisTick = 0
+
         // 1. Check for new war declarations between AI countries
         aiCountries.forEach((attacker, attackerCode) => {
+            if (newWarsDeclaredThisTick >= MAX_NEW_WARS_PER_TICK) return
             if (attacker.isAnnexed || attacker.isAtWar) return
 
             // Dynamic Enemy Finding: If aggressive but no enemies, find one!
@@ -2113,9 +2185,9 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                             const targetPoly = aiTerritories.get(c.code)
                             if (targetPoly) {
                                 // Simple centroid distance check
-                                const p1 = turf.centroid(attackerPoly as any)
-                                const p2 = turf.centroid(targetPoly as any)
-                                const dist = turf.distance(p1, p2, { units: 'kilometers' })
+                                const p1 = getCentroid(attackerCode)
+                                const p2 = getCentroid(c.code)
+                                const dist = p1 && p2 ? turf.distance(p1, p2, { units: 'kilometers' }) : Infinity
 
                                 // Only rival neighbors or close countries (< 3000km)
                                 // Unless super aggressive world power
@@ -2200,9 +2272,9 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                 const defenderPoly = aiTerritories.get(defender.code)
 
                 if (attackerPoly && defenderPoly) {
-                    const p1 = turf.centroid(attackerPoly as any)
-                    const p2 = turf.centroid(defenderPoly as any)
-                    const dist = turf.distance(p1, p2, { units: 'kilometers' })
+                    const p1 = getCentroid(attackerCode)
+                    const p2 = getCentroid(defender.code)
+                    const dist = p1 && p2 ? turf.distance(p1, p2, { units: 'kilometers' }) : Infinity
 
                     // STRONGER DISTANCE REQUIREMENTS for realistic wars
                     // Countries can only attack distant enemies if they have a pressing reason
@@ -2312,9 +2384,11 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     // GENERATE WAR PLAN (Visual Arrow)
                     // Simple straight line from attacker centroid to defender centroid
                     let planFeature: any = null
-                    if (attackerPoly && defenderPoly) {
-                        const p1 = turf.centroid(attackerPoly as any).geometry.coordinates
-                        const p2 = turf.centroid(defenderPoly as any).geometry.coordinates
+                    const attackerCentroid = getCentroid(attackerCode)
+                    const defenderCentroid = getCentroid(defender.code)
+                    if (attackerPoly && defenderPoly && attackerCentroid && defenderCentroid) {
+                        const p1 = attackerCentroid.geometry.coordinates
+                        const p2 = defenderCentroid.geometry.coordinates
                         planFeature = {
                             type: 'Feature',
                             properties: {
@@ -2353,7 +2427,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         description: `${attacker.name} has declared war on ${defender.name}!`,
                         affectedNations: [attackerCode, enemyCode],
                         timestamp: Date.now(),
-                        severity: 3
+                        severity: 3,
+                        isGlobalEvent: true
                     }
 
                     useGameStore.getState().addDiplomaticEvents([warEvent as any])
@@ -2362,12 +2437,23 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
                     // Trigger Alliance Response (Article 5)
                     get().triggerAllianceResponse(enemyCode, attackerCode)
+
+                    newWarsDeclaredThisTick++
+                    if (newWarsDeclaredThisTick >= MAX_NEW_WARS_PER_TICK) break
                 }
             }
         })
 
         // 2. Process active AI wars - USING FULL SIMULATION
         {
+            // Second safety net alongside the per-war 10s cooldown below: even
+            // with that cooldown working, dozens of wars declared around the
+            // same time tend to come off cooldown in the same tick together.
+            // Capping how many get a full battle+geometry step per tick
+            // spreads that load out instead of processing all of them at once.
+            const MAX_WAR_BATTLES_PER_TICK = 10
+            let warBattlesThisTick = 0
+
             for (const war of newWars) {
                 if (war.status !== 'active') continue
 
@@ -2388,9 +2474,18 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                     continue
                 }
 
-                // SPEED UP: Battle every 10 seconds to make it dynamic
+                // SPEED UP: Battle every 10 seconds to make it dynamic.
+                // war.lastBattleTime was never actually updated after being
+                // initialized to 0, so timeSinceLastBattle was always huge and
+                // this never skipped anything - every active war got a full
+                // battle+geometry step on every single tick regardless of this
+                // check. Actually stamping lastBattleTime below makes the
+                // intended throttle work for real.
                 const timeSinceLastBattle = Date.now() - war.lastBattleTime
                 if (timeSinceLastBattle < 10000) continue
+                if (warBattlesThisTick >= MAX_WAR_BATTLES_PER_TICK) continue
+                war.lastBattleTime = Date.now()
+                warBattlesThisTick++
 
                 // --- ADVANCED BATTLE SIMULATION ---
                 // We use 5% of their forces per "battle step"
@@ -2417,7 +2512,8 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                         description: `${winner.name} and ${loser.name} signed a peace treaty.`,
                         affectedNations: [winner.code, loser.code],
                         timestamp: Date.now(),
-                        severity: 1
+                        severity: 1,
+                        isGlobalEvent: true
                     }
                     console.log(`🕊️ War ended: ${winner.name} defeats ${loser.name}`)
 
@@ -2774,44 +2870,48 @@ export const useWorldStore = create<WorldState>((set, get) => ({
                             const loserCode = feature.properties?.loserCode
 
                             if (winnerCode && loserCode) {
-                                // 1. Merge into winner's final territory
-                                const winnerPoly = newTerritoryMap.get(winnerCode)
-                                let merged: any = null
-                                if (winnerPoly) {
-                                    merged = mergeTerritory(winnerPoly as any, feature as any)
-                                    if (merged) {
-                                        newTerritoryMap.set(winnerCode, merged as any)
+                                // 1. Merge into winner's final territory. 'PLAYER' isn't
+                                // tracked in aiTerritories - route it through gameStore
+                                // instead of silently no-oping the merge.
+                                if (winnerCode === 'PLAYER') {
+                                    useGameStore.getState().addTerritory(feature as any)
+                                } else {
+                                    const winnerPoly = newTerritoryMap.get(winnerCode)
+                                    if (winnerPoly) {
+                                        const merged = mergeTerritory(winnerPoly as any, feature as any)
+                                        if (merged) {
+                                            newTerritoryMap.set(winnerCode, merged as any)
+                                        }
                                     }
                                 }
 
                                 // 2. CRITICAL: Subtract from loser's final territory (Deferred Cut)
-                                // This happens ONCE at the end of the war
-                                const loserPoly = newTerritoryMap.get(loserCode)
-                                if (loserPoly) {
-                                    const newLoser = subtractTerritory(loserPoly as any, feature as any)
+                                // This happens ONCE at the end of the war. Same PLAYER
+                                // routing as above - otherwise this always runs even when
+                                // the merge above was a no-op, deleting the land for good.
+                                if (loserCode === 'PLAYER') {
+                                    useGameStore.getState().removeTerritory(feature as any)
+                                } else {
+                                    const loserPoly = newTerritoryMap.get(loserCode)
+                                    if (loserPoly) {
+                                        const newLoser = subtractTerritory(loserPoly as any, feature as any)
 
-                                    // DEBUG LOGGING FOR RIVER GAPS (FINALIZATION)
-                                    console.log(`🔍 GEO_DEBUG [WarEnd] ${war.id} Final Cut`)
-                                    console.log(`  -> Winner (${winnerCode}) Merge Result:`, merged ? 'SUCCESS' : 'FAILED')
-                                    console.log(`  -> Loser (${loserCode}) Subtract Source:`, JSON.stringify(loserPoly.geometry))
-                                    console.log(`  -> Loser (${loserCode}) Subtract Target (Contested):`, JSON.stringify(feature.geometry))
+                                        if (newLoser) {
+                                            newTerritoryMap.set(loserCode, newLoser as any)
+                                        } else {
+                                            console.log(`💀 TOTAL ANNEXATION: ${loserCode} lost all territory to ${winnerCode}`)
+                                            newTerritoryMap.delete(loserCode)
 
-                                    if (newLoser) {
-                                        console.log(`  -> Loser (${loserCode}) New Geometry:`, JSON.stringify(newLoser.geometry))
-                                        newTerritoryMap.set(loserCode, newLoser as any)
-                                    } else {
-                                        console.log(`💀 TOTAL ANNEXATION: ${loserCode} lost all territory to ${winnerCode}`)
-                                        newTerritoryMap.delete(loserCode)
-
-                                        // Mark as annexed
-                                        const loserCountry = newCountryMap.get(loserCode)
-                                        if (loserCountry) {
-                                            newCountryMap.set(loserCode, {
-                                                ...loserCountry,
-                                                isAnnexed: true,
-                                                soldiers: 0,
-                                                disposition: 'neutral'
-                                            })
+                                            // Mark as annexed
+                                            const loserCountry = newCountryMap.get(loserCode)
+                                            if (loserCountry) {
+                                                newCountryMap.set(loserCode, {
+                                                    ...loserCountry,
+                                                    isAnnexed: true,
+                                                    soldiers: 0,
+                                                    disposition: 'neutral'
+                                                })
+                                            }
                                         }
                                     }
                                 }
@@ -3006,13 +3106,27 @@ export const useWorldStore = create<WorldState>((set, get) => ({
 
                 console.log(`⚔️ PLAYER wins battle vs ${enemy.name}: +${territoryChange}% territory`)
 
-                // Check for full conquest - VALIDATE WITH GEOMETRY
+                // Check for full conquest - VALIDATE WITH GEOMETRY. Same reasoning as
+                // the processAITurn force-annexation check: a fixed 10 km² floor blocks
+                // annexation forever once a large country's unreachable remnant (an
+                // island, an exclave) settles above it, so the sanity check against the
+                // counter scales with the country's own original size instead.
                 let actualConquest = false
                 const defenderPoly = get().aiTerritories.get(enemyCode)
                 if (defenderPoly) {
                     const remainingArea = turf.area(defenderPoly)
-                    // If < 10 sq km left, it's over
-                    if (remainingArea < 10000000) actualConquest = true
+                    if (remainingArea < 10000000) {
+                        // Trivially small remainder - annex regardless of the counter.
+                        actualConquest = true
+                    } else if (newTerritoryLost >= 100) {
+                        const originalFeature = (countriesData as any).features.find(
+                            (f: any) => f.properties?.iso_a3 === enemyCode
+                        )
+                        const originalArea = originalFeature ? turf.area(originalFeature) : 0
+                        // Only refuse if a genuinely large fraction of the country is
+                        // still intact (a tracking desync), not just an unreachable sliver.
+                        actualConquest = !(originalArea > 0 && remainingArea > originalArea * 0.15)
+                    }
                 } else if (newTerritoryLost >= 100) {
                     actualConquest = true
                 }
